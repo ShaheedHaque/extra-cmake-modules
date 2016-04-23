@@ -1011,4 +1011,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if sys.argv[1] != "--self-check":
+        sys.exit(main())
