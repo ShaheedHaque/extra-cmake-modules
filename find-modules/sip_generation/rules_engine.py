@@ -981,30 +981,9 @@ class RuleSet(object):
         raise NotImplemented(_("Missing subclass implementation"))
 
     @abstractmethod
-    def includes(self):
+    def compile_flags(self):
         """
-        List of C++ header directories to use.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
-    def sips(self):
-        """
-        List of SIP module directories to use.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
-    def project_name(self):
-        """
-        Project name.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
-    def modules(self):
-        """
-        SIP modules.
+        List of C++ compile flags to use.
         """
         raise NotImplemented(_("Missing subclass implementation"))
 
@@ -1020,25 +999,14 @@ class RuleSet(object):
                    self.typecode_rules()]:
             db.dump_usage(dumper)
 
-    def _check_directory_list(self, paths):
-        """Check a command separated list of path are all diectories."""
-        paths = paths.split(",")
-        paths = [i.strip() for i in paths if i]
-        for path in paths:
-            if not os.path.isdir(path):
-                raise RuntimeError(_("Path '{}' is not a directory").format(path))
-        return paths
 
-
-def rules(project_rules, includes, sips):
+def rules(project_rules, includes):
     """
     Constructor.
 
     :param project_rules:       The rules file for the project.
     :param includes:            A list of roots of includes file, typically including the root for all Qt and
                                 the root for all KDE include files as well as any project-specific include files.
-    :param sips:                A list of roots of SIP file, typically including the root for all Qt and
-                                the root for all KDE SIP files as well as any project-specific SIP files.
     """
     try:
         import imp
@@ -1051,7 +1019,7 @@ def rules(project_rules, includes, sips):
     #
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
-    return getattr(sys.modules["project_rules"], "RuleSet")(includes, sips)
+    return getattr(sys.modules["project_rules"], "RuleSet")(includes)
 
 
 def main(argv=None):

@@ -94,12 +94,6 @@ class SipGenerator(object):
         """
         SipGenerator._find_libclang()
         self.rules = project_rules
-        self.exploded_includes = set(self.rules.includes())
-        for include_root in self.rules.includes():
-            walk_directories(include_root, lambda d: self.exploded_includes.add(d))
-        if dump_includes:
-            for include in sorted(self.exploded_includes):
-                logger.debug(_("Using includes from {}").format(include))
         self.verbose = verbose
         self.dump_includes = dump_includes
         self.dump_privates = dump_privates
@@ -113,17 +107,18 @@ class SipGenerator(object):
             text = cursor.spelling
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
-    def create_sip(self, root, h_file):
+    def create_sip(self, h_file, include_filename):
         """
         Actually convert the given source header file into its SIP equivalent.
 
-        :param root:                The root of the source tree.
-        :param h_file:              Add this suffix to the root to find the source (header) file of interest.
+        :param h_file:              The source (header) file of interest.
+        :param include_filename:    The (header) to generate in the sip file.
         """
+
         #
         # Read in the original file.
         #
-        source = os.path.join(root, h_file)
+        source = h_file
         self.unpreprocessed_source = []
         with open(source, "rU") as f:
             for line in f:
@@ -133,11 +128,9 @@ class SipGenerator(object):
         #
         # ["clang-3.9"] + includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__", "-E"] + [source]
         #
-        includes = ["-I" + i for i in self.exploded_includes]
         index = cindex.Index.create()
         self.tu = index.parse(source,
-                includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__"],
-                options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
+                ["-x", "c++"] + self.rules.compile_flags())
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
@@ -164,7 +157,7 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body = self._container_get(self.tu.cursor, -1, h_file)
+        body = self._container_get(self.tu.cursor, -1, h_file, include_filename)
         return body, self.tu.get_includes
 
     CONTAINER_SKIPPABLE_UNEXPOSED_DECL = re.compile("_DECLARE_PRIVATE|friend|;")
@@ -173,7 +166,7 @@ class SipGenerator(object):
     VAR_SKIPPABLE_ATTR = re.compile("_EXPORT")
     TYPEDEF_SKIPPABLE_ATTR = re.compile("_EXPORT")
 
-    def _container_get(self, container, level, h_file):
+    def _container_get(self, container, level, h_file, include_filename):
         """
         Generate the (recursive) translation for a class or namespace.
 
@@ -242,7 +235,7 @@ class SipGenerator(object):
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-                decl = self._container_get(member, level + 1, h_file)
+                decl = self._container_get(member, level + 1, h_file, include_filename)
             elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
@@ -382,7 +375,7 @@ class SipGenerator(object):
                     if sip["template_parameters"]:
                         decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
                     decl += "\n" + pad + "{\n"
-                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(h_file)
+                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
                     decl += sip["code"]
                     body = decl + sip["body"] + pad + "};\n"
                     #
@@ -948,12 +941,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default="/usr/include/x86_64-linux-gnu/qt5",
-                        help=_("Comma-separated C++ header directories to use"))
-    parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), "PyKF5_rules.py"),
-                        help=_("Project rules"))
-    parser.add_argument("--sources", default="/usr/include/KF5", help=_("C++ header directory to process"))
-    parser.add_argument("source", help=_("C++ header to process, relative to --project-root"))
+    parser.add_argument("--flags",
+                        help=_("Semicolon-separated C++ compile flags to use"))
+    parser.add_argument("project_rules", help=_("Project rules"))
+    parser.add_argument("--include_filename", help=_("C++ header include to compile"))
+    parser.add_argument("source", help=_("C++ header to process"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -963,9 +955,9 @@ def main(argv=None):
         #
         # Generate!
         #
-        rules = rules_engine.rules(args.project_rules, args.includes + "," + args.sources, "")
+        rules = rules_engine.rules(args.project_rules, args.flags.lstrip().split(";"))
         g = SipGenerator(rules, args.verbose)
-        body, includes = g.create_sip(args.sources, args.source)
+        body, includes = g.create_sip(args.source, args.include_filename)
         if body:
             print(body)
     except Exception as e:
