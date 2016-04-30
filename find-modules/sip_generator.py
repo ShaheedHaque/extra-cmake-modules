@@ -564,6 +564,9 @@ class SipGenerator(object):
                 for exm in member.get_tokens():
                     value += exm.spelling
 
+                if (value.startswith("=")):
+                    value = "0)" # HACK: Something strange happening in kitemmodels
+
                 parameterType = parameter.type.get_declaration().type
 
                 if (parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF):
