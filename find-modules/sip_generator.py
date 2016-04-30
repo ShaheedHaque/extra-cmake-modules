@@ -148,7 +148,7 @@ class SipGenerator(object):
             severity -= 10
             if severity < 0:
                 severity = 0
-            logger.log(severity, "Parse error {}".format(msg))
+            # logger.log(severity, "Parse error {}".format(msg))
         if self.dump_includes:
             for include in includes:
                 logger.debug(_("Using includes from {}").format(include))
