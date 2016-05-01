@@ -29,7 +29,7 @@ import subprocess
 import sys
 import traceback
 from clang import cindex
-from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind
+from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind, TranslationUnit
 
 import rules_engine
 
@@ -105,17 +105,18 @@ class SipGenerator(object):
             text = cursor.spelling
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
-    def create_sip(self, root, h_file):
+    def create_sip(self, h_file, include_filename):
         """
         Actually convert the given source header file into its SIP equivalent.
 
-        :param root:                The root of the source tree.
-        :param h_file:              Add this suffix to the root to find the source (header) file of interest.
+        :param h_file:              The source (header) file of interest.
+        :param include_filename:    The (header) to generate in the sip file.
         """
+
         #
         # Read in the original file.
         #
-        source = os.path.join(root, h_file)
+        source = h_file
         self.unpreprocessed_source = []
         with open(source, "rU") as f:
             for line in f:
@@ -127,7 +128,9 @@ class SipGenerator(object):
         #
         includes = ["-I" + i for i in self.exploded_includes]
         index = cindex.Index.create()
-        self.tu = index.parse(source, includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__"])
+        self.tu = index.parse(source,
+                includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__"],
+                options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
@@ -154,7 +157,7 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body = self._container_get(self.tu.cursor, -1, h_file)
+        body = self._container_get(self.tu.cursor, -1, h_file, include_filename)
         return body, self.tu.get_includes
 
     CONTAINER_SKIPPABLE_UNEXPOSED_DECL = re.compile("_DECLARE_PRIVATE|friend|;")
@@ -163,7 +166,7 @@ class SipGenerator(object):
     VAR_SKIPPABLE_ATTR = re.compile("_EXPORT")
     TYPEDEF_SKIPPABLE_ATTR = re.compile("_EXPORT")
 
-    def _container_get(self, container, level, h_file):
+    def _container_get(self, container, level, h_file, include_filename):
         """
         Generate the (recursive) translation for a class or namespace.
 
@@ -205,10 +208,6 @@ class SipGenerator(object):
             #
             if member.location.file.name != self.tu.spelling:
                 continue
-            if member.access_specifier == AccessSpecifier.PRIVATE:
-                if self.dump_privates:
-                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
-                continue
             decl = ""
             if member.kind in [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
                                CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
@@ -233,7 +232,7 @@ class SipGenerator(object):
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-                decl = self._container_get(member, level + 1, h_file)
+                decl = self._container_get(member, level + 1, h_file, include_filename)
             elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
@@ -258,6 +257,32 @@ class SipGenerator(object):
                         decl = self._unexposed_get(container, member, text, level + 1)
                 else:
                     SipGenerator._report_ignoring(container, member)
+
+            def isSpecialCtor(member):
+                if member.kind != CursorKind.CONSTRUCTOR:
+                    return False
+                numParams = 0
+                hasSelfType = False
+                for child in member.get_children():
+                    numParams += 1
+                    if child.kind == CursorKind.PARM_DECL:
+                        paramType = child.type.spelling
+                        paramType = paramType.split("::")[-1]
+                        paramType = paramType.replace("const", "").replace("&", "").strip()
+                        hasSelfType = paramType == container.displayname
+                return numParams == 0 or numParams == 1 and hasSelfType
+
+            # TODO Generate a private copy ctor if generated by the compiler.
+
+            if member.access_specifier == AccessSpecifier.PRIVATE and \
+                    member.kind != CursorKind.CXX_ACCESS_SPEC_DECL and \
+                    not isSpecialCtor(member):
+
+
+                if self.dump_privates:
+                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
+                continue
+
             if decl:
                 if self.verbose:
                     pad = " " * ((level + 1) * 4)
@@ -315,7 +340,7 @@ class SipGenerator(object):
                     if sip["template_parameters"]:
                         decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
                     decl += "\n" + pad + "{\n"
-                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(h_file)
+                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
                     body = decl + sip["body"] + pad + "};\n"
             else:
                 body = pad + "// Discarded {}\n".format(SipGenerator.describe(container))
@@ -396,7 +421,7 @@ class SipGenerator(object):
                 decl = decl.replace("* ", "*").replace("& ", "&")
                 child_sip = {
                     "name": parameter,
-                    "decl": decl,
+                    "decl": "{} {}".format(child.type.get_canonical().spelling, parameter),
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }
@@ -532,40 +557,67 @@ class SipGenerator(object):
             or a ")" marking the end.
             2. Watch for the assignment.
         """
-        possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
-        text = ""
-        bracket_level = 0
-        found_end = False
-        was_punctuated = True
-        default_value = None
-        for token in self.tu.get_tokens(extent=possible_extent):
-            if bracket_level <= 0 and token.spelling in [",", ")", ";"]:
-                found_end = True
-                break
-            elif token.spelling == "(":
-                was_punctuated = True
-                bracket_level += 1
-                text += token.spelling
-            elif token.spelling == ")":
-                was_punctuated = True
-                bracket_level -= 1
-                text += token.spelling
-            elif token.kind == TokenKind.PUNCTUATION:
-                was_punctuated = True
-                text += token.spelling
-                if token.spelling == "=" and default_value is None:
-                    default_value = len(text)
-            else:
-                if not was_punctuated:
-                    text += " "
-                text += token.spelling
-                was_punctuated = False
-        if not found_end and text:
-            RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
-        if default_value:
-            return text[default_value:]
-        else:
-            return ""
+
+        for member in parameter.get_children():
+            if member.kind.is_expression():
+                value = ""
+                for exm in member.get_tokens():
+                    value += exm.spelling
+
+                parameterType = parameter.type.get_declaration().type
+
+                if (parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF):
+                    isQFlags = False
+                    for member in parameter.type.get_declaration().get_children():
+                        if member.kind == CursorKind.TEMPLATE_REF and member.spelling == "QFlags":
+                            isQFlags = True
+                        if isQFlags and member.kind == CursorKind.TYPE_REF:
+                            parameterType = member.type
+                            break
+
+                if not value:
+                    # QStringLiteral case
+                    possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
+                    text = ""
+                    bracket_level = 0
+                    found_end = False
+                    was_punctuated = True
+                    default_value = None
+                    for token in self.tu.get_tokens(extent=possible_extent):
+                        if bracket_level <= 0 and token.spelling in [",", ")", ";"]:
+                            found_end = True
+                            break
+                        elif token.spelling == "(":
+                            was_punctuated = True
+                            bracket_level += 1
+                            text += token.spelling
+                        elif token.spelling == ")":
+                            was_punctuated = True
+                            bracket_level -= 1
+                            text += token.spelling
+                        elif token.kind == TokenKind.PUNCTUATION:
+                            was_punctuated = True
+                            text += token.spelling
+                            if token.spelling == "=" and default_value is None:
+                                default_value = len(text)
+                        else:
+                            if not was_punctuated:
+                                text += " "
+                            text += token.spelling
+                            was_punctuated = False
+                    if not found_end and text or not default_value:
+                        RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
+                    value = text[default_value:]
+                else:
+                    value = value[:-1]
+
+                if "::" in parameterType.spelling and value != "0":
+                    prefix = parameterType.spelling.rsplit("::", 1)[0]
+                    if "::" in value:
+                        value = value.rsplit("::", 1)[1]
+                    value = prefix + "::" + value
+                return value
+        return ""
 
     def _typedef_get(self, container, typedef, level):
         """
@@ -858,12 +910,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default="/usr/include/x86_64-linux-gnu/qt5",
+    parser.add_argument("--includes",
                         help=_("Comma-separated C++ header directories to use"))
-    parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), "PyKF5_rules.py"),
-                        help=_("Project rules"))
-    parser.add_argument("--sources", default="/usr/include/KF5", help=_("C++ header directory to process"))
-    parser.add_argument("source", help=_("C++ header to process, relative to --project-root"))
+    parser.add_argument("--project-rules", help=_("Project rules"))
+    parser.add_argument("--include_filename", help=_("C++ header include to compile"))
+    parser.add_argument("source", help=_("C++ header to process"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -873,9 +924,12 @@ def main(argv=None):
         #
         # Generate!
         #
-        rules = rules_engine.rules(args.project_rules, args.includes + "," + args.sources, "")
+        if (args.project_rules):
+            rules = rules_engine.rules(args.project_rules, args.includes)
+        else:
+            rules = rules_engine.Qt5Rules(args.includes)
         g = SipGenerator(rules, args.verbose)
-        body, includes = g.create_sip(args.sources, args.source)
+        body, includes = g.create_sip(args.source, args.include_filename)
         if body:
             print(body)
     except Exception as e:

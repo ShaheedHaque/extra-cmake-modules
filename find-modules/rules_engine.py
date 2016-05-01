@@ -32,6 +32,8 @@ import traceback
 from copy import deepcopy
 from clang.cindex import CursorKind
 
+from clang.cindex import AccessSpecifier
+
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
@@ -765,27 +767,6 @@ class RuleSet(object):
         raise NotImplemented(_("Missing subclass implementation"))
 
     @abstractmethod
-    def sips(self):
-        """
-        List of SIP module directories to use.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
-    def project_name(self):
-        """
-        Project name.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
-    def modules(self):
-        """
-        SIP modules.
-        """
-        raise NotImplemented(_("Missing subclass implementation"))
-
-    @abstractmethod
     def methodcode(self, container, function):
         """
         %Methodcode.
@@ -813,15 +794,179 @@ class RuleSet(object):
         return paths
 
 
-def rules(project_rules, includes, sips):
+def _container_discard(container, sip, matcher):
+    sip["name"] = ""
+
+def _function_discard(container, function, sip, matcher):
+    sip["name"] = ""
+
+def _function_discard_protected(container, function, sip, matcher):
+    if function.access_specifier == AccessSpecifier.PROTECTED:
+        sip["name"] = ""
+
+def _function_discard_non_private(container, function, sip, matcher):
+    if function.access_specifier != AccessSpecifier.PRIVATE:
+        sip["name"] = ""
+
+def _parameter_transfer_to_parent(container, function, parameter, sip, matcher):
+    if function.is_static_method():
+        sip["annotations"].add("Transfer")
+    else:
+        sip["annotations"].add("TransferThis")
+
+def _typedef_rewrite_as_int(container, typedef, sip, matcher):
+    sip["decl"] = "int"
+
+def _param_rewrite_mode_t_as_int(container, function, parameter, sip, matcher):
+    sip["decl"] = sip["decl"].replace("mode_t", "unsigned int")
+
+# TODO: Param to strip trailing const from pointers
+
+def _return_rewrite_mode_t_as_int(container, function, sip, matcher):
+    sip["fn_result"] = "unsigned int"
+
+def _variable_discard(container, variable, sip, matcher):
+    sip["name"] = ""
+
+def _variable_discard_protected(container, variable, sip, matcher):
+    if variable.access_specifier == AccessSpecifier.PROTECTED:
+        sip["name"] = ""
+
+def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
+    sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
+
+def _function_discard_impl(container, function, sip, matcher):
+    if function.extent.start.column == 1:
+        sip["name"] = ""
+
+def container_rules():
+    return [
+        #
+        # SIP does not seem to be able to handle these.
+        #
+        [".*", "(QMetaTypeId|QTypeInfo)<.*>", ".*", ".*", ".*", _container_discard],
+        #
+        # SIP does not seem to be able to handle templated containers.
+        #
+        [".*", ".*<.*", ".*", ".*", ".*", _container_discard],
+    ]
+
+def function_rules():
+    return [
+        #
+        # Discard functions emitted by QOBJECT.
+        #
+        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro|qt_check_for_QGADGET_macro", ".*", ".*", ".*", _function_discard],
+        #
+        # SIP does not support operator=.
+        #
+        [".*", "operator=", ".*", ".*", ".*", _function_discard_non_private],
+
+        [".*", ".*", ".*", ".*", ".*::QPrivateSignal.*", _function_discard],
+        #
+        # TODO: Temporarily remove any functions which require templates. SIP seems to support, e.g. QPairs,
+        # but we have not made them work yet.
+        #
+
+        [".*", ".*", ".+", ".*", ".*", _function_discard],
+        [".*", ".*", ".*", ".*", ".*<.*>.*", _function_discard],
+        [".*", ".*", ".*", ".*<.*>.*", ".*", _function_discard],
+        [".*", ".*<.*>.*", ".*", ".*", ".*", _function_discard],
+        [".*", ".*", ".*", ".*", ".*Private.*", _function_discard_protected],
+        [".*", ".*", ".*", "mode_t", ".*", _return_rewrite_mode_t_as_int],
+        [".*", "d_func", ".*", ".*", ".*", _function_discard],
+
+        [".*", "operator\|", ".*", ".*", ".*", _function_discard],
+    ]
+
+def parameter_rules():
+    return [
+        #
+        # Annotate with Transfer or TransferThis when we see a parent object.
+        #
+        [".*", ".*", ".*", r"[KQ][A-Za-z_0-9]+\W*\*\W*parent", ".*", _parameter_transfer_to_parent],
+        [".*", ".*", ".*", "mode_t.*", ".*", _param_rewrite_mode_t_as_int],
+        [".*", ".*", ".*", ".*enum .*", ".*", _parameter_strip_class_enum],
+    ]
+
+def typedef_rules():
+    return [
+        #
+        # Rewrite QFlags<> templates as int.
+        #
+        [".*", ".*", ".*", "QFlags<.*>", _typedef_rewrite_as_int],
+        #
+        # Rewrite uid_t, gid_t as int.
+        #
+        [".*", ".*", ".*", "uid_t|gid_t", _typedef_rewrite_as_int],
+    ]
+
+def unexposed_rules():
+    return []
+
+def variable_rules():
+    return [
+        #
+        # Discard variable emitted by QOBJECT.
+        #
+        [".*", "staticMetaObject", ".*", _variable_discard],
+        #
+        # Discard "private" variables (check they are protected!).
+        #
+        [".*", "d_ptr", ".*", _variable_discard_protected],
+        [".*", "d", ".*Private.*", _variable_discard_protected],
+    ]
+
+
+class Qt5Rules(RuleSet):
+    """
+    SIP file generator rules. This is a set of (short, non-public) functions
+    and regular expression-based matching rules.
+    """
+    def __init__(self, includes):
+        self._includes = super(Qt5Rules, self)._check_directory_list(includes)
+        self._container_db = ContainerRuleDb(container_rules)
+        self._fn_db = FunctionRuleDb(function_rules)
+        self._param_db = ParameterRuleDb(parameter_rules)
+        self._typedef_db = TypedefRuleDb(typedef_rules)
+        self._unexposed_db = UnexposedRuleDb(unexposed_rules)
+        self._var_db = VariableRuleDb(variable_rules)
+        self._methodcode = MethodCodeDb({})
+
+    def container_rules(self):
+        return self._container_db
+
+    def function_rules(self):
+        return self._fn_db
+
+    def parameter_rules(self):
+        return self._param_db
+
+    def typedef_rules(self):
+        return self._typedef_db
+
+    def unexposed_rules(self):
+        return self._unexposed_db
+
+    def variable_rules(self):
+        return self._var_db
+
+    def methodcode_rules(self):
+        return self._methodcode
+
+    def includes(self):
+        return self._includes
+
+    def methodcode(self, function, sip):
+        self._methodcode.apply(function, sip)
+
+def rules(project_rules, includes):
     """
     Constructor.
 
     :param project_rules:       The rules file for the project.
     :param includes:            A list of roots of includes file, typically including the root for all Qt and
                                 the root for all KDE include files as well as any project-specific include files.
-    :param sips:                A list of roots of SIP file, typically including the root for all Qt and
-                                the root for all KDE SIP files as well as any project-specific SIP files.
     """
     try:
         import imp
@@ -834,7 +979,7 @@ def rules(project_rules, includes, sips):
     #
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
-    return getattr(sys.modules["project_rules"], "RuleSet")(includes, sips)
+    return getattr(sys.modules["project_rules"], "RuleSet")(includes)
 
 
 def main(argv=None):
