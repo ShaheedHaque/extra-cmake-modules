@@ -29,7 +29,7 @@ import subprocess
 import sys
 import traceback
 from clang import cindex
-from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind
+from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind, TranslationUnit
 
 import rules_engine
 
@@ -127,7 +127,9 @@ class SipGenerator(object):
         #
         includes = ["-I" + i for i in self.exploded_includes]
         index = cindex.Index.create()
-        self.tu = index.parse(source, includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__"])
+        self.tu = index.parse(source,
+                includes + ["-x", "c++", "-std=c++11", "-ferror-limit=0", "-D__CODE_GENERATOR__"],
+                options=TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
