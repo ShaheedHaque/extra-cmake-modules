@@ -376,6 +376,234 @@ _plasma_qobject_ctscc = """
 """
 
 
+def _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, sip_op_suffix):
+    code = """
+%ConvertFromTypeCode
+    // Create the list.
+    PyObject *l;
+
+    if ((l = PyList_New(sipCpp->size())) == NULL)
+        return NULL;
+
+    // Set the list elements.
+    for (int i = 0; i < sipCpp->size(); ++i)
+    {
+        {cxx_ptr_type} *t = new {cxx_ptr_type} (sipCpp->at(i));
+        PyObject *tobj;
+
+        if ((tobj = sipConvertFromNew{sip_op_suffix}(t->data(), {sip_type}, sipTransferObj)) == NULL)
+        {
+            Py_DECREF(l);
+            delete t;
+
+            return NULL;
+        }
+
+        PyList_SET_ITEM(l, i, tobj);
+    }
+
+    return l;
+%End
+%ConvertToTypeCode
+    // Check the type if that is all that is required.
+    if (sipIsErr == NULL)
+    {
+        if (!PyList_Check(sipPy))
+            return 0;
+
+        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
+            if (!sipCanConvertTo{sip_op_suffix}(PyList_GET_ITEM(sipPy, i), {sip_type}, SIP_NOT_NONE))
+                return 0;
+
+        return 1;
+    }
+
+    QList<{cxx_ptr_type}> *ql = new QList<{cxx_ptr_type}>;
+
+    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
+    {
+        int state;
+        {cxx_type} *t = reinterpret_cast<{cxx_type} *>(sipConvertTo{sip_op_suffix}(PyList_GET_ITEM(sipPy, i),
+                                                        {sip_type}, sipTransferObj, SIP_NOT_NONE, &state,
+                                                        sipIsErr));
+
+        if (*sipIsErr)
+        {
+            sipRelease{sip_op_suffix}(t, {sip_type}, state);
+
+            delete ql;
+            return 0;
+        }
+
+        {cxx_ptr_type2} *tptr = new {cxx_ptr_type2} (t);
+
+        ql->append(*tptr);
+
+        sipRelease{sip_op_suffix}(t, {sip_type}, state);
+    }
+
+    *sipCppPtr = ql;
+
+    return sipGetState(sipTransferObj);
+ 
+%End
+"""
+    for placeholder, arg in [
+            ("{cxx_type}",      cxx_type),
+            ("{cxx_ptr_type}",  cxx_ptr_type),
+            ("{cxx_ptr_type2}", cxx_ptr_type2),
+            ("{sip_type}",      sip_type),
+            ("{sip_op_suffix}", sip_op_suffix),
+        ]:
+        code = code.replace(placeholder, arg)
+    return code
+
+
+def _qlist_cfttc_ptr_instance(container, sip, entry):
+    cxx_type =      entry["cxx_type"]
+    cxx_ptr_type =  entry["cxx_ptr_type"]
+    cxx_ptr_type2 = entry["cxx_ptr_type2"]
+    sip_type =      entry["sip_type"]
+    sip["code"] = _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, "Instance")
+
+
+def _qlist_cfttc_ptr_type(container, sip, entry):
+    cxx_type =      entry["cxx_type"]
+    cxx_ptr_type =  entry["cxx_ptr_type"]
+    cxx_ptr_type2 = entry["cxx_ptr_type2"]
+    sip_type =      entry["sip_type"]
+    sip["code"] = _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, "Type")
+
+
+def _qlist_cfttc_soprano_ptr(container, sip, entry):
+    code = """
+%ConvertFromTypeCode
+    // Create the list.
+    PyObject *l;
+
+    if ((l = PyList_New(sipCpp->size())) == NULL)
+        return NULL;
+
+    // Set the list elements.
+    for (int i = 0; i < sipCpp->size(); ++i)
+    {
+        Soprano::{cxx_type}* t = const_cast<Soprano::{cxx_type}*>(sipCpp->at(i));
+        PyObject *tobj;
+
+        if ((tobj = sipConvertFromInstance(t, sipClass_Soprano_{cxx_type}, sipTransferObj)) == NULL)
+        {
+            Py_DECREF(l);
+            return NULL;
+        }
+
+        PyList_SET_ITEM(l, i, tobj);
+    }
+
+    return l;
+%End
+%ConvertToTypeCode
+    // Check the type if that is all that is required.
+    if (sipIsErr == NULL)
+    {
+        if (!PyList_Check(sipPy))
+            return 0;
+
+        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
+            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_{cxx_type}, SIP_NOT_NONE))
+                return 0;
+
+        return 1;
+    }
+
+    QList<const Soprano::{cxx_type}*> *ql = new QList<const Soprano::{cxx_type}*>;
+
+    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
+    {
+        int state;
+        const Soprano::{cxx_type}*t = reinterpret_cast<const Soprano::{cxx_type}*>(
+                                                    sipConvertToInstance(PyList_GET_ITEM(sipPy, i),
+                                                    sipClass_Soprano_{cxx_type}, sipTransferObj, SIP_NOT_NONE, &state,
+                                                    sipIsErr));
+
+        if (*sipIsErr)
+        {
+            sipReleaseInstance(const_cast<Soprano::{cxx_type}*>(t), sipClass_Soprano_{cxx_type}, state);
+
+            delete ql;
+            return 0;
+        }
+        ql->append(t);
+
+        sipReleaseInstance(const_cast<Soprano::{cxx_type}*>(t), sipClass_Soprano_{cxx_type}, state);
+    }
+
+    *sipCppPtr = ql;
+
+    return sipGetState(sipTransferObj);
+%End
+"""
+    for placeholder, arg in [
+            ("{cxx_type}",      cxx_type)
+        ]:
+        code = code.replace(placeholder, arg)
+    sip["code"] = code
+
+
+def _qlist_cfttc_long(container, sip, entry):
+    code = """
+%ConvertFromTypeCode
+    // Create the list.
+    PyObject *l;
+
+    if ((l = PyList_New(sipCpp->size())) == NULL)
+        return NULL;
+
+    // Set the list elements.
+    for (int i = 0; i < sipCpp->size(); ++i) {
+        PyObject *pobj;
+
+#if PY_MAJOR_VERSION >= 3
+        if ((pobj = PyLong_FromLong ((long)sipCpp->value(i))) == NULL) {
+#else
+        if ((pobj = PyInt_FromLong ((long)sipCpp->value(i))) == NULL) {
+#endif
+            Py_DECREF(l);
+
+            return NULL;
+        }
+
+        PyList_SET_ITEM(l, i, pobj);
+    }
+
+    return l;
+%End
+%ConvertToTypeCode
+    // Check the type if that is all that is required.
+    if (sipIsErr == NULL)
+        return PyList_Check(sipPy);
+
+    QList<{cxx_type}> *ql = new QList<{cxx_type}>;
+
+    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
+#if PY_MAJOR_VERSION >= 3
+        ql->append(({cxx_type})PyLong_AsLong(PyList_GET_ITEM(sipPy, i)));
+#else
+        ql->append(({cxx_type})PyInt_AS_LONG (PyList_GET_ITEM(sipPy, i)));
+#endif
+    }
+
+    *sipCppPtr = ql;
+
+    return sipGetState(sipTransferObj);
+%End
+"""
+    for placeholder, arg in [
+            ("{cxx_type}",      cxx_type)
+        ]:
+        code = code.replace(placeholder, arg)
+    sip["code"] = code
+
+
 code = {
 # ./akonadi/agentfilterproxymodel.sip
 "Akonadi::AgentFilterProxyModel": { #AgentFilterProxyModel : QSortFilterProxyModel
@@ -400,47 +628,8 @@ code = {
 },
 # ./akonadi/entity.sip
 "QList<Akonadi::Entity::Id>": { #QList<Akonadi::Entity::Id>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        PyObject *pobj;
-
-        if ((pobj = PyLong_FromLongLong (sipCpp->value(i))) == NULL)
-        {
-            Py_DECREF(l);
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, pobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-        return PyList_Check(sipPy);
-
-    QList<Akonadi::Entity::Id> *ql = new QList<Akonadi::Entity::Id>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-        ql->append((Akonadi::Entity::Id)PyLong_AsLongLong(PyList_GET_ITEM(sipPy, i)));
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_long,
+    "cxx_type": "Akonadi::Entity::Id"
 },
 "QVector<Akonadi::Entity::Id>": { #QVector<Akonadi::Entity::Id>
 "code":
@@ -486,7 +675,7 @@ code = {
 """
 },
 # ./akonadi/agentbase.sip
-"AgentBase": { #AgentBase : QObject
+"Akonadi::AgentBase": { #AgentBase : QObject
 "code":
 """
 %ConvertToSubClassCode
@@ -503,7 +692,7 @@ code = {
 "code": _akonadi_qobject_ctscc
 },
 # ./akonadi/addressattribute.sip
-"AddressAttribute": { #AddressAttribute : Akonadi::Attribute
+"Akonadi::AddressAttribute": { #AddressAttribute : Akonadi::Attribute
 "code":
 """
 %ConvertToSubClassCode
@@ -532,7 +721,7 @@ code = {
 """
 },
 # ./akonadi/attribute.sip
-"Attribute": { #Attribute /Abstract/
+"Akonadi::Attribute": { #Attribute /Abstract/
 "code":
 """
 %ConvertToSubClassCode
@@ -555,7 +744,7 @@ code = {
 """
 },
 # ./khtml/dom_misc.sip
-"DomShared": { #DomShared
+"DOM::DomShared": { #DomShared
 "code":
 """
 %ConvertToSubClassCode
@@ -570,7 +759,7 @@ code = {
 """
 },
 # ./khtml/khtml_part.sip
-"KHTMLPart": { #KHTMLPart : KParts::ReadOnlyPart
+"khtml_part.h::KHTMLPart": { #KHTMLPart : KParts::ReadOnlyPart
 "code":
 """
 %ConvertToSubClassCode
@@ -585,7 +774,7 @@ code = {
 """
 },
 # ./khtml/dom_element.sip
-"Attr": { #Attr : DOM::Node
+"DOM::Attr": { #Attr : DOM::Node
 "code":
 """
 %ConvertToSubClassCode
@@ -744,7 +933,7 @@ code = {
 """
 },
 # ./khtml/dom2_events.sip
-"MutationEvent": { #MutationEvent : DOM::Event
+"DOM::MutationEvent": { #MutationEvent : DOM::Event
 "code":
 """
 %ConvertToSubClassCode
@@ -767,7 +956,7 @@ code = {
 """
 },
 # ./kparts/event.sip
-"Event": { #Event : QEvent
+"KParts::Event": { #Event : QEvent
 "code":
 """
 %ConvertToSubClassCode
@@ -790,7 +979,7 @@ code = {
 """
 },
 # ./kparts/browserextension.sip
-"BrowserExtension": { #BrowserExtension : QObject
+"KParts::BrowserExtension": { #BrowserExtension : QObject
 "code":
 """
 %ConvertToSubClassCode
@@ -1237,203 +1426,17 @@ code = {
 """
 },
 # ./soprano/pluginmanager.sip
-"QList<const": { #QList<const Soprano::Backend*>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        Soprano::Backend* t = const_cast<Soprano::Backend*>(sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromInstance(t, sipClass_Soprano_Backend, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Backend, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<const Soprano::Backend*> *ql = new QList<const Soprano::Backend*>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        const Soprano::Backend*t = reinterpret_cast<const Soprano::Backend*>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Backend, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(const_cast<Soprano::Backend*>(t), sipClass_Soprano_Backend, state);
-
-            delete ql;
-            return 0;
-        }
-        ql->append(t);
-
-        sipReleaseInstance(const_cast<Soprano::Backend*>(t), sipClass_Soprano_Backend, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"QList<const Soprano::Backend*>": { #QList<const Soprano::Backend*>
+    "code": _qlist_cfttc_soprano_ptr,
+    "cxx_type": "Backend"
 },
-"QList<const": { #QList<const Soprano::Parser*>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        Soprano::Parser* t = const_cast<Soprano::Parser*>(sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromInstance(t, sipClass_Soprano_Parser, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Parser, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<const Soprano::Parser*> *ql = new QList<const Soprano::Parser*>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        const Soprano::Parser*t = reinterpret_cast<const Soprano::Parser*>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Parser, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(const_cast<Soprano::Parser*>(t), sipClass_Soprano_Parser, state);
-
-            delete ql;
-            return 0;
-        }
-        ql->append(t);
-
-        sipReleaseInstance(const_cast<Soprano::Parser*>(t), sipClass_Soprano_Parser, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"QList<const Soprano::Parser*>": { #QList<const Soprano::Parser*>
+    "code": _qlist_cfttc_soprano_ptr,
+    "cxx_type": "Parser"
 },
-"QList<const": { #QList<const Soprano::Serializer*>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        Soprano::Serializer* t = const_cast<Soprano::Serializer*>(sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromInstance(t, sipClass_Soprano_Serializer, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Serializer, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<const Soprano::Serializer*> *ql = new QList<const Soprano::Serializer*>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        const Soprano::Serializer*t = reinterpret_cast<const Soprano::Serializer*>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_Serializer, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(const_cast<Soprano::Serializer*>(t), sipClass_Soprano_Serializer, state);
-
-            delete ql;
-            return 0;
-        }
-        ql->append(t);
-
-        sipReleaseInstance(const_cast<Soprano::Serializer*>(t), sipClass_Soprano_Serializer, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"QList<const Soprano::Serializer*>": { #QList<const Soprano::Serializer*>
+    "code": _qlist_cfttc_soprano_ptr,
+    "cxx_type": "Serializer"
 },
 # ./soprano/model.sip
 "Model": { #Model : QObject, Soprano::Error::ErrorCache
@@ -1522,7 +1525,7 @@ code = {
 "code": _plasma_qobject_ctscc
 },
 # ./plasma/packagestructure.sip
-"QList<const": { #QList<const char*>
+"QList<const char*>": { #QList<const char*>
 "code":
 """
 %ConvertToTypeCode
@@ -1560,148 +1563,20 @@ code = {
 "code": _plasma_qobject_ctscc
 },
 # ./kdecore/ksycocaentry.sip
-"QList<KSycocaEntry::Ptr>": { #QList<KSycocaEntry::Ptr>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        KSycocaEntry::Ptr *t = new KSycocaEntry::Ptr (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNewInstance(t->data(), sipClass_KSycocaEntry, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KSycocaEntry, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<KSycocaEntry::Ptr> *ql = new QList<KSycocaEntry::Ptr>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        KSycocaEntry *t = reinterpret_cast<KSycocaEntry *>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KSycocaEntry, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(t, sipClass_KSycocaEntry, state);
-
-            delete ql;
-            return 0;
-        }
-
-        KSharedPtr<KSycocaEntry> *tptr = new KSharedPtr<KSycocaEntry> (t);
-
-        ql->append(*tptr);
-
-        sipReleaseInstance(t, sipClass_KSycocaEntry, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"ksycocaentry.h::KSycocaEntry": { #QList<KSycocaEntry::Ptr>
+    "code": _qlist_cfttc_ptr_instance,
+    "cxx_type": "KSycocaEntry",
+    "cxx_ptr_type": "KSycocaEntry::Ptr",
+    "cxx_ptr_type2": "KSharedPtr<KSycocaEntry>",
+    "sip_type": "sipClass_KSycocaEntry"
 },
 # ./kdecore/kservicetype.sip
-"QList<KServiceType::Ptr>": { #QList<KServiceType::Ptr>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        KServiceType::Ptr *t = new KServiceType::Ptr (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNewType(t->data(), sipType_KServiceType, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToType(PyList_GET_ITEM(sipPy, i), sipType_KServiceType, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<KServiceType::Ptr> *ql = new QList<KServiceType::Ptr>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        KServiceType *t = reinterpret_cast<KServiceType *>(sipConvertToType(PyList_GET_ITEM(sipPy, i), sipType_KServiceType, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseType(t, sipType_KServiceType, state);
-
-            delete ql;
-            return 0;
-        }
-
-        KSharedPtr<KServiceType> *tptr = new KSharedPtr<KServiceType> (t);
-
-        ql->append(*tptr);
-
-        sipReleaseType(t, sipType_KServiceType, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"kservicetype.h::KServiceType": { #QList<KServiceType::Ptr>
+    "code": _qlist_cfttc_ptr_type,
+    "cxx_type": "KServiceType",
+    "cxx_ptr_type": "KServiceType::Ptr",
+    "cxx_ptr_type2": "KSharedPtr<KServiceType>",
+    "sip_type": "sipType_KServiceType"
 },
 "QMap<QString,QVariant::Type>": { #QMap<QString,QVariant::Type>
 "code":
@@ -1813,7 +1688,7 @@ code = {
 """
 },
 # ./kdecore/kautosavefile.sip
-"KAutoSaveFile": { #KAutoSaveFile : QFile
+"kautosavefile.h::KAutoSaveFile": { #KAutoSaveFile : QFile
 "code":
 """
 %ConvertToSubClassCode
@@ -1881,75 +1756,11 @@ code = {
 },
 # ./kdecore/kmimetype.sip
 "QList<KMimeType::Ptr>": { #QList<KMimeType::Ptr>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        KMimeType::Ptr *t = new KMimeType::Ptr (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNewInstance(t->data(), sipClass_KMimeType, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KMimeType, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<KMimeType::Ptr> *ql = new QList<KMimeType::Ptr>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        KMimeType *t = reinterpret_cast<KMimeType *>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KMimeType, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(t, sipClass_KMimeType, state);
-
-            delete ql;
-            return 0;
-        }
-
-        KSharedPtr<KMimeType> *tptr = new KSharedPtr<KMimeType> (t);
-
-        ql->append(*tptr);
-
-        sipReleaseInstance(t, sipClass_KMimeType, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_ptr_instance,
+    "cxx_type": "KMimeType",
+    "cxx_ptr_type": "KMimeType::Ptr",
+    "cxx_ptr_type2": "KSharedPtr<KMimeType>",
+    "sip_type": "sipClass_KMimeType"
 },
 # ./kdecore/kurl.sip
 "KUrl": { #KUrl : QUrl
@@ -1965,7 +1776,7 @@ code = {
 """
 },
 # ./kdecore/kprotocolinfo.sip
-"KProtocolInfo": { #KProtocolInfo : KSycocaEntry
+"kprotocolinfo.h::KProtocolInfo": { #KProtocolInfo : KSycocaEntry
 "code":
 """
 %ConvertToSubClassCode
@@ -1988,7 +1799,7 @@ code = {
 """
 },
 # ./kdecore/kcoreconfigskeleton.sip
-"KCoreConfigSkeleton": { #KCoreConfigSkeleton : QObject
+"kcoreconfigskeleton.h::KCoreConfigSkeleton": { #KCoreConfigSkeleton : QObject
 "code":
 """
 %ConvertToSubClassCode
@@ -2045,76 +1856,12 @@ code = {
 """
 },
 # ./kdecore/kservice.sip
-"QList<KService::Ptr>": { #QList<KService::Ptr>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        KService::Ptr *t = new KService::Ptr (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNewType(t->data(), sipType_KService, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToType(PyList_GET_ITEM(sipPy, i), sipType_KService, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<KService::Ptr> *ql = new QList<KService::Ptr>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        KService *t = reinterpret_cast<KService *>(sipConvertToType(PyList_GET_ITEM(sipPy, i), sipType_KService, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseType(t, sipType_KService, state);
-
-            delete ql;
-            return 0;
-        }
-
-        KSharedPtr<KService> *tptr = new KSharedPtr<KService> (t);
-
-        ql->append(*tptr);
-
-        sipReleaseType(t, sipType_KService, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+"kservice.h::KService": { #QList<KService::Ptr>
+    "code": _qlist_cfttc_ptr_type,
+    "cxx_type": "KService",
+    "cxx_ptr_type": "KService::Ptr",
+    "cxx_ptr_type2": "KSharedPtr<KService>",
+    "sip_type": "sipType_KService"
 },
 # ./kdecore/kcmdlineargs.sip
 "KCmdLineOptions": { #KCmdLineOptions
@@ -3105,75 +2852,11 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./dnssd/remoteservice.sip
 "QList<DNSSD::RemoteService::Ptr>": { #QList<DNSSD::RemoteService::Ptr>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        DNSSD::RemoteService::Ptr *t = new DNSSD::RemoteService::Ptr (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNewInstance(t->data(), sipClass_DNSSD_RemoteService, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_DNSSD_RemoteService, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<DNSSD::RemoteService::Ptr> *ql = new QList<DNSSD::RemoteService::Ptr>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        DNSSD::RemoteService *t = reinterpret_cast<DNSSD::RemoteService *>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_DNSSD_RemoteService, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(t, sipClass_DNSSD_RemoteService, state);
-
-            delete ql;
-            return 0;
-        }
-
-        DNSSD::RemoteService::Ptr *tptr = new DNSSD::RemoteService::Ptr (t);
-
-        ql->append(*tptr);
-
-        sipReleaseInstance(t, sipClass_DNSSD_RemoteService, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_ptr_instance,
+    "cxx_type": "DNSSD::RemoteService",
+    "cxx_ptr_type": "DNSSD::RemoteService::Ptr",
+    "cxx_ptr_type2": "DNSSD::RemoteService::Ptr",
+    "sip_type": "sipClass_DNSSD_RemoteService"
 },
 # ./dnssd/servicebase.sip
 "ServiceBase": { #ServiceBase : KShared
@@ -3452,7 +3135,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kio/kservicegroup.sip
-"KServiceGroup": { #KServiceGroup : KSycocaEntry
+"kservicegroup.h::KServiceGroup": { #KServiceGroup : KSycocaEntry
 "code":
 """
 %ConvertToSubClassCode
@@ -4802,54 +4485,8 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kwidgetitemdelegate.sip
 "QList<QEvent::Type>": { #QList<QEvent::Type>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i) {
-        PyObject *pobj;
-
-#if PY_MAJOR_VERSION >= 3
-        if ((pobj = PyLong_FromLong ((long)sipCpp->value(i))) == NULL) {
-#else
-        if ((pobj = PyInt_FromLong ((long)sipCpp->value(i))) == NULL) {
-#endif
-            Py_DECREF(l);
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, pobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-        return PyList_Check(sipPy);
-
-    QList<QEvent::Type> *ql = new QList<QEvent::Type>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
-#if PY_MAJOR_VERSION >= 3
-        ql->append((QEvent::Type)PyLong_AsLong(PyList_GET_ITEM(sipPy, i)));
-#else
-        ql->append((QEvent::Type)PyInt_AS_LONG (PyList_GET_ITEM(sipPy, i)));
-#endif
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_long,
+    "cxx_type": "QEvent::Type"
 },
 # ./kdeui/kcompletion.sip
 "QMap<KCompletionBase::KeyBindingType,KShortcut>": { #QMap<KCompletionBase::KeyBindingType,KShortcut>
@@ -5445,53 +5082,8 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kstandardaction.sip
 "QList<KStandardAction::StandardAction>": { #QList<KStandardAction::StandardAction>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        PyObject *pobj;
-#if PY_MAJOR_VERSION >= 3
-        if ((pobj = PyLong_FromLong ((long)sipCpp->value(i))) == NULL) {
-#else
-        if ((pobj = PyInt_FromLong ((long)sipCpp->value(i))) == NULL) {
-#endif
-            Py_DECREF(l);
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, pobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-        return PyList_Check(sipPy);
-
-    QList<KStandardAction::StandardAction> *ql = new QList<KStandardAction::StandardAction>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
-#if PY_MAJOR_VERSION >= 3
-        ql->append((KStandardAction::StandardAction)PyLong_AsLong (PyList_GET_ITEM(sipPy, i)));
-#else
-        ql->append((KStandardAction::StandardAction)PyInt_AS_LONG (PyList_GET_ITEM(sipPy, i)));
-#endif
-    }
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_long,
+    "cxx_type": "KStandardAction::StandardAction"
 },
 # ./kdeui/kicon.sip
 "KIcon": { #KIcon : QIcon
@@ -5536,52 +5128,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kwindowsystem.sip
 "QList<WId>": { #QList<WId>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i) {
-        PyObject *pobj;
-
-#if PY_MAJOR_VERSION >= 3
-        if ((pobj = PyLong_FromLong ((long)sipCpp->value(i))) == NULL) {
-#else
-        if ((pobj = PyInt_FromLong ((long)sipCpp->value(i))) == NULL) {
-#endif
-            Py_DECREF(l);
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, pobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-        return PyList_Check(sipPy);
-
-    QList<WId> *ql = new QList<WId>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
-#if PY_MAJOR_VERSION >= 3
-        ql->append((WId)PyLong_AsLong(PyList_GET_ITEM(sipPy, i)));
-#else
-        ql->append((WId)PyInt_AS_LONG (PyList_GET_ITEM(sipPy, i)));
-#endif
-    }
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
+    "code": _qlist_cfttc_long,
+    "cxx_type": "WId"
 },
 }
