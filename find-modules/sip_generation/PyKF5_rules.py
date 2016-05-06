@@ -333,7 +333,7 @@ class RuleSet(rules_engine.RuleSet):
         self._methodcode.apply(function, sip)
 
     def typecode(self, container, sip):
-        self._typecode.apply(container, sip)
+        return self._typecode.apply(container, sip)
 
     def includes(self):
         return self._includes
