@@ -775,7 +775,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         """ Dump the usage counts."""
         for k in sorted(self.db.keys()):
             v = self.db[k]
-            fn(type(self).__name__, "[" + k + "," + v + "]", v["usage"])
+            fn(type(self).__name__, "[" + k + "]", v["usage"])
 
 
 class RuleSet(object):
