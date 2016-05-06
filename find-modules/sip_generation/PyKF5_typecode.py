@@ -376,6 +376,37 @@ _plasma_qobject_ctscc = """
 """
 
 
+_ktexteditor_qobject_ctscc = """
+%ConvertToSubClassCode
+    // CTSCC for subclasses of 'QObject'
+    sipType = NULL;
+
+    if (dynamic_cast<KTextEditor::Document*>(sipCpp))
+        sipType = sipType_KTextEditor_Document;
+    else if (dynamic_cast<KTextEditor::AnnotationModel*>(sipCpp))
+        sipType = sipType_KTextEditor_AnnotationModel;
+    else if (dynamic_cast<KTextEditor::Editor*>(sipCpp))
+        sipType = sipType_KTextEditor_Editor;
+    else if (dynamic_cast<KTextEditor::LoadSaveFilterCheckPlugin*>(sipCpp))
+        sipType = sipType_KTextEditor_LoadSaveFilterCheckPlugin;
+    else if (dynamic_cast<KTextEditor::Plugin*>(sipCpp))
+        sipType = sipType_KTextEditor_Plugin;
+    else if (dynamic_cast<KTextEditor::CodeCompletionModel*>(sipCpp))
+        {
+        sipType = sipType_KTextEditor_CodeCompletionModel;
+        if (dynamic_cast<KTextEditor::CodeCompletionModel2*>(sipCpp))
+            sipType = sipType_KTextEditor_CodeCompletionModel2;
+        }
+    else if (dynamic_cast<KTextEditor::ConfigPage*>(sipCpp))
+        sipType = sipType_KTextEditor_ConfigPage;
+    else if (dynamic_cast<KTextEditor::EditorChooser*>(sipCpp))
+        sipType = sipType_KTextEditor_EditorChooser;
+    else if (dynamic_cast<KTextEditor::View*>(sipCpp))
+        sipType = sipType_KTextEditor_View;
+%End
+"""
+
+
 def _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, sip_op_suffix):
     code = """
 %ConvertFromTypeCode
@@ -1559,8 +1590,8 @@ code = {
 """
 },
 # ./plasma/abstractrunner.sip
-"AbstractRunner": { #AbstractRunner : QObject
-"code": _plasma_qobject_ctscc
+"Plasma::AbstractRunner": { #AbstractRunner : QObject
+    "code": _plasma_qobject_ctscc
 },
 # ./kdecore/ksycocaentry.sip
 "ksycocaentry.h::KSycocaEntry": { #QList<KSycocaEntry::Ptr>
@@ -3022,7 +3053,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kio/kacl.sip
-"ACLUserPermissionsList": { #ACLUserPermissionsList
+"kacl.h::ACLUserPermissionsList": { #ACLUserPermissionsList
 "code":
 """
 %ConvertFromTypeCode
@@ -3221,7 +3252,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kio/accessmanager.sip
-"AccessManager": { #AccessManager : QNetworkAccessManager
+"KIO::AccessManager": { #AccessManager : QNetworkAccessManager
 "code":
 """
 %ConvertToSubClassCode
@@ -3233,7 +3264,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 %End
 """
 },
-"CookieJar": { #CookieJar : QNetworkCookieJar
+"KIO::Integration::CookieJar": { #CookieJar : QNetworkCookieJar
 "code":
 """
 %ConvertToSubClassCode
@@ -3246,7 +3277,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kio/kar.sip
-"KAr": { #KAr : KArchive
+"kar.h::KAr": { #KAr : KArchive
 "code":
 """
 %ConvertToSubClassCode
@@ -3801,7 +3832,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./ktexteditor/annotationinterface.sip
-"AnnotationInterface": { #AnnotationInterface
+"KTextEditor::AnnotationInterface": { #AnnotationInterface
 "code":
 """
 %ConvertToSubClassCode
@@ -3814,7 +3845,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./ktexteditor/templateinterface.sip
-"TemplateInterface": { #TemplateInterface
+"KTextEditor::TemplateInterface": { #TemplateInterface
 "code":
 """
 %ConvertToSubClassCode
@@ -3827,7 +3858,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./ktexteditor/view.sip
-"View": { #View : QWidget, KXMLGUIClient /Abstract/
+"KTextEditor::View": { #View : QWidget, KXMLGUIClient /Abstract/
 "code":
 """
 %TypeHeaderCode
@@ -3844,7 +3875,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./ktexteditor/markinterface.sip
-"QHash<int,KTextEditor::Mark*>": { #QHash<int,KTextEditor::Mark*>
+"KTextEditor::QHash<int,KTextEditor::Mark*>": { #QHash<int,KTextEditor::Mark*>
 "code":
 """
 %ConvertFromTypeCode
@@ -3951,7 +3982,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./ktexteditor/document.sip
-"Document": { #Document : KParts::ReadWritePart
+"KTextEditor::Document": { #Document : KParts::ReadWritePart
 "code":
 """
 %TypeHeaderCode
@@ -3973,71 +4004,14 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 #include <ktexteditor/recoveryinterface.h>
 
 %End
-# ./ktexteditor/document.sip
-%ConvertToSubClassCode
-    // CTSCC for subclasses of 'QObject'
-    sipType = NULL;
-
-    if (dynamic_cast<KTextEditor::Document*>(sipCpp))
-        sipType = sipType_KTextEditor_Document;
-    else if (dynamic_cast<KTextEditor::AnnotationModel*>(sipCpp))
-        sipType = sipType_KTextEditor_AnnotationModel;
-    else if (dynamic_cast<KTextEditor::Editor*>(sipCpp))
-        sipType = sipType_KTextEditor_Editor;
-    else if (dynamic_cast<KTextEditor::LoadSaveFilterCheckPlugin*>(sipCpp))
-        sipType = sipType_KTextEditor_LoadSaveFilterCheckPlugin;
-    else if (dynamic_cast<KTextEditor::Plugin*>(sipCpp))
-        sipType = sipType_KTextEditor_Plugin;
-    else if (dynamic_cast<KTextEditor::CodeCompletionModel*>(sipCpp))
-        {
-        sipType = sipType_KTextEditor_CodeCompletionModel;
-        if (dynamic_cast<KTextEditor::CodeCompletionModel2*>(sipCpp))
-            sipType = sipType_KTextEditor_CodeCompletionModel2;
-        }
-    else if (dynamic_cast<KTextEditor::ConfigPage*>(sipCpp))
-        sipType = sipType_KTextEditor_ConfigPage;
-    else if (dynamic_cast<KTextEditor::EditorChooser*>(sipCpp))
-        sipType = sipType_KTextEditor_EditorChooser;
-    else if (dynamic_cast<KTextEditor::View*>(sipCpp))
-        sipType = sipType_KTextEditor_View;
-%End
-"""
+""" + _ktexteditor_qobject_ctscc
 },
 # ./ktexteditor/codecompletionmodel.sip
-"CodeCompletionModel": { #CodeCompletionModel : QAbstractItemModel
-"code":
-"""
-%ConvertToSubClassCode
-    // CTSCC for subclasses of 'QObject'
-    sipType = NULL;
-
-    if (dynamic_cast<KTextEditor::Document*>(sipCpp))
-        sipType = sipType_KTextEditor_Document;
-    else if (dynamic_cast<KTextEditor::AnnotationModel*>(sipCpp))
-        sipType = sipType_KTextEditor_AnnotationModel;
-    else if (dynamic_cast<KTextEditor::Editor*>(sipCpp))
-        sipType = sipType_KTextEditor_Editor;
-    else if (dynamic_cast<KTextEditor::LoadSaveFilterCheckPlugin*>(sipCpp))
-        sipType = sipType_KTextEditor_LoadSaveFilterCheckPlugin;
-    else if (dynamic_cast<KTextEditor::Plugin*>(sipCpp))
-        sipType = sipType_KTextEditor_Plugin;
-    else if (dynamic_cast<KTextEditor::CodeCompletionModel*>(sipCpp))
-        {
-        sipType = sipType_KTextEditor_CodeCompletionModel;
-        if (dynamic_cast<KTextEditor::CodeCompletionModel2*>(sipCpp))
-            sipType = sipType_KTextEditor_CodeCompletionModel2;
-        }
-    else if (dynamic_cast<KTextEditor::ConfigPage*>(sipCpp))
-        sipType = sipType_KTextEditor_ConfigPage;
-    else if (dynamic_cast<KTextEditor::EditorChooser*>(sipCpp))
-        sipType = sipType_KTextEditor_EditorChooser;
-    else if (dynamic_cast<KTextEditor::View*>(sipCpp))
-        sipType = sipType_KTextEditor_View;
-%End
-"""
+"KTextEditor::CodeCompletionModel": { #CodeCompletionModel : QAbstractItemModel
+    "code": _ktexteditor_qobject_ctscc
 },
 # ./ktexteditor/attribute.sip
-"Attribute": { #Attribute : QTextCharFormat
+"KTextEditor::Attribute": { #Attribute : QTextCharFormat
 "code":
 """
 %ConvertToSubClassCode
