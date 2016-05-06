@@ -688,6 +688,13 @@ class SipGenerator(object):
         #
         pad = " " * (level * 4)
         if sip["name"]:
+            #
+            # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
+            # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
+            # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
+            # or %TypeHeaderCode)?
+            #
+            mapped_type = self.rules.typecode(typedef, sip)
             if sip["fn_result"]:
                 decl = pad + "typedef {}(*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
@@ -699,7 +706,11 @@ class SipGenerator(object):
             sip["annotations"].discard("Deprecated")
             if sip["annotations"]:
                 decl += " /" + ",".join(sip["annotations"]) + "/"
+            if not mapped_type and sip["code"]:
+                decl += "\n{\n" + sip["code"] + "}"
             decl += ";\n"
+            if mapped_type:
+                decl += pad + "%MappedType " + sip["name"] + "\n{\n" + sip["code"] + "};\n"
         else:
             decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
         return decl
