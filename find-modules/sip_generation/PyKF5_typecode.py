@@ -1972,7 +1972,7 @@ code = {
 },
 # ./plasma/animation.sip
 "Animation": { #Animation : QAbstractAnimation
-"code": _plasma_qobject_ctscc
+    "code": _plasma_qobject_ctscc
 },
 # ./plasma/packagestructure.sip
 "QList<const char*>": { #QList<const char*>
@@ -2336,7 +2336,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kdecore/ksharedconfig.sip
-"KSharedConfigPtr": { #KSharedConfigPtr
+"ksharedconfig.h::KSharedConfigPtr": { #KSharedConfigPtr
 "code":
 """
 %ConvertFromTypeCode
@@ -2362,7 +2362,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kdecore/kconfig.sip
-"KConfig": { #KConfig : KConfigBase
+"kconfig.h::KConfig": { #KConfig : KConfigBase
 "code":
 """
 %ConvertToSubClassCode
@@ -3286,7 +3286,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kdecore/kmacroexpander.sip
-"KCharMacroExpander": { #KCharMacroExpander : KMacroExpanderBase
+"kmacroexpander.h::KCharMacroExpander": { #KCharMacroExpander : KMacroExpanderBase
 "code":
 """
 %ConvertToSubClassCode
@@ -3309,7 +3309,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
     "sip_type": "sipClass_DNSSD_RemoteService"
 },
 # ./dnssd/servicebase.sip
-"ServiceBase": { #ServiceBase : KShared
+"KDNSSD::ServiceBase": { #ServiceBase : KShared
 "code":
 """
 %ConvertToSubClassCode
@@ -3328,7 +3328,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./dnssd/domainbrowser.sip
-"DomainBrowser": { #DomainBrowser : QObject
+"KDNSSD::DomainBrowser": { #DomainBrowser : QObject
 "code":
 """
 %ConvertToSubClassCode
@@ -3363,7 +3363,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kutils/kcmoduleproxy.sip
-"KCModuleProxy": { #KCModuleProxy : QWidget
+"kcmoduleproxy.h::KCModuleProxy": { #KCModuleProxy : QWidget
 "code":
 """
 %ConvertToSubClassCode
@@ -3541,7 +3541,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./kio/tcpslavebase.sip
-"TCPSlaveBase": { #TCPSlaveBase : KIO::SlaveBase
+"KIO::TCPSlaveBase": { #TCPSlaveBase : KIO::SlaveBase
 "code":
 """
 %ConvertToSubClassCode
@@ -4025,7 +4025,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 """
 },
 # ./solid/deviceinterface.sip
-"DeviceInterface": { #DeviceInterface : QObject
+"Solid::DeviceInterface": { #DeviceInterface : QObject
 "code":
 """
 %ConvertToSubClassCode
@@ -4671,7 +4671,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 """
 },
 # ./kdeui/kconfigskeleton.sip
-"KConfigSkeleton": { #KConfigSkeleton : KCoreConfigSkeleton
+"kconfigskeleton.h::KConfigSkeleton": { #KConfigSkeleton : KCoreConfigSkeleton
 "code":
 """
 %ConvertToSubClassCode
