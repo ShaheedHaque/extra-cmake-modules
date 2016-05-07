@@ -1054,6 +1054,213 @@ def _qlist_cfttc_long(container, sip, entry):
     sip["code"] = code
 
 
+def _qmap_cfttc(container, sip, entry, long_key, long_value):
+    """
+    Generic support for QMap<k, v>. Either template parameter can be of any
+    integral (int, long, enum) type or non-integral type, for example,
+    QMap<int, QString>.
+
+    :param entry:           The dictionary entry. Expected keys:
+
+                                "key_t":   Type of key.
+                                "value_t":   Type of value.
+    """
+    def _from(name, type, value, is_integral):
+        if is_integral:
+            code = """
+#if PY_MAJOR_VERSION >= 3
+        PyObject *{name}_ = PyLong_FromLong(({type}){value});
+#else
+        PyObject *{name}_ = PyInt_FromLong(({type}){value});
+#endif
+        PyObject *{name} = sipConvertFromNewType({name}_, sipType_{type}, sipTransferObj);"""
+        else:
+            code = """
+        {type} *{name} = new {type}({value});"""
+        code = code.replace("{name}", name)
+        code = code.replace("{type}", type)
+        code = code.replace("{value}", value)
+        return code
+
+    def _decref(name, is_integral):
+        if is_integral:
+            code = """
+        if ({name}_) {
+            Py_DECREF({name});
+        } else {
+            delete {name}_;
+        }"""
+        else:
+            code = """
+        if ({name}_) {
+            Py_DECREF({name});
+        }"""
+        code = code.replace("{name}", name)
+        return code
+
+    def _check(name, type, is_integral):
+        if is_integral:
+            code = """
+#if PY_MAJOR_VERSION >= 3
+        if (!PyLong_Check({name})) {
+            return 0;
+        }
+#else
+        if (!PyInt_Check({name})) {
+            return 0;
+        }
+#endif"""
+        else:
+            code = """
+        if (!sipCanConvertToType({name}, sipType_{type}, SIP_NOT_NONE)) {
+            return 0;
+        }"""
+        code = code.replace("{name}", name)
+        code = code.replace("{type}", type)
+        return code
+
+    def _to(name, type, is_integral):
+        if is_integral:
+            code = """
+#if PY_MAJOR_VERSION >= 3
+        {type} {name}_ = ({type})PyLong_AsLong({name});
+#else
+        {type} {name}_ = ({type})PyInt_AsLong({name});
+#endif"""
+        else:
+            code = """
+        int {name}State;
+        {type} *{name}_ = reinterpret_cast<{type} *>(sipConvertToType({name}, sipType_{type}, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));"""
+        code = code.replace("{name}", name)
+        code = code.replace("{type}", type)
+        return code
+
+    def _release(name, type, is_integral):
+        if is_integral:
+            code = ""
+        else:
+            code = """
+        sipReleaseType({name}_, sipType_{type}, state);"""
+        code = code.replace("{name}", name)
+        code = code.replace("{type}", type)
+        return code
+
+    def _insert(name, type, is_integral):
+        if is_integral:
+            code = "({type}){name}_"
+        else:
+            code = "*{name}_"
+        code = code.replace("{name}", name)
+        code = code.replace("{type}", type)
+        return code
+
+    code = """
+%ConvertFromTypeCode
+    // Create the dictionary.
+    PyObject *d = PyDict_New();
+    if (!d) {
+        return NULL;
+    }
+    if (!sipCpp) {
+        return d;
+    }
+
+    // Set the dictionary elements.
+    QMap<{key_t}, {value_t}>::const_iterator i = sipCpp->constBegin();
+
+    while (i != sipCpp->constEnd()) {"""
+    code += _from("value", "{value_t}", "i.value()", long_value) + _from("key", "{key_t}", "i.key()", long_key)
+    code += """
+        if (key == NULL || value == NULL || PyDict_SetItem(d, key, value) < 0) {
+            Py_DECREF(d);"""
+    code += _decref("key", long_key) + _decref("value", long_value)
+    code += """
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(value);
+        ++i;
+    }
+    return d;
+%End
+%ConvertToTypeCode
+    PyObject *key;
+    PyObject *value;
+    SIP_SSIZE_T i = 0;
+
+    // Check the type if that is all that is required.
+    if (sipIsErr == NULL) {
+        if (!PyDict_Check(sipPy)) {
+            return 0;
+        }
+
+        while (PyDict_Next(sipPy, &i, &key, &value)) {"""
+    code += _check("key", "{key_t}", long_key) + _check("value", "{value_t}", long_value)
+    code += """
+        }
+        return 1;
+    }
+
+    QMap<{key_t}, {value_t}> *qm = new QMap<{key_t}, {value_t}>;
+    while (PyDict_Next(sipPy, &i, &key, &value)) {"""
+    code += _to("key", "{key_t}", long_key) + _to("value", "{value_t}", long_value)
+    code += """
+        if (*sipIsErr) {"""
+    code += _release("key", "{key_t}", long_key) + _release("value", "{value_t}", long_value)
+    code += """
+            delete qm;
+            return 0;
+        }
+        qm->insert("""
+    code += _insert("key", "{key_t}", long_key) + ", " + _insert("value", "{value_t}", long_value)
+    code += ");"
+    code += _release("key", "{key_t}", long_key) + _release("value", "{value_t}", long_value)
+    code += """
+    }
+    *sipCppPtr = qm;
+    return sipGetState(sipTransferObj);
+%End
+"""
+    code = code.replace("{key_t}", entry["key_t"])
+    code = code.replace("{value_t}", entry["value_t"])
+    sip["code"] = code
+
+
+def _qmap_cfttc_long_long(container, sip, entry):
+    """
+    Generic support for QMap<long, long>. The key and value parameters can be
+    of any integral (int, long, enum) type, for example, QMap<int, long>.
+    """
+    _qmap_cfttc(container, sip, entry, True, True)
+
+
+def _qmap_cfttc_object_object(container, sip, entry):
+    """
+    Generic support for QMap<object, object>. The key and value parameters can
+    be of any object type, for example, QMap<QString, QString>.
+    """
+    _qmap_cfttc(container, sip, entry, False, False)
+
+
+def _qmap_cfttc_long_object(container, sip, entry):
+    """
+    Generic support for QMap<long, object>. The key parameter can be of any
+    integral (int, long, enum) type, for example, QMap<int, QString>.
+    """
+    _qmap_cfttc(container, sip, entry, True, False)
+
+
+def _qmap_cfttc_object_long(container, sip, entry):
+    """
+    Generic support for QMap<object, long>. The value parameter can be of any
+    integral (int, long, enum) type, for example, QMap<QString, int>.
+    """
+    _qmap_cfttc(container, sip, entry, False, True)
+
+
+#
+# Main dictionary.
+#
 code = {
 # ./akonadi/agentfilterproxymodel.sip
 "Akonadi::AgentFilterProxyModel": { #AgentFilterProxyModel : QSortFilterProxyModel
@@ -2028,115 +2235,6 @@ code = {
     "cxx_ptr_type2": "KSharedPtr<KServiceType>",
     "sip_type": "sipType_KServiceType"
 },
-"QMap<QString,QVariant::Type>": { #QMap<QString,QVariant::Type>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the dictionary.
-    PyObject *d = PyDict_New();
-
-    if (!d)
-        return NULL;
-
-    // Set the dictionary elements.
-    QMap<QString, QVariant::Type>::const_iterator i = sipCpp->constBegin();
-
-    while (i != sipCpp->constEnd())
-    {
-        QString *t1 = new QString (i.key());
-        QVariant::Type t2 =  (QVariant::Type) (i.value());
-
-        PyObject *t1obj = sipConvertFromNewType(t1, sipType_QString, sipTransferObj);
-#if PY_MAJOR_VERSION >= 3
-        PyObject *t2obj = PyLong_FromLong ((long) t2);
-#else
-        PyObject *t2obj = PyInt_FromLong ((long) t2);
-#endif
-
-        if (t1obj == NULL || t2obj == NULL || PyDict_SetItem(d, t1obj, t2obj) < 0)
-        {
-            Py_DECREF(d);
-
-            if (t1obj)
-                Py_DECREF(t1obj);
-            else
-                delete t1;
-
-            if (t2obj)
-                Py_DECREF(t2obj);
-
-            return NULL;
-        }
-
-        Py_DECREF(t1obj);
-        Py_DECREF(t2obj);
-
-        ++i;
-    }
-
-    return d;
-%End
-%ConvertToTypeCode
-    PyObject *t1obj, *t2obj;
-    SIP_SSIZE_T i = 0;
-
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyDict_Check(sipPy))
-            return 0;
-
-        while (PyDict_Next(sipPy, &i, &t1obj, &t2obj))
-        {
-            if (!sipCanConvertToType(t1obj, sipType_QString, SIP_NOT_NONE))
-                return 0;
-
-#if PY_MAJOR_VERSION >= 3
-            if (!PyLong_Check (t2obj)) {
-                return 0;
-            }
-#else
-            if (!PyInt_Check (t2obj)) {
-                return 0;
-            }
-#endif
-        }
-
-        return 1;
-    }
-
-    QMap<QString, QVariant::Type> *qm = new QMap<QString, QVariant::Type>;
-
-    while (PyDict_Next(sipPy, &i, &t1obj, &t2obj))
-    {
-        int state1;
-
-        QString *t1 = reinterpret_cast<QString *>(sipConvertToType(t1obj, sipType_QString, sipTransferObj, SIP_NOT_NONE, &state1, sipIsErr));
-#if PY_MAJOR_VERSION >= 3
-        QVariant::Type t2 = (QVariant::Type)PyLong_AsLong (t2obj);
-#else
-        QVariant::Type t2 = (QVariant::Type)PyInt_AS_LONG (t2obj);
-#endif
-
-        if (*sipIsErr)
-        {
-            sipReleaseType(t1, sipType_QString, state1);
-
-            delete qm;
-            return 0;
-        }
-
-        qm->insert(*t1, t2);
-
-        sipReleaseType(t1, sipType_QString, state1);
-    }
-
-    *sipCppPtr = qm;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
-},
 # ./kdecore/kautosavefile.sip
 "kautosavefile.h::KAutoSaveFile": { #KAutoSaveFile : QFile
 "code":
@@ -2379,215 +2477,6 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
         }
     else if (dynamic_cast<KConfigGroup*>(sipCpp))
         sipType = sipType_KConfigGroup;
-%End
-"""
-},
-# ./kdecore/typedefs.sip
-"QMap<TYPE1,TYPE2*>": { #QMap<TYPE1,TYPE2*>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the dictionary.
-    PyObject *d = PyDict_New();
-
-    if (!d)
-        return NULL;
-
-    // Set the dictionary elements.
-    QMap<TYPE1, TYPE2>::const_iterator i = sipCpp->constBegin();
-
-    while (i != sipCpp->constEnd())
-    {
-        TYPE1 *t1 = new TYPE1(i.key());
-        TYPE2 *t2 = new TYPE2(i.value());
-
-        PyObject *t1obj = sipConvertFromNewType(t1, sipType_TYPE1, sipTransferObj);
-        PyObject *t2obj = sipConvertFromNewType(t2, sipType_TYPE2, sipTransferObj);
-
-        if (t1obj == NULL || t2obj == NULL || PyDict_SetItem(d, t1obj, t2obj) < 0)
-        {
-            Py_DECREF(d);
-
-            if (t1obj)
-                Py_DECREF(t1obj);
-            else
-                delete t1;
-
-            if (t2obj)
-                Py_DECREF(t2obj);
-            else
-                delete t2;
-
-            return NULL;
-        }
-
-        Py_DECREF(t1obj);
-        Py_DECREF(t2obj);
-
-        ++i;
-    }
-
-    return d;
-%End
-%ConvertToTypeCode
-    PyObject *t1obj, *t2obj;
-    SIP_SSIZE_T i = 0;
-
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyDict_Check(sipPy))
-            return 0;
-
-        while (PyDict_Next(sipPy, &i, &t1obj, *t2obj))
-        {
-            if (!sipCanConvertToType(t1obj, sipType_TYPE1, SIP_NOT_NONE))
-                return 0;
-
-            if (!sipCanConvertToType(t2obj, sipType_TYPE2, SIP_NOT_NONE))
-                return 0;
-        }
-
-        return 1;
-    }
-
-    QMap<TYPE1, TYPE2*> *qm = new QMap<TYPE1, TYPE2*>;
-
-    while (PyDict_Next(sipPy, &i, &t1obj, &t2obj))
-    {
-        int state1, state2;
-
-        TYPE1 *t1 = reinterpret_cast<TYPE1 *>(sipConvertToType(t1obj, sipType_TYPE1, sipTransferObj, SIP_NOT_NONE, &state1, sipIsErr));
-        TYPE2 *t2 = reinterpret_cast<TYPE2 *>(sipConvertToType(t2obj, sipType_TYPE2, sipTransferObj, SIP_NOT_NONE, &state2, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseType(t1, sipType_TYPE1, state1);
-            sipReleaseType(t2, sipType_TYPE2, state2);
-
-            delete qm;
-            return 0;
-        }
-
-        qm->insert(*t1, t2);
-
-        sipReleaseType(t1, sipType_TYPE1, state1);
-        sipReleaseType(t2, sipType_TYPE2, state2);
-    }
-
-    *sipCppPtr = qm;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
-},
-"QMap<TYPE1,int>": { #QMap<TYPE1,int>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the dictionary.
-    PyObject *d = PyDict_New();
-
-    if (!d)
-        return NULL;
-
-    // Set the dictionary elements.
-    QMap<TYPE1, int>::const_iterator i = sipCpp->constBegin();
-
-    while (i != sipCpp->constEnd())
-    {
-        TYPE1 *t1 = new TYPE1(i.key());
-        int t2 = i.value();
-
-        PyObject *t1obj = sipConvertFromNewType(t1, sipType_TYPE1, sipTransferObj);
-#if PY_MAJOR_VERSION >= 3
-        PyObject *t2obj = PyLong_FromLong(t2);
-#else
-        PyObject *t2obj = PyInt_FromLong(t2);
-#endif
-
-        if (t1obj == NULL || t2obj == NULL || PyDict_SetItem(d, t1obj, t2obj) < 0)
-        {
-            Py_DECREF(d);
-
-            if (t1obj) {
-                Py_DECREF(t1obj);
-            } else {
-                delete t1;
-            }
-
-            if (t2obj) {
-                Py_DECREF(t2obj);
-            }
-            return NULL;
-        }
-
-        Py_DECREF(t1obj);
-        Py_DECREF(t2obj);
-
-        ++i;
-    }
-
-    return d;
-%End
-%ConvertToTypeCode
-    PyObject *t1obj;
-    PyObject *t2obj;
-    SIP_SSIZE_T i = 0;
-
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyDict_Check(sipPy))
-            return 0;
-
-        while (PyDict_Next(sipPy, &i, &t1obj, &t2obj))
-        {
-            if (!sipCanConvertToType(t1obj, sipType_TYPE1, SIP_NOT_NONE))
-                return 0;
-
-#if PY_MAJOR_VERSION >= 3
-            if (!PyNumber_Check(t2obj))
-#else
-            if (!PyInt_Check(t2obj))
-#endif
-                return 0;
-        }
-
-        return 1;
-    }
-
-    QMap<TYPE1, int> *qm = new QMap<TYPE1, int>;
-
-    i = 0;
-    while (PyDict_Next(sipPy, &i, &t1obj, &t2obj))
-    {
-        int state1;
-
-        TYPE1 *t1 = reinterpret_cast<TYPE1 *>(sipConvertToType(t1obj, sipType_TYPE1, sipTransferObj, SIP_NOT_NONE, &state1, sipIsErr));
-
-#if PY_MAJOR_VERSION >= 3
-        int t2 = PyLong_AsLong (t2obj);
-#else
-        int t2 = PyInt_AS_LONG (t2obj);
-#endif
-
-        if (*sipIsErr)
-        {
-            sipReleaseType(t1, sipType_TYPE1, state1);
-
-            delete qm;
-            return 0;
-        }
-
-        qm->insert(*t1, t2);
-
-        sipReleaseType(t1, sipType_TYPE1, state1);
-    }
-
-    *sipCppPtr = qm;
-
-    return sipGetState(sipTransferObj);
 %End
 """
 },
@@ -3395,81 +3284,9 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kio/global.sip
 "KIO::MetaData": { #KIO::MetaData
-"code":
-"""
-%ConvertFromTypeCode
-    // Convert to a Python dict
-
-    if (!sipCpp)
-        return PyDict_New();
-
-    PyObject *dict;
-
-    // Create the dictionary.
-
-    if ((dict = PyDict_New()) == NULL)
-        return NULL;
-
-    // Get it.
-
-    const QMap<QString,QString> cppmap = *sipCpp;
-    QMap<QString,QString>::ConstIterator it;
-
-    for (it = cppmap.begin (); it != cppmap.end (); ++it)
-    {
-        QString acpp = it.key ();
-        QString bcpp = it.value ();
-        PyObject *ainst = 0;
-        PyObject *binst = 0;
-        if (((ainst = sipBuildResult (NULL, "N", new QString (acpp), sipType_QString)) == NULL)
-            || ((binst = sipBuildResult (NULL, "N", new QString (bcpp), sipType_QString)) == NULL)
-            || (PyDict_SetItem (dict, ainst, binst) < 0))
-        {
-            Py_XDECREF (ainst);
-            Py_XDECREF (binst);
-            Py_DECREF (dict);
-            return NULL;
-        }
-    }
-
-    return dict;
-%End
-%ConvertToTypeCode
-    // Convert a Python dictionary to a QMap on the heap.
-
-    if (sipIsErr == NULL)
-        return PyDict_Check(sipPy);
-
-
-    QMap<QString,QString> *cppmap = new QMap<QString,QString>;
-
-    PyObject *aelem, *belem;
-    SIP_SSIZE_T pos = 0;
-    QString *acpp;
-    QString *bcpp;
-
-    while (PyDict_Next(sipPy, &pos, &aelem, &belem))
-    {
-        int iserr = 0;
-
-        acpp = (QString *)sipForceConvertToType(aelem, sipType_QString, NULL, 0, NULL, &iserr);
-        bcpp = (QString *)sipForceConvertToType(belem, sipType_QString, NULL, 0, NULL, &iserr);
-
-        if (iserr)
-        {
-            *sipIsErr = 1;
-            delete cppmap;
-            return 0;
-        }
-
-        cppmap->insert (*acpp, *bcpp);
-    }
-
-    *sipCppPtr = (KIO::MetaData *)cppmap;
-
-    return 1;
-%End
-"""
+    "code": _qmap_cfttc_object_object,
+    "key_t": "QString",
+    "value_t": "QString",
 },
 # ./kio/kacl.sip
 "kacl.h::ACLUserPermissionsList": { #ACLUserPermissionsList
@@ -4466,99 +4283,10 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kcompletion.sip
 "QMap<KCompletionBase::KeyBindingType,KShortcut>": { #QMap<KCompletionBase::KeyBindingType,KShortcut>
-"code":
-"""
-%ConvertFromTypeCode
-    // Create the dictionary.
-    PyObject *d = PyDict_New();
+    "code": _qmap_cfttc_long_object,
+    "cxx_type": "KShortcut",
+    "long_type": "KCompletionBase::KeyBindingType",
 
-    if (!d)
-        return NULL;
-
-    // Set the dictionary elements.
-    QMap<KCompletionBase::KeyBindingType, KShortcut>::const_iterator i = sipCpp->constBegin();
-
-    while (i != sipCpp->constEnd())
-    {
-        KShortcut *t = new KShortcut(i.value());
-
-#if PY_MAJOR_VERSION >= 3
-        PyObject *kobj = PyLong_FromLong((int)i.key());
-#else
-        PyObject *kobj = PyInt_FromLong((int)i.key());
-#endif
-        PyObject *tobj = sipConvertFromNewInstance(t, sipClass_KShortcut, sipTransferObj);
-
-        if (kobj == NULL || tobj == NULL || PyDict_SetItem(d, kobj, tobj) < 0)
-        {
-            Py_DECREF(d);
-
-            if (kobj)
-                Py_DECREF(kobj);
-
-            if (tobj)
-                Py_DECREF(tobj);
-            else
-                delete t;
-
-            return NULL;
-        }
-
-        Py_DECREF(kobj);
-        Py_DECREF(tobj);
-
-        ++i;
-    }
-
-    return d;
-%End
-%ConvertToTypeCode
-    PyObject *kobj, *tobj;
-    SIP_SSIZE_T i = 0;
-
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyDict_Check(sipPy))
-            return 0;
-
-        while (PyDict_Next(sipPy, &i, &kobj, &tobj))
-            if (!sipCanConvertToInstance(tobj, sipClass_KShortcut, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QMap<KCompletionBase::KeyBindingType, KShortcut> *qm = new QMap<KCompletionBase::KeyBindingType, KShortcut>;
-
-    while (PyDict_Next(sipPy, &i, &kobj, &tobj))
-    {
-        int state;
-#if PY_MAJOR_VERSION >= 3
-        int k = PyLong_AsLong(kobj);
-#else
-        int k = PyInt_AsLong(kobj);
-#endif
-        KShortcut *t = reinterpret_cast<KShortcut *>(sipConvertToInstance(tobj, sipClass_KShortcut, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(t, sipClass_KShortcut, state);
-
-            delete qm;
-            return 0;
-        }
-
-        qm->insert((KCompletionBase::KeyBindingType)k, *t);
-
-        sipReleaseInstance(t, sipClass_KShortcut, state);
-    }
-
-    *sipCppPtr = qm;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
 },
 # ./kdeui/kabstractwidgetjobtracker.sip
 "kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": { #KAbstractWidgetJobTracker : KJobTrackerInterface
