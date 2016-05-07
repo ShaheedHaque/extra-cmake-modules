@@ -1085,16 +1085,14 @@ def _qmap_cfttc(container, sip, entry, long_key, long_value):
     def _decref(name, is_integral):
         if is_integral:
             code = """
-        if ({name}_) {
+        if ({name}) {
             Py_DECREF({name});
         } else {
             delete {name}_;
         }"""
         else:
             code = """
-        if ({name}_) {
-            Py_DECREF({name});
-        }"""
+        Py_XDECREF({name});"""
         code = code.replace("{name}", name)
         return code
 
