@@ -468,7 +468,12 @@ class SipGenerator(object):
                 #
                 # So far so good, but we need any default value.
                 #
-                decl = "{} {}".format(child.type.spelling, parameter)
+                theType = child.type.get_canonical()
+                typeSpelling = theType.spelling
+                if theType.kind == TypeKind.POINTER:
+                    typeSpelling = theType.get_pointee().spelling + "* "
+
+                decl = "{} {}".format(typeSpelling, parameter)
                 decl = decl.replace("* ", "*").replace("& ", "&")
                 child_sip = {
                     "name": parameter,
