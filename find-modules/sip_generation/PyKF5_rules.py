@@ -28,6 +28,7 @@ SIP binding customisation for PyKF5. This modules describes:
 import rules_engine
 import PyKF5_methodcode
 import PyKF5_typecode
+from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
 
@@ -88,25 +89,43 @@ def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
 
 def _typedef_qmap_typecode(container, typedef, sip, matcher):
 
-    def is_long(type):
+    def categorise(type):
         if type in ["int", "long"]:
-            return True
+            return HELD_AS.INTEGRAL
         if type.endswith(("Ptr", "*")):
-            return True
-        return False
+            return HELD_AS.POINTER
+        return HELD_AS.OBJECT
+
+    def base_type(type):
+        if type.endswith("Ptr"):
+            type = type[:-3]
+            if type.endswith("::"):
+                type = type[:-2]
+        elif type.endswith("*"):
+            type = type[:-1].strip()
+        return type
 
     template_parameters = sip["decl"][5:-1].split(", ")
-    #assert len(template_parameters) == 2, _("Cannot extract template_parameters from {}").format(sip["decl"])
+    assert len(template_parameters) == 2, _("Cannot extract template_parameters from {}").format(sip["decl"])
     key_t = template_parameters[0]
     value_t = template_parameters[1]
     entry = {
-        "key_t": key_t,
-        "value_t": value_t,
-        "key_long": is_long(key_t),
-        "value_long": is_long(value_t),
+        "key": {
+            "type": base_type(key_t),
+            "held_as": categorise(key_t),
+        },
+        "value": {
+            "type": base_type(value_t),
+            "held_as": categorise(value_t),
+        },
     }
-    import PyKF5_typecode
-    PyKF5_typecode._qmap_cfttc(typedef, sip, entry)
+    if entry["key"]["held_as"] == HELD_AS.POINTER:
+        if not key_t.endswith("*"):
+            entry["key"]["ptr"] = key_t
+    if entry["value"]["held_as"] == HELD_AS.POINTER:
+        if not value_t.endswith("*"):
+            entry["value"]["ptr"] = value_t
+    QMap_cfttc(typedef, sip, entry)
 
 
 def _typedef_discard(container, typedef, sip, matcher):
