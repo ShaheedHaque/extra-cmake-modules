@@ -153,7 +153,7 @@ def _variable_discard(container, variable, sip, matcher):
 
 
 def _variable_discard_protected(container, variable, sip, matcher):
-    if variable.access_specifier == AccessSpecifier.PROTECTED:
+    if variable.access_specifier in [AccessSpecifier.PROTECTED, AccessSpecifier.PRIVATE]:
         sip["name"] = ""
 
 
