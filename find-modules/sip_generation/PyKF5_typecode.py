@@ -20,6 +20,9 @@
 SIP binding custom type-related code for PyKF5.
 """
 
+from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
+
+
 _akonadi_qobject_ctscc = """
 %ConvertToSubClassCode
     // CTSCC for subclasses of 'QObject'
@@ -826,409 +829,6 @@ _kdeui_qobject_ctscc = """
 """
 
 
-def _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, sip_op_suffix):
-    code = """
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        {cxx_ptr_type} *t = new {cxx_ptr_type} (sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromNew{sip_op_suffix}(t->data(), {sip_type}, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            delete t;
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertTo{sip_op_suffix}(PyList_GET_ITEM(sipPy, i), {sip_type}, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<{cxx_ptr_type}> *ql = new QList<{cxx_ptr_type}>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        {cxx_type} *t = reinterpret_cast<{cxx_type} *>(sipConvertTo{sip_op_suffix}(PyList_GET_ITEM(sipPy, i),
-                                                        {sip_type}, sipTransferObj, SIP_NOT_NONE, &state,
-                                                        sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipRelease{sip_op_suffix}(t, {sip_type}, state);
-
-            delete ql;
-            return 0;
-        }
-
-        {cxx_ptr_type2} *tptr = new {cxx_ptr_type2} (t);
-
-        ql->append(*tptr);
-
-        sipRelease{sip_op_suffix}(t, {sip_type}, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
- 
-%End
-"""
-    for placeholder, arg in [
-            ("{cxx_type}",      cxx_type),
-            ("{cxx_ptr_type}",  cxx_ptr_type),
-            ("{cxx_ptr_type2}", cxx_ptr_type2),
-            ("{sip_type}",      sip_type),
-            ("{sip_op_suffix}", sip_op_suffix),
-        ]:
-        code = code.replace(placeholder, arg)
-    return code
-
-
-def _qlist_cfttc_ptr_instance(container, sip, entry):
-    cxx_type =      entry["cxx_type"]
-    cxx_ptr_type =  entry["cxx_ptr_type"]
-    cxx_ptr_type2 = entry["cxx_ptr_type2"]
-    sip_type =      entry["sip_type"]
-    sip["code"] = _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, "Instance")
-
-
-def _qlist_cfttc_ptr_type(container, sip, entry):
-    cxx_type =      entry["cxx_type"]
-    cxx_ptr_type =  entry["cxx_ptr_type"]
-    cxx_ptr_type2 = entry["cxx_ptr_type2"]
-    sip_type =      entry["sip_type"]
-    sip["code"] = _qlist_cfttc_ptr(cxx_type, cxx_ptr_type, cxx_ptr_type2, sip_type, "Type")
-
-
-def _qlist_cfttc_soprano_ptr(container, sip, entry):
-    code = """
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i)
-    {
-        Soprano::{cxx_type}* t = const_cast<Soprano::{cxx_type}*>(sipCpp->at(i));
-        PyObject *tobj;
-
-        if ((tobj = sipConvertFromInstance(t, sipClass_Soprano_{cxx_type}, sipTransferObj)) == NULL)
-        {
-            Py_DECREF(l);
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, tobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-    {
-        if (!PyList_Check(sipPy))
-            return 0;
-
-        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_Soprano_{cxx_type}, SIP_NOT_NONE))
-                return 0;
-
-        return 1;
-    }
-
-    QList<const Soprano::{cxx_type}*> *ql = new QList<const Soprano::{cxx_type}*>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-    {
-        int state;
-        const Soprano::{cxx_type}*t = reinterpret_cast<const Soprano::{cxx_type}*>(
-                                                    sipConvertToInstance(PyList_GET_ITEM(sipPy, i),
-                                                    sipClass_Soprano_{cxx_type}, sipTransferObj, SIP_NOT_NONE, &state,
-                                                    sipIsErr));
-
-        if (*sipIsErr)
-        {
-            sipReleaseInstance(const_cast<Soprano::{cxx_type}*>(t), sipClass_Soprano_{cxx_type}, state);
-
-            delete ql;
-            return 0;
-        }
-        ql->append(t);
-
-        sipReleaseInstance(const_cast<Soprano::{cxx_type}*>(t), sipClass_Soprano_{cxx_type}, state);
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
-    for placeholder, arg in [
-            ("{cxx_type}",      cxx_type)
-        ]:
-        code = code.replace(placeholder, arg)
-    sip["code"] = code
-
-
-def _qlist_cfttc_long(container, sip, entry):
-    code = """
-%ConvertFromTypeCode
-    // Create the list.
-    PyObject *l;
-
-    if ((l = PyList_New(sipCpp->size())) == NULL)
-        return NULL;
-
-    // Set the list elements.
-    for (int i = 0; i < sipCpp->size(); ++i) {
-        PyObject *pobj;
-
-#if PY_MAJOR_VERSION >= 3
-        if ((pobj = PyLong_FromLong ((long)sipCpp->value(i))) == NULL) {
-#else
-        if ((pobj = PyInt_FromLong ((long)sipCpp->value(i))) == NULL) {
-#endif
-            Py_DECREF(l);
-
-            return NULL;
-        }
-
-        PyList_SET_ITEM(l, i, pobj);
-    }
-
-    return l;
-%End
-%ConvertToTypeCode
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL)
-        return PyList_Check(sipPy);
-
-    QList<{cxx_type}> *ql = new QList<{cxx_type}>;
-
-    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
-#if PY_MAJOR_VERSION >= 3
-        ql->append(({cxx_type})PyLong_AsLong(PyList_GET_ITEM(sipPy, i)));
-#else
-        ql->append(({cxx_type})PyInt_AS_LONG (PyList_GET_ITEM(sipPy, i)));
-#endif
-    }
-
-    *sipCppPtr = ql;
-
-    return sipGetState(sipTransferObj);
-%End
-"""
-    for placeholder, arg in [
-            ("{cxx_type}",      cxx_type)
-        ]:
-        code = code.replace(placeholder, arg)
-    sip["code"] = code
-
-
-def _qmap_cfttc(container, sip, entry):
-    """
-    Generic support for QMap<k, v>. Either template parameter can be of any
-    integral (int, long, enum) type or non-integral type, for example,
-    QMap<int, QString>.
-
-    :param entry:           The dictionary entry. Expected keys:
-
-                                key_t       Type of key.
-                                value_t     Type of value.
-                                key_long    Is it a long or similar?
-                                value_long  Is it a long or similar?
-    """
-    def _from(name, type, value, is_integral):
-        if is_integral:
-            code = """
-#if PY_MAJOR_VERSION >= 3
-        PyObject *{name}_ = PyLong_FromLong(({type}){value});
-#else
-        PyObject *{name}_ = PyInt_FromLong(({type}){value});
-#endif
-        PyObject *{name} = sipConvertFromNewType({name}_, sipType_{type}, sipTransferObj);"""
-        else:
-            code = """
-        {type} *{name} = new {type}({value});"""
-        code = code.replace("{name}", name)
-        code = code.replace("{type}", type)
-        code = code.replace("{value}", value)
-        return code
-
-    def _decref(name, is_integral):
-        if is_integral:
-            code = """
-        if ({name}) {
-            Py_DECREF({name});
-        } else {
-            delete {name}_;
-        }"""
-        else:
-            code = """
-        Py_XDECREF({name});"""
-        code = code.replace("{name}", name)
-        return code
-
-    def _check(name, type, is_integral):
-        if is_integral:
-            code = """
-#if PY_MAJOR_VERSION >= 3
-        if (!PyLong_Check({name})) {
-            return 0;
-        }
-#else
-        if (!PyInt_Check({name})) {
-            return 0;
-        }
-#endif"""
-        else:
-            code = """
-        if (!sipCanConvertToType({name}, sipType_{type}, SIP_NOT_NONE)) {
-            return 0;
-        }"""
-        code = code.replace("{name}", name)
-        code = code.replace("{type}", type)
-        return code
-
-    def _to(name, type, is_integral):
-        if is_integral:
-            code = """
-#if PY_MAJOR_VERSION >= 3
-        {type} {name}_ = ({type})PyLong_AsLong({name});
-#else
-        {type} {name}_ = ({type})PyInt_AsLong({name});
-#endif"""
-        else:
-            code = """
-        int {name}State;
-        {type} *{name}_ = reinterpret_cast<{type} *>(sipConvertToType({name}, sipType_{type}, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));"""
-        code = code.replace("{name}", name)
-        code = code.replace("{type}", type)
-        return code
-
-    def _release(name, type, is_integral):
-        if is_integral:
-            code = ""
-        else:
-            code = """
-        sipReleaseType({name}_, sipType_{type}, state);"""
-        code = code.replace("{name}", name)
-        code = code.replace("{type}", type)
-        return code
-
-    def _insert(name, type, is_integral):
-        if is_integral:
-            code = "({type}){name}_"
-        else:
-            code = "*{name}_"
-        code = code.replace("{name}", name)
-        code = code.replace("{type}", type)
-        return code
-
-    long_key = entry["key_long"]
-    long_value = entry["value_long"]
-    code = "// {}".format(entry)
-    code += """
-%ConvertFromTypeCode
-    // Create the dictionary.
-    PyObject *d = PyDict_New();
-    if (!d) {
-        return NULL;
-    }
-    if (!sipCpp) {
-        return d;
-    }
-
-    // Set the dictionary elements.
-    QMap<{key_t}, {value_t}>::const_iterator i = sipCpp->constBegin();
-
-    while (i != sipCpp->constEnd()) {"""
-    code += _from("value", "{value_t}", "i.value()", long_value) + _from("key", "{key_t}", "i.key()", long_key)
-    code += """
-        if (key == NULL || value == NULL || PyDict_SetItem(d, key, value) < 0) {
-            Py_DECREF(d);"""
-    code += _decref("key", long_key) + _decref("value", long_value)
-    code += """
-            return NULL;
-        }
-        Py_DECREF(key);
-        Py_DECREF(value);
-        ++i;
-    }
-    return d;
-%End
-%ConvertToTypeCode
-    PyObject *key;
-    PyObject *value;
-    SIP_SSIZE_T i = 0;
-
-    // Check the type if that is all that is required.
-    if (sipIsErr == NULL) {
-        if (!PyDict_Check(sipPy)) {
-            return 0;
-        }
-
-        while (PyDict_Next(sipPy, &i, &key, &value)) {"""
-    code += _check("key", "{key_t}", long_key) + _check("value", "{value_t}", long_value)
-    code += """
-        }
-        return 1;
-    }
-
-    QMap<{key_t}, {value_t}> *qm = new QMap<{key_t}, {value_t}>;
-    while (PyDict_Next(sipPy, &i, &key, &value)) {"""
-    code += _to("key", "{key_t}", long_key) + _to("value", "{value_t}", long_value)
-    code += """
-        if (*sipIsErr) {"""
-    code += _release("key", "{key_t}", long_key) + _release("value", "{value_t}", long_value)
-    code += """
-            delete qm;
-            return 0;
-        }
-        qm->insert("""
-    code += _insert("key", "{key_t}", long_key) + ", " + _insert("value", "{value_t}", long_value)
-    code += ");"
-    code += _release("key", "{key_t}", long_key) + _release("value", "{value_t}", long_value)
-    code += """
-    }
-    *sipCppPtr = qm;
-    return sipGetState(sipTransferObj);
-%End
-"""
-    code = code.replace("{key_t}", entry["key_t"])
-    code = code.replace("{value_t}", entry["value_t"])
-    sip["code"] = code
-
-
 #
 # Main dictionary.
 #
@@ -1256,8 +856,11 @@ code = {
 },
 # ./akonadi/entity.sip
 "QList<Akonadi::Entity::Id>": { #QList<Akonadi::Entity::Id>
-    "code": _qlist_cfttc_long,
-    "cxx_type": "Akonadi::Entity::Id"
+    "code": QList_cfttc,
+    "value": {
+        "type": "Akonadi::Entity::Id",
+        "held_as": HELD_AS.INTEGRAL,
+    },
 },
 "QVector<Akonadi::Entity::Id>": { #QVector<Akonadi::Entity::Id>
 "code":
@@ -2055,16 +1658,25 @@ code = {
 },
 # ./soprano/pluginmanager.sip
 "QList<const Soprano::Backend*>": { #QList<const Soprano::Backend*>
-    "code": _qlist_cfttc_soprano_ptr,
-    "cxx_type": "Backend"
+    "code": QList_cfttc,
+    "value": {
+        "type": "Soprano::Backend",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 "QList<const Soprano::Parser*>": { #QList<const Soprano::Parser*>
-    "code": _qlist_cfttc_soprano_ptr,
-    "cxx_type": "Parser"
+    "code": QList_cfttc,
+    "value": {
+        "type": "Soprano::Parser",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 "QList<const Soprano::Serializer*>": { #QList<const Soprano::Serializer*>
-    "code": _qlist_cfttc_soprano_ptr,
-    "cxx_type": "Serializer"
+    "code": QList_cfttc,
+    "value": {
+        "type": "Soprano::Serializer",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./soprano/model.sip
 "Model": { #Model : QObject, Soprano::Error::ErrorCache
@@ -2192,19 +1804,21 @@ code = {
 },
 # ./kdecore/ksycocaentry.sip
 "ksycocaentry.h::KSycocaEntry": { #QList<KSycocaEntry::Ptr>
-    "code": _qlist_cfttc_ptr_instance,
-    "cxx_type": "KSycocaEntry",
-    "cxx_ptr_type": "KSycocaEntry::Ptr",
-    "cxx_ptr_type2": "KSharedPtr<KSycocaEntry>",
-    "sip_type": "sipClass_KSycocaEntry"
+    "code": QList_cfttc,
+    "value": {
+        "type": "KSycocaEntry",
+        "ptr": "KSycocaEntry::Ptr",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./kdecore/kservicetype.sip
 "kservicetype.h::KServiceType": { #QList<KServiceType::Ptr>
-    "code": _qlist_cfttc_ptr_type,
-    "cxx_type": "KServiceType",
-    "cxx_ptr_type": "KServiceType::Ptr",
-    "cxx_ptr_type2": "KSharedPtr<KServiceType>",
-    "sip_type": "sipType_KServiceType"
+    "code": QList_cfttc,
+    "value": {
+        "type": "KServiceType",
+        "ptr": "KServiceType::Ptr",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./kdecore/kautosavefile.sip
 "kautosavefile.h::KAutoSaveFile": { #KAutoSaveFile : QFile
@@ -2275,11 +1889,12 @@ code = {
 },
 # ./kdecore/kmimetype.sip
 "QList<KMimeType::Ptr>": { #QList<KMimeType::Ptr>
-    "code": _qlist_cfttc_ptr_instance,
-    "cxx_type": "KMimeType",
-    "cxx_ptr_type": "KMimeType::Ptr",
-    "cxx_ptr_type2": "KSharedPtr<KMimeType>",
-    "sip_type": "sipClass_KMimeType"
+    "code": QList_cfttc,
+    "value": {
+        "type": "KMimeType",
+        "ptr": "KMimeType::Ptr",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./kdecore/kurl.sip
 "KUrl": { #KUrl : QUrl
@@ -2376,11 +1991,12 @@ code = {
 },
 # ./kdecore/kservice.sip
 "kservice.h::KService": { #QList<KService::Ptr>
-    "code": _qlist_cfttc_ptr_type,
-    "cxx_type": "KService",
-    "cxx_ptr_type": "KService::Ptr",
-    "cxx_ptr_type2": "KSharedPtr<KService>",
-    "sip_type": "sipType_KService"
+    "code": QList_cfttc,
+    "value": {
+        "type": "KService",
+        "ptr": "KService::Ptr",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./kdecore/kcmdlineargs.sip
 "KCmdLineOptions": { #KCmdLineOptions
@@ -3162,11 +2778,12 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./dnssd/remoteservice.sip
 "QList<DNSSD::RemoteService::Ptr>": { #QList<DNSSD::RemoteService::Ptr>
-    "code": _qlist_cfttc_ptr_instance,
-    "cxx_type": "DNSSD::RemoteService",
-    "cxx_ptr_type": "DNSSD::RemoteService::Ptr",
-    "cxx_ptr_type2": "DNSSD::RemoteService::Ptr",
-    "sip_type": "sipClass_DNSSD_RemoteService"
+    "code": QList_cfttc,
+    "value": {
+        "type": "DNSSD::RemoteService",
+        "ptr": "DNSSD::RemoteService::Ptr",
+        "held_as": HELD_AS.POINTER,
+    },
 },
 # ./dnssd/servicebase.sip
 "KDNSSD::ServiceBase": { #ServiceBase : KShared
@@ -3255,11 +2872,15 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kio/global.sip
 "KIO::MetaData": { #KIO::MetaData
-    "code": _qmap_cfttc,
-    "key_t": "QString",
-    "value_t": "QString",
-    "key_long": False,
-    "value_long": False,
+    "code": QMap_cfttc,
+    "key": {
+        "type": "QString",
+        "held_as": HELD_AS.OBJECT,
+    },
+    "value": {
+        "type": "QString",
+        "held_as": HELD_AS.OBJECT,
+    },
 },
 # ./kio/kacl.sip
 "kacl.h::ACLUserPermissionsList": { #ACLUserPermissionsList
@@ -4251,16 +3872,23 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kwidgetitemdelegate.sip
 "QList<QEvent::Type>": { #QList<QEvent::Type>
-    "code": _qlist_cfttc_long,
-    "cxx_type": "QEvent::Type"
+    "code": QList_cfttc,
+    "value": {
+        "type": "QEvent::Type",
+        "held_as": HELD_AS.INTEGRAL,
+    },
 },
 # ./kdeui/kcompletion.sip
 "QMap<KCompletionBase::KeyBindingType,KShortcut>": { #QMap<KCompletionBase::KeyBindingType,KShortcut>
-    "code": _qmap_cfttc,
-    "key_t": "KShortcut",
-    "value_t": "KCompletionBase::KeyBindingType",
-    "key_long": False,
-    "value_long": True,
+    "code": QMap_cfttc,
+    "key": {
+        "type": "KCompletionBase::KeyBindingType",
+        "held_as": HELD_AS.INTEGRAL,
+    },
+    "value": {
+        "type": "KShortcut",
+        "held_as": HELD_AS.OBJECT,
+    },
 },
 # ./kdeui/kabstractwidgetjobtracker.sip
 "kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": { #KAbstractWidgetJobTracker : KJobTrackerInterface
@@ -4343,8 +3971,11 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kstandardaction.sip
 "QList<KStandardAction::StandardAction>": { #QList<KStandardAction::StandardAction>
-    "code": _qlist_cfttc_long,
-    "cxx_type": "KStandardAction::StandardAction"
+    "code": QList_cfttc,
+    "value": {
+        "type": "KStandardAction::StandardAction",
+        "held_as": HELD_AS.INTEGRAL,
+    },
 },
 # ./kdeui/kicon.sip
 "KIcon": { #KIcon : QIcon
@@ -4389,7 +4020,10 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kwindowsystem.sip
 "QList<WId>": { #QList<WId>
-    "code": _qlist_cfttc_long,
-    "cxx_type": "WId"
+    "code": QList_cfttc,
+    "value": {
+        "type": "WId",
+        "held_as": HELD_AS.INTEGRAL,
+    },
 },
 }
