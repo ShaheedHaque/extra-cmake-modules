@@ -1054,7 +1054,7 @@ def _qlist_cfttc_long(container, sip, entry):
     sip["code"] = code
 
 
-def _qmap_cfttc(container, sip, entry, long_key, long_value):
+def _qmap_cfttc(container, sip, entry):
     """
     Generic support for QMap<k, v>. Either template parameter can be of any
     integral (int, long, enum) type or non-integral type, for example,
@@ -1062,8 +1062,10 @@ def _qmap_cfttc(container, sip, entry, long_key, long_value):
 
     :param entry:           The dictionary entry. Expected keys:
 
-                                "key_t":   Type of key.
-                                "value_t":   Type of value.
+                                key_t       Type of key.
+                                value_t     Type of value.
+                                key_long    Is it a long or similar?
+                                value_long  Is it a long or similar?
     """
     def _from(name, type, value, is_integral):
         if is_integral:
@@ -1152,7 +1154,10 @@ def _qmap_cfttc(container, sip, entry, long_key, long_value):
         code = code.replace("{type}", type)
         return code
 
-    code = """
+    long_key = entry["key_long"]
+    long_value = entry["value_long"]
+    code = "// {}".format(entry)
+    code += """
 %ConvertFromTypeCode
     // Create the dictionary.
     PyObject *d = PyDict_New();
@@ -1222,38 +1227,6 @@ def _qmap_cfttc(container, sip, entry, long_key, long_value):
     code = code.replace("{key_t}", entry["key_t"])
     code = code.replace("{value_t}", entry["value_t"])
     sip["code"] = code
-
-
-def _qmap_cfttc_long_long(container, sip, entry):
-    """
-    Generic support for QMap<long, long>. The key and value parameters can be
-    of any integral (int, long, enum) type, for example, QMap<int, long>.
-    """
-    _qmap_cfttc(container, sip, entry, True, True)
-
-
-def _qmap_cfttc_object_object(container, sip, entry):
-    """
-    Generic support for QMap<object, object>. The key and value parameters can
-    be of any object type, for example, QMap<QString, QString>.
-    """
-    _qmap_cfttc(container, sip, entry, False, False)
-
-
-def _qmap_cfttc_long_object(container, sip, entry):
-    """
-    Generic support for QMap<long, object>. The key parameter can be of any
-    integral (int, long, enum) type, for example, QMap<int, QString>.
-    """
-    _qmap_cfttc(container, sip, entry, True, False)
-
-
-def _qmap_cfttc_object_long(container, sip, entry):
-    """
-    Generic support for QMap<object, long>. The value parameter can be of any
-    integral (int, long, enum) type, for example, QMap<QString, int>.
-    """
-    _qmap_cfttc(container, sip, entry, False, True)
 
 
 #
@@ -3282,9 +3255,11 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kio/global.sip
 "KIO::MetaData": { #KIO::MetaData
-    "code": _qmap_cfttc_object_object,
+    "code": _qmap_cfttc,
     "key_t": "QString",
     "value_t": "QString",
+    "key_long": False,
+    "value_long": False,
 },
 # ./kio/kacl.sip
 "kacl.h::ACLUserPermissionsList": { #ACLUserPermissionsList
@@ -4281,10 +4256,11 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kcompletion.sip
 "QMap<KCompletionBase::KeyBindingType,KShortcut>": { #QMap<KCompletionBase::KeyBindingType,KShortcut>
-    "code": _qmap_cfttc_long_object,
-    "cxx_type": "KShortcut",
-    "long_type": "KCompletionBase::KeyBindingType",
-
+    "code": _qmap_cfttc,
+    "key_t": "KShortcut",
+    "value_t": "KCompletionBase::KeyBindingType",
+    "key_long": False,
+    "value_long": True,
 },
 # ./kdeui/kabstractwidgetjobtracker.sip
 "kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": { #KAbstractWidgetJobTracker : KJobTrackerInterface

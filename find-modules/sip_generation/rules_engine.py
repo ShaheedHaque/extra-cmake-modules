@@ -658,9 +658,9 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         # SIP supports the notion of a second C++ signature as well as the normal signature. By default, this
         # is not present.
         #
-        sip["decl2"] = ""
-        sip["fn_result2"] = ""
-        sip["code"] = ""
+        sip.setdefault("decl2", "")
+        sip.setdefault("fn_result2", "")
+        sip.setdefault("code", "")
         if entry:
             before = deepcopy(sip)
             sip["code"] = entry["code"]
@@ -756,7 +756,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
 
     def apply(self, container, sip):
         entry = self._get(container, sip["name"])
-        sip["code"] = ""
+        sip.setdefault("code", "")
         if entry:
             before = deepcopy(sip)
             sip["code"] = entry["code"]
@@ -767,9 +767,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             self.trace_result(_parents(container), container, before, sip)
-            return self.mapped_type_re.search(sip["code"])
-        else:
-            return False
+        return self.mapped_type_re.search(sip["code"])
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""

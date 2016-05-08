@@ -86,6 +86,29 @@ def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
 
 
+def _typedef_qmap_typecode(container, typedef, sip, matcher):
+
+    def is_long(type):
+        if type in ["int", "long"]:
+            return True
+        if type.endswith(("Ptr", "*")):
+            return True
+        return False
+
+    template_parameters = sip["decl"][5:-1].split(", ")
+    #assert len(template_parameters) == 2, _("Cannot extract template_parameters from {}").format(sip["decl"])
+    key_t = template_parameters[0]
+    value_t = template_parameters[1]
+    entry = {
+        "key_t": key_t,
+        "value_t": value_t,
+        "key_long": is_long(key_t),
+        "value_long": is_long(value_t),
+    }
+    import PyKF5_typecode
+    PyKF5_typecode._qmap_cfttc(typedef, sip, entry)
+
+
 def _typedef_discard(container, typedef, sip, matcher):
     sip["name"] = ""
 
@@ -222,6 +245,10 @@ def parameter_rules():
 def typedef_rules():
 
     return [
+        #
+        # Supplement QMap<> templates with manual code.
+        #
+        [".*", ".*", ".*", "QMap<.*>", _typedef_qmap_typecode],
         #
         # Rewrite QFlags<> templates as int.
         #
