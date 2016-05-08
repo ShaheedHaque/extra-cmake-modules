@@ -40,6 +40,8 @@ import traceback
 from copy import deepcopy
 from clang.cindex import CursorKind
 
+from clang.cindex import AccessSpecifier
+
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
@@ -999,6 +1001,37 @@ class RuleSet(object):
                    self.typecode_rules()]:
             db.dump_usage(dumper)
 
+
+def container_discard(container, sip, matcher):
+    sip["name"] = ""
+
+def function_discard(container, function, sip, matcher):
+    sip["name"] = ""
+
+def parameter_transfer_to_parent(container, function, parameter, sip, matcher):
+    if function.is_static_method():
+        sip["annotations"].add("Transfer")
+    else:
+        sip["annotations"].add("TransferThis")
+
+def typedef_rewrite_as_int(container, typedef, sip, matcher):
+    sip["decl"] = "int"
+
+def param_rewrite_mode_t_as_int(container, function, parameter, sip, matcher):
+    sip["decl"] = sip["decl"].replace("mode_t", "unsigned int")
+
+def return_rewrite_mode_t_as_int(container, function, sip, matcher):
+    sip["fn_result"] = "unsigned int"
+
+def variable_discard(container, variable, sip, matcher):
+    sip["name"] = ""
+
+def parameter_strip_class_enum(container, function, parameter, sip, matcher):
+    sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
+
+def function_discard_impl(container, function, sip, matcher):
+    if function.extent.start.column == 1:
+        sip["name"] = ""
 
 def rules(project_rules, includes):
     """
