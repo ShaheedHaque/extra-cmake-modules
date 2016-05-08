@@ -868,7 +868,7 @@ class SipGenerator(object):
             # SIP does not support protected variables, so we promote to public.
             #
             if variable.access_specifier == AccessSpecifier.PROTECTED:
-                decl = pad + "public: " + decl +"; protected: // Promoted to public\n"
+                decl = ""
             else:
                 decl = pad + decl + ";\n"
         else:
