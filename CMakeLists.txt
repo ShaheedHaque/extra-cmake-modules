@@ -101,8 +101,9 @@ install(FILES ${installModuleFiles} DESTINATION ${MODULES_INSTALL_DIR})
 file(GLOB installKdeModuleFiles ${CMAKE_SOURCE_DIR}/kde-modules/*[^~])
 install(FILES ${installKdeModuleFiles} DESTINATION ${KDE_MODULES_INSTALL_DIR})
 
-file(GLOB installFindModuleFiles ${CMAKE_SOURCE_DIR}/find-modules/*[^~])
+file(GLOB installFindModuleFiles  ${CMAKE_SOURCE_DIR}/find-modules/*.cmake ${CMAKE_SOURCE_DIR}/find-modules/*.py)
 install(FILES ${installFindModuleFiles} DESTINATION ${FIND_MODULES_INSTALL_DIR})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/find-modules/sip_generation DESTINATION ${FIND_MODULES_INSTALL_DIR})
 
 file(GLOB installToolchainModuleFiles ${CMAKE_SOURCE_DIR}/toolchain/*[^~])
 install(FILES ${installToolchainModuleFiles} DESTINATION ${TOOLCHAIN_MODULES_INSTALL_DIR})
