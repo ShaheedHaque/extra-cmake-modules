@@ -344,8 +344,8 @@ class SipGenerator(object):
                 #
                 # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
                 # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
-                # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
-                # or %TypeHeaderCode)?
+                # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode,
+                # %TypeHeaderCode other type-related directives)?
                 #
                 mapped_type = self.rules.typecode(container, sip)
                 if mapped_type:
@@ -497,7 +497,8 @@ class SipGenerator(object):
         pad = " " * (level * 4)
         if sip["name"]:
             #
-            # Any method-related code (%MethodCode as well as %VirtualCatcherCode and %VirtualCallCode)?
+            # Any method-related code (%MethodCode, %VirtualCatcherCode, VirtualCallCode
+            # or other method-related directives)?
             #
             self.rules.methodcode(function, sip)
             sip["template_parameters"] = ", ".join(sip["template_parameters"])

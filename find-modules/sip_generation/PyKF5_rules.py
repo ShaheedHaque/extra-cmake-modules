@@ -357,6 +357,7 @@ class RuleSet(rules_engine.RuleSet):
         self._unexposed_db = rules_engine.UnexposedRuleDb(unexposed_rules)
         self._var_db = rules_engine.VariableRuleDb(variable_rules)
         self._methodcode = rules_engine.MethodCodeDb(PyKF5_methodcode.code)
+        self._modulecode = rules_engine.ModuleCodeDb({})
         self._typecode = rules_engine.TypeCodeDb(PyKF5_typecode.code)
 
     def container_rules(self):
@@ -380,11 +381,17 @@ class RuleSet(rules_engine.RuleSet):
     def methodcode_rules(self):
         return self._methodcode
 
+    def modulecode_rules(self):
+        return self._modulecode
+
     def typecode_rules(self):
         return self._typecode
 
     def methodcode(self, function, sip):
         self._methodcode.apply(function, sip)
+
+    def modulecode(self, filename, sip):
+        self._modulecode.apply(filename, sip)
 
     def typecode(self, container, sip):
         return self._typecode.apply(container, sip)

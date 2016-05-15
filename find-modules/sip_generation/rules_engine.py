@@ -85,6 +85,9 @@ class Rule(object):
 
     def trace_result(self, parents, item, original, modified):
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
+        self._trace_result(fqn, original, modified)
+
+    def _trace_result(self, fqn, original, modified):
         if not modified["name"]:
             logger.debug(_("Rule {} suppressed {}, {}").format(self, fqn, original))
         else:
@@ -583,8 +586,8 @@ class AbstractCompiledCodeDb(object):
 
 class MethodCodeDb(AbstractCompiledCodeDb):
     """
-    THE RULES FOR INJECTING METHOD-RELATED CODE (%MethodCode as well as
-    %VirtualCatcherCode and %VirtualCallCode).
+    THE RULES FOR INJECTING METHOD-RELATED CODE (such as %MethodCode, 
+    %VirtualCatcherCode, %VirtualCallCode and other method-level directives).
 
     These are used to customise the behaviour of the SIP generator by allowing
     method-level code injection.
@@ -701,11 +704,12 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
 class TypeCodeDb(AbstractCompiledCodeDb):
     """
-    THE RULES FOR INJECTING TYPE-RELATED CODE (%BIGetBufferCode,
+    THE RULES FOR INJECTING TYPE-RELATED CODE (such as %BIGetBufferCode,
     %BIGetReadBufferCode, %BIGetWriteBufferCode, %BIGetSegCountCode,
     %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertFromTypeCode,
     %ConvertToSubClassCode, %ConvertToTypeCode, %GCClearCode, %GCTraverseCode,
-    %InstanceCode, %PickleCode, %TypeCode or %TypeHeaderCode).
+    %InstanceCode, %PickleCode, %TypeCode, %TypeHeaderCode or other type-level
+    directives).
 
     These are used to customise the behaviour of the SIP generator by allowing
     type-level code injection.
@@ -776,6 +780,80 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             self.trace_result(_parents(container), container, before, sip)
         return self.mapped_type_re.search(sip["code"])
+
+    def dump_usage(self, fn):
+        """ Dump the usage counts."""
+        for k in sorted(self.db.keys()):
+            v = self.db[k]
+            fn(type(self).__name__, "[" + k + "]", v["usage"])
+
+class ModuleCodeDb(AbstractCompiledCodeDb):
+    """
+    THE RULES FOR INJECTING MODULE-RELATED CODE (such as %ExportedHeaderCode,
+    %ModuleCode, %ModuleHeaderCode or other module-level directives).
+
+    These are used to customise the behaviour of the SIP generator by allowing
+    module-level code injection.
+
+    The raw rule database must be a dictionary as follows:
+
+        0. Each key is the basenanme of a module file.
+
+        1. Each value has entries which update the declaration as follows:
+
+        "code":         Required. Either a string, with the %XXXCode content,
+                        or a callable.
+
+    If "code" is a callable, it is called with the following contract:
+
+        def module_xxx(filename, sip, entry):
+            '''
+            Return a string to insert for the file.
+
+            :param filename:    The filename.
+            :param sip:         A dict with the key "name" for the module name
+                                plus the "code" key described above.
+            :param entry:       The dictionary entry.
+
+            :return: A string.
+            '''
+
+    :return: The compiled form of the rules.
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self, db):
+        super(ModuleCodeDb, self).__init__(db)
+        #
+        # Add a usage count for each item in the database.
+        #
+        for k, v in self.db.items():
+            v["usage"] = 0
+
+    def _get(self, filename):
+        #
+        # Lookup for an actual hit.
+        #
+        entry = self.db.get(filename, None)
+        if not entry:
+            return None
+        entry["usage"] += 1
+        return entry
+
+    def apply(self, filename, sip):
+        entry = self._get(filename)
+        sip.setdefault("code", "")
+        if entry:
+            before = deepcopy(sip)
+            sip["code"] = entry["code"]
+            if callable(sip["code"]):
+                sip["code"](filename, sip, entry)
+            #
+            # Fetch/format the code.
+            #
+            sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
+            fqn = filename + "::" + before["name"]
+            self._trace_result(fqn, before, sip)
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""
@@ -859,6 +937,15 @@ class RuleSet(object):
         raise NotImplemented(_("Missing subclass implementation"))
 
     @abstractmethod
+    def modulecode_rules(self):
+        """
+        Return a compiled list of rules for module-related code.
+
+        :return: A ModuleCodeDb instance
+        """
+        raise NotImplemented(_("Missing subclass implementation"))
+
+    @abstractmethod
     def typecode_rules(self):
         """
         Return a compiled list of rules for type-related code.
@@ -875,9 +962,16 @@ class RuleSet(object):
         raise NotImplemented(_("Missing subclass implementation"))
 
     @abstractmethod
+    def modulecode(self, filename):
+        """
+        Lookup %ModuleCode and friends.
+        """
+        raise NotImplemented(_("Missing subclass implementation"))
+
+    @abstractmethod
     def typecode(self, container, function):
         """
-        Lookup %TypeCode. Return True or False depending on whether a
+        Lookup %TypeCode and friends. Return True or False depending on whether a
         %MappedType is implied.
         """
         raise NotImplemented(_("Missing subclass implementation"))

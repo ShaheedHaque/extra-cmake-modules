@@ -140,8 +140,9 @@ class SipBulkGenerator(SipGenerator):
         #
         if sip_files:
             h_dir = root[len(self.root) + len(os.path.sep):]
+            module = h_dir.replace(os.path.sep, ".")
             output_file = os.path.join(h_dir, os.path.basename(h_dir) + MODULE_SIP)
-            header = self.header(output_file, h_dir, h_dir)
+            decl = self.header(output_file, h_dir, h_dir)
             #
             # Write the header and the body.
             #
@@ -152,39 +153,50 @@ class SipBulkGenerator(SipGenerator):
                 if e.errno != errno.EEXIST:
                     raise
             logger.info(_("Creating {}").format(full_output))
+            decl += "%Module(name={}.{})\n".format(self.rules.project_name(), module)
+            #
+            # Create something which the SIP compiler can process that includes what appears to be the
+            # immediate fanout from this module.
+            #
+            for sip_import in sorted(all_sip_imports):
+                if sip_import != output_file:
+                    #
+                    # Protect each %Import with a feature. The point of this is that we often see module A and B
+                    # which need to %Import each other; this confuses the SIP compiler which does not like the
+                    # %Import A encountered in B while processing A's %Import of B. However, we cannot simply
+                    # declare the corresponding %Feature here because then we will end up with the same %Feature in
+                    # both A and B which SIP also does not like.
+                    #
+                    if os.path.dirname(sip_import).lower() in [os.path.dirname(s).lower() for s in self.rules.modules()]:
+                        feature = feature_for_sip_module(sip_import)
+                        self.all_features.add(feature)
+                        decl += "%If ({})\n".format(feature)
+                        decl += "%Import(name={})\n".format(sip_import)
+                        decl += "%End\n".format(sip_import)
+                    else:
+                        decl += "%Import(name={})\n".format(sip_import)
+            decl += "%Extract(id={})\n".format(INCLUDES_EXTRACT)
+            for include in sorted(all_include_roots):
+                decl += "{}\n".format(include)
+            decl += "%End\n"
+            #
+            # Add all peer .sip files.
+            #
+            for sip_file in sip_files:
+                decl += "%Include(name={})\n".format(sip_file)
+            #
+            # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
+            # module-level directives?
+            #
+            sip = {
+                "name": module,
+                "decl": decl
+            }
+            self.rules.modulecode(os.path.basename(full_output), sip)
+            decl = sip["decl"] + sip["code"]
             with open(full_output, "w") as f:
-                f.write(header)
-                f.write("%Module(name={}.{})\n".format(self.rules.project_name(), h_dir.replace(os.path.sep, ".")))
-                #
-                # Create something which the SIP compiler can process that includes what appears to be the
-                # immediate fanout from this module.
-                #
-                for sip_import in sorted(all_sip_imports):
-                    if sip_import != output_file:
-                        #
-                        # Protect each %Import with a feature. The point of this is that we often see module A and B
-                        # which need to %Import each other; this confuses the SIP compiler which does not like the
-                        # %Import A encountered in B while processing A's %Import of B. However, we cannot simply
-                        # declare the corresponding %Feature here because then we will end up withthe same %Feature in
-                        # both A and B which SIP also does not like.
-                        #
-                        if os.path.dirname(sip_import).lower() in [os.path.dirname(s).lower() for s in self.rules.modules()]:
-                            feature = feature_for_sip_module(sip_import)
-                            self.all_features.add(feature)
-                            f.write("%If ({})\n".format(feature))
-                            f.write("%Import(name={})\n".format(sip_import))
-                            f.write("%End\n".format(sip_import))
-                        else:
-                            f.write("%Import(name={})\n".format(sip_import))
-                f.write("%Extract(id={})\n".format(INCLUDES_EXTRACT))
-                for include in sorted(all_include_roots):
-                    f.write("{}\n".format(include))
-                f.write("%End\n")
-                #
-                # Add all peer .sip files.
-                #
-                for sip_file in sip_files:
-                    f.write("%Include(name={})\n".format(sip_file))
+                f.write(decl)
+
 
     def _map_include_to_import(self, include):
         """
