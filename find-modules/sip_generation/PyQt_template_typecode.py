@@ -153,7 +153,7 @@ def QList_cfttc(container, sip, entry):
                                                 or object?
                                 ptr             Any custom pointer type.
     """
-    value_category = entry["value_category"]
+    value_category = entry["value"]["held_as"]
     code = "// {}".format(entry)
     code += """
 %ConvertFromTypeCode
@@ -227,7 +227,7 @@ def QList_cfttc(container, sip, entry):
     return sipGetState(sipTransferObj);
 %End
 """
-    code = code.replace("{value_t}", entry["value_t"])
+    code = code.replace("{value_t}", entry["value"]["type"])
     sip["code"] = code
 
 
