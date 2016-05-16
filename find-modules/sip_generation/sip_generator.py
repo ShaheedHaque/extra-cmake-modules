@@ -385,6 +385,16 @@ class SipGenerator(object):
                     decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(h_file)
                     decl += sip["code"]
                     body = decl + sip["body"] + pad + "};\n"
+                    #
+                    # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
+                    # module-level directives?
+                    #
+                    sip = {
+                        "name": name,
+                        "decl": body
+                    }
+                    self.rules.modulecode(name, sip)
+                    body = sip["code"] + sip["decl"]
             else:
                 body = pad + "// Discarded {}\n".format(SipGenerator.describe(container))
         return body
