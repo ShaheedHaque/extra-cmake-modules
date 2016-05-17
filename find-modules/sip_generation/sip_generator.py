@@ -204,6 +204,7 @@ class SipGenerator(object):
         template_type_parameters = []
         had_copy_constructor = False
         had_const_member = False
+        typecodes = []
         for member in container.get_children():
             #
             # Only emit items in the translation unit.
@@ -219,7 +220,9 @@ class SipGenerator(object):
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
                 decl = self._get_access_specifier(member, level + 1)
             elif member.kind == CursorKind.TYPEDEF_DECL:
-                decl = self._typedef_get(container, member, level + 1)
+                decl, typecode = self._typedef_get(container, member, level + 1)
+                if typecode:
+                    typecodes.append(typecode)
             elif member.kind == CursorKind.CXX_BASE_SPECIFIER:
                 #
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
@@ -388,6 +391,8 @@ class SipGenerator(object):
                     }
                     self.rules.modulecode(name, sip)
                     body = sip["code"] + sip["decl"]
+                    for typecode in typecodes:
+                        body += "\n\n" + typecode + "\n\n"
             else:
                 body = pad + "// Discarded {}\n".format(SipGenerator.describe(container))
         return body
@@ -746,6 +751,7 @@ class SipGenerator(object):
         # Now the rules have run, add any prefix/suffix.
         #
         pad = " " * (level * 4)
+        mapped_typecode = None
         if sip["name"]:
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
@@ -766,13 +772,11 @@ class SipGenerator(object):
             if sip["annotations"]:
                 decl += " /" + ",".join(sip["annotations"]) + "/"
             if not mapped_type and sip["code"]:
-                decl += "\n{\n" + sip["code"] + "}"
+                mapped_typecode = "%MappedType " + typedef.type.get_canonical().spelling + "\n{\n" + sip["code"] + "};\n"
             decl += ";\n"
-            if mapped_type:
-                decl += pad + "%MappedType " + sip["name"] + "\n{\n" + sip["code"] + "};\n"
         else:
             decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
-        return decl
+        return decl, mapped_typecode
 
     def _unexposed_get(self, container, unexposed, text, level):
         """
