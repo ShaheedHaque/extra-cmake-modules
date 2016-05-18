@@ -44,14 +44,15 @@ def _from(name, type, value, category):
     if category == HELD_AS.INTEGRAL:
         code = """
 #if PY_MAJOR_VERSION >= 3
-        PyObject *{name}_ = PyLong_FromLong(({type}){value});
+        PyObject *{name} = PyLong_FromLong(({type}){value});
 #else
-        PyObject *{name}_ = PyInt_FromLong(({type}){value});
-#endif
-        PyObject *{name} = sipConvertFromNewType({name}_, sipType_{type}, sipTransferObj);"""
+        PyObject *{name} = PyInt_FromLong(({type}){value});
+#endif"""
     elif category in [HELD_AS.POINTER, HELD_AS.OBJECT]:
         code = """
-    {type} *{name} = new {type}({value});"""
+    {type} *{name}_ = new {type}({value});
+    PyObject *{name} = sipConvertFromNewType({name}_, sipType_{type}, sipTransferObj);
+"""
     code = code.replace("{name}", name)
     code = code.replace("{type}", type)
     code = code.replace("{value}", value)
@@ -59,7 +60,11 @@ def _from(name, type, value, category):
 
 
 def _decref(name, category):
-    if category in [HELD_AS.INTEGRAL, HELD_AS.POINTER]:
+    if category == HELD_AS.INTEGRAL:
+        code = """
+        Py_DECREF({name});
+"""
+    elif category == HELD_AS.POINTER:
         code = """
     if ({name}) {
         Py_DECREF({name});
