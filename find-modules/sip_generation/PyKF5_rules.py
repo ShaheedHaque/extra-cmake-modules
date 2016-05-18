@@ -35,6 +35,7 @@ SIP binding customisation for PyKF5. This modules describes:
 
 import rules_engine
 import PyKF5_methodcode
+import PyKF5_modulecode
 import PyKF5_typecode
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
@@ -357,7 +358,7 @@ class RuleSet(rules_engine.RuleSet):
         self._unexposed_db = rules_engine.UnexposedRuleDb(unexposed_rules)
         self._var_db = rules_engine.VariableRuleDb(variable_rules)
         self._methodcode = rules_engine.MethodCodeDb(PyKF5_methodcode.code)
-        self._modulecode = rules_engine.ModuleCodeDb({})
+        self._modulecode = rules_engine.ModuleCodeDb(PyKF5_modulecode.code)
         self._typecode = rules_engine.TypeCodeDb(PyKF5_typecode.code)
 
     def container_rules(self):

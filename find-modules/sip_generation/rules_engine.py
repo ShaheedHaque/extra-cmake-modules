@@ -566,6 +566,9 @@ class AbstractCompiledCodeDb(object):
 
     def trace_result(self, parents, item, original, modified):
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
+        self._trace_result(fqn, original, modified)
+
+    def _trace_result(self, fqn, original, modified):
         if not modified["name"]:
             logger.debug(_("Rule {} suppressed {}, {}").format(self, fqn, original))
         else:
@@ -786,6 +789,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         for k in sorted(self.db.keys()):
             v = self.db[k]
             fn(type(self).__name__, "[" + k + "]", v["usage"])
+
 
 class ModuleCodeDb(AbstractCompiledCodeDb):
     """
@@ -1012,7 +1016,8 @@ class RuleSet(object):
             else:
                 logger.warn(_("Rule {}::{} unused".format(db_name, rule)))
         for db in [self.container_rules(), self.function_rules(), self.parameter_rules(), self.typedef_rules(),
-                   self.unexposed_rules(), self.variable_rules(), self.methodcode_rules(), self.typecode_rules()]:
+                   self.unexposed_rules(), self.variable_rules(), self.methodcode_rules(), self.modulecode_rules(),
+                   self.typecode_rules()]:
             db.dump_usage(dumper)
 
     def _check_directory_list(self, paths):
@@ -1072,7 +1077,7 @@ def main(argv=None):
         # Generate help!
         #
         for db in [RuleSet, ContainerRuleDb, FunctionRuleDb, ParameterRuleDb, TypedefRuleDb, UnexposedRuleDb,
-                   VariableRuleDb, MethodCodeDb, TypeCodeDb]:
+                   VariableRuleDb, MethodCodeDb, ModuleCodeDb, TypeCodeDb]:
             name = db.__name__
             print(name)
             print("=" * len(name))
