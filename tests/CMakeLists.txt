@@ -64,7 +64,7 @@ endmacro()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/find-modules)
 
-find_package(PythonModuleGeneration QUIET)
+find_package(PythonModuleGeneration REQUIRED)
 
 foreach(pyversion 2 3)
   if (GPB_PYTHON${pyversion}_COMMAND)

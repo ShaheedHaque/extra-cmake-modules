@@ -85,9 +85,20 @@ macro(find_python version _CURRENT_VERSION)
   endif()
 endmacro()
 
-if (NOT Qt5Core_VERSION_MINOR OR NOT Qt5Core_VERSION_PATCH)
+macro(report_NOT_FOUND message)
+  if(NOT ${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+    set(_GPB_MESSAGE_TYPE STATUS)
+    if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+      set(_GPB_MESSAGE_TYPE FATAL_ERROR)
+    endif()
+    message(${_GPB_MESSAGE_TYPE} ${message})
+  endif()
   set(PythonModuleGeneration_FOUND FALSE)
   return()
+endmacro()
+
+if (NOT Qt5Core_VERSION_MINOR OR NOT Qt5Core_VERSION_PATCH)
+  report_NOT_FOUND("Qt 5 must be found before finding ${CMAKE_FIND_PACKAGE_NAME}.")
 endif()
 
 set(_PYTHON2_VERSIONS 2.7 2.6 2.5 2.4 2.3 2.2 2.1 2.0)
@@ -101,21 +112,18 @@ foreach(_CURRENT_VERSION ${_PYTHON2_VERSIONS})
   find_python(2 ${_CURRENT_VERSION})
 endforeach()
 
-if(NOT _pyversions)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+if (NOT _pyversions)
+  report_NOT_FOUND("At least one python version must be available to use ${CMAKE_FIND_PACKAGE_NAME}.")
 endif()
 
 find_program(GBP_SIP_COMMAND sip)
 
-if(NOT GBP_SIP_COMMAND)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+if (NOT GBP_SIP_COMMAND)
+  report_NOT_FOUND("The sip executable must be available to use ${CMAKE_FIND_PACKAGE_NAME}.")
 endif()
 
-if(NOT GPB_PYTHON2_COMMAND)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+if (NOT GPB_PYTHON2_COMMAND)
+  report_NOT_FOUND("The python2 executable is required by clang-python for the ${CMAKE_FIND_PACKAGE_NAME} Module.")
 endif()
 
 execute_process(
@@ -124,8 +132,7 @@ execute_process(
 )
 
 if (selfCheckErrors)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+  report_NOT_FOUND("sip_generator failed a self-check for the ${CMAKE_FIND_PACKAGE_NAME} Module.")
 endif()
 
 find_file(SIP_Qt5Core_Mod_FILE
@@ -134,8 +141,7 @@ find_file(SIP_Qt5Core_Mod_FILE
 )
 
 if(NOT SIP_Qt5Core_Mod_FILE)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+  report_NOT_FOUND("PyQt module files not found for the ${CMAKE_FIND_PACKAGE_NAME} Module.")
 endif()
 
 file(STRINGS "${SIP_Qt5Core_Mod_FILE}" _SIP_Qt5_VERSIONS
@@ -149,8 +155,7 @@ set(GPB_Qt5_Tag Qt_5_${Qt5Core_VERSION_MINOR}_${Qt5Core_VERSION_PATCH})
 list(FIND _SIP_Qt5_VERSIONS ${GPB_Qt5_Tag} _SIP_Qt5_Version_Index)
 
 if(_SIP_Qt5_Version_Index EQUAL -1)
-  set(PythonModuleGeneration_FOUND FALSE)
-  return()
+  report_NOT_FOUND("PyQt module does not support Qt version ${Qt5Core_VERSION_MINOR}.${Qt5Core_VERSION_PATCH} for the ${CMAKE_FIND_PACKAGE_NAME} Module.")
 endif()
 
 set(PythonModuleGeneration_FOUND TRUE)
