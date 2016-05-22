@@ -137,6 +137,12 @@ if (selfCheckErrors)
   report_NOT_FOUND("sip_generator failed a self-check for the ${CMAKE_FIND_PACKAGE_NAME} Module.")
 endif()
 
+get_filename_component(libclang_file "${libclang_file}" REALPATH)
+
+string(REGEX MATCH "libclang(.*).so" _GPB_CLANG_SUFFIX "${libclang_file}" )
+
+set(_GPB_CLANG_SUFFIX ${CMAKE_MATCH_1})
+
 find_file(SIP_Qt5Core_Mod_FILE
   NAMES QtCoremod.sip
   PATH_SUFFIXES share/sip/PyQt5/QtCore
@@ -167,7 +173,7 @@ include(CMakeParseArguments)
 set(GPB_MODULE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 function(_compute_implicit_include_dirs)
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -v -E -x c++ -
+  execute_process(COMMAND clang++${_GPB_CLANG_SUFFIX} -v -E -x c++ -
                   ERROR_VARIABLE _compilerOutput
                   OUTPUT_VARIABLE _compilerStdout
                   INPUT_FILE /dev/null)
