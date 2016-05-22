@@ -247,7 +247,11 @@ function(ecm_generate_python_binding
         set(sip_file "${CMAKE_CURRENT_BINARY_DIR}/sip/${pythonnamespace_value}/${modulename_value}/${hdr}.sip")
         list(APPEND sip_files ${sip_file})
 
-        set(inc_dirs "-I$<JOIN:$<TARGET_PROPERTY:${target_value},INTERFACE_INCLUDE_DIRECTORIES>;${_GPB_IMPLICIT_INCLUDE_DIRS},;-I>")
+        set(inc_dirs "-I$<JOIN:$<TARGET_PROPERTY:${target_value},INTERFACE_INCLUDE_DIRECTORIES>,;-I>")
+        set(sys_inc_dirs)
+        foreach(d ${_GPB_IMPLICIT_INCLUDE_DIRS})
+           list(APPEND sys_inc_dirs "-isystem" "${d}")
+        endforeach()
         set(comp_defs "-D$<JOIN:$<TARGET_PROPERTY:${target_value},INTERFACE_COMPILE_DEFINITIONS>,;-D>")
 
         foreach(stdVar 11 14)
@@ -258,7 +262,7 @@ function(ecm_generate_python_binding
 
         add_custom_command(OUTPUT ${sip_file}
             COMMAND ${GPB_PYTHON2_COMMAND} ${GPB_MODULE_DIR}/sip_generation/sip_generator.py
-              --flags " ${inc_dirs};${comp_defs};${comp_flags}"
+              --flags " ${inc_dirs};${sys_inc_dirs};${comp_defs};${comp_flags}"
               --include_filename "${hdr_filename}"
               ${GPB_RULES_FILE}
               "${hdr_file}" > "${sip_file}"
