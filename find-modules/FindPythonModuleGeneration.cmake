@@ -129,6 +129,8 @@ endif()
 execute_process(
   COMMAND ${GPB_PYTHON2_COMMAND} ${CMAKE_CURRENT_LIST_DIR}/sip_generation/sip_generator.py --self-check
   RESULT_VARIABLE selfCheckErrors
+  OUTPUT_VARIABLE libclang_file
+  OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
 if (selfCheckErrors)

@@ -1015,3 +1015,4 @@ if __name__ == "__main__":
         sys.exit(main())
     else:
         SipGenerator._find_libclang()
+        print(cindex.Config.library_file)
