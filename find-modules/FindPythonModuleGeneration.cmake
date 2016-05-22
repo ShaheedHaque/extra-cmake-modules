@@ -97,7 +97,7 @@ macro(report_NOT_FOUND message)
   return()
 endmacro()
 
-if (NOT Qt5Core_VERSION_MINOR OR NOT Qt5Core_VERSION_PATCH)
+if (NOT Qt5Core_FOUND)
   report_NOT_FOUND("Qt 5 must be found before finding ${CMAKE_FIND_PACKAGE_NAME}.")
 endif()
 
