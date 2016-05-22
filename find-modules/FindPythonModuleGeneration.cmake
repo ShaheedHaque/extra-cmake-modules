@@ -249,7 +249,7 @@ function(ecm_generate_python_binding
         set(comp_defs "-D$<JOIN:$<TARGET_PROPERTY:${target_value},INTERFACE_COMPILE_DEFINITIONS>,;-D>")
 
         foreach(stdVar 11 14)
-          list(APPEND stdFlag "$<$<STREQUAL:$<TARGET_PROPERTY:${target_value},CXX_STANDARD>,${stdVar}>:${CMAKE_CXX${stdVar}_EXTENSION_COMPILE_OPTION}>")
+          set(stdFlag "$<$<STREQUAL:$<TARGET_PROPERTY:${target_value},CXX_STANDARD>,${stdVar}>:${CMAKE_CXX${stdVar}_EXTENSION_COMPILE_OPTION}>")
         endforeach()
 
         set(comp_flags "$<JOIN:$<TARGET_PROPERTY:${target_value},INTERFACE_COMPILE_OPTIONS>;${stdFlag},;>")
