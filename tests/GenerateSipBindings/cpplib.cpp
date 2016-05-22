@@ -42,12 +42,12 @@ int MyObject::findNeedle(QStringList list, QString needle, Qt::MatchFlags flags)
 
 int MyObject::qtEnumTest(QFlags<Qt::MatchFlag> flags)
 {
-
+  return 0;
 }
 
 int MyObject::localEnumTest(QFlags<LocalEnum> flags)
 {
-
+  return 0;
 }
 
 int MyObject::functionParam(std::function<int()> fn)
