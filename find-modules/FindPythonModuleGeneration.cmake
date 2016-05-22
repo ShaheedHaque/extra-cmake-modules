@@ -317,6 +317,9 @@ headers = sipAPI${modulename_value}
        DEPENDS generate_${modulename_value}_sip_files "${GPB_MODULE_DIR}/run-sip.py" ${generator_depends}
     )
 
+    add_custom_target(sip_generated_${modulename_value}_files ALL
+          DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/pybuild/${pythonnamespace_value}/${modulename_value}/unified${modulename_value}.cpp")
+
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/sip/${pythonnamespace_value}/${modulename_value}"
          "${CMAKE_CURRENT_BINARY_DIR}/pybuild/${pythonnamespace_value}/${modulename_value}")
 
@@ -328,6 +331,7 @@ headers = sipAPI${modulename_value}
         add_library(Py${pyversion}KF5${modulename_value} MODULE
           "${CMAKE_CURRENT_BINARY_DIR}/pybuild/${pythonnamespace_value}/${modulename_value}/unified${modulename_value}.cpp"
         )
+        add_dependencies(Py${pyversion}KF5${modulename_value} sip_generated_${modulename_value}_files)
         target_link_libraries(Py${pyversion}KF5${modulename_value} PRIVATE ${target_value} Python::Libs${pyversion})
 
         target_compile_options(Py${pyversion}KF5${modulename_value} PRIVATE -fstack-protector-strong -Wno-deprecated-declarations -Wno-overloaded-virtual)
