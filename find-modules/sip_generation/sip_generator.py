@@ -990,6 +990,7 @@ def main(argv=None):
     parser.add_argument("project_rules", help=_("Project rules"))
     parser.add_argument("--include_filename", help=_("C++ header include to compile"))
     parser.add_argument("source", help=_("C++ header to process"))
+    parser.add_argument("output", help=_("output filename to write"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -1003,7 +1004,8 @@ def main(argv=None):
         g = SipGenerator(rules, args.verbose)
         body, includes = g.create_sip(args.source, args.include_filename)
         if body:
-            print(body)
+            with open(args.output, "w") as outputFile:
+                outputFile.write(body)
     except Exception as e:
         tbk = traceback.format_exc()
         print(tbk)

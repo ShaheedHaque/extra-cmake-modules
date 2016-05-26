@@ -271,7 +271,8 @@ function(ecm_generate_python_binding
               --flags " ${inc_dirs};${sys_inc_dirs};${comp_defs};${comp_flags}"
               --include_filename "${hdr_filename}"
               ${GPB_RULES_FILE}
-              "${hdr_file}" > "${sip_file}"
+              "${hdr_file}"
+              "${sip_file}"
             DEPENDS ${hdr_file} ${generator_depends}
             VERBATIM
         )
