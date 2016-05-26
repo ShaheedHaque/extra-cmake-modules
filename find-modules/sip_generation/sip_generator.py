@@ -1003,9 +1003,8 @@ def main(argv=None):
         rules = rules_engine.rules(args.project_rules, args.flags.lstrip().split(";"))
         g = SipGenerator(rules, args.verbose)
         body, includes = g.create_sip(args.source, args.include_filename)
-        if body:
-            with open(args.output, "w") as outputFile:
-                outputFile.write(body)
+        with open(args.output, "w") as outputFile:
+            outputFile.write(body)
     except Exception as e:
         tbk = traceback.format_exc()
         print(tbk)
