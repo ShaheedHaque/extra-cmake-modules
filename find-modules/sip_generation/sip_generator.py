@@ -107,18 +107,18 @@ class SipGenerator(object):
             text = cursor.spelling
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
-    def create_sip(self, h_file, include_filename):
+    def create_sip(self, root, h_file):
         """
         Actually convert the given source header file into its SIP equivalent.
 
-        :param h_file:              The source (header) file of interest.
-        :param include_filename:    The (header) to generate in the sip file.
+        :param root:                The root of the source tree.
+        :param h_file:              Add this suffix to the root to find the source (header) file of interest.
         """
 
         #
         # Read in the original file.
         #
-        source = h_file
+        source = os.path.join(root, h_file)
         self.unpreprocessed_source = []
         with open(source, "rU") as f:
             for line in f:
@@ -157,7 +157,7 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body = self._container_get(self.tu.cursor, -1, h_file, include_filename)
+        body = self._container_get(self.tu.cursor, -1, h_file)
         return body, self.tu.get_includes
 
     CONTAINER_SKIPPABLE_UNEXPOSED_DECL = re.compile("_DECLARE_PRIVATE|friend|;")
@@ -166,7 +166,7 @@ class SipGenerator(object):
     VAR_SKIPPABLE_ATTR = re.compile("_EXPORT")
     TYPEDEF_SKIPPABLE_ATTR = re.compile("_EXPORT")
 
-    def _container_get(self, container, level, h_file, include_filename):
+    def _container_get(self, container, level, h_file):
         """
         Generate the (recursive) translation for a class or namespace.
 
@@ -238,7 +238,7 @@ class SipGenerator(object):
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-                decl = self._container_get(member, level + 1, h_file, include_filename)
+                decl = self._container_get(member, level + 1, h_file)
             elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
@@ -378,7 +378,7 @@ class SipGenerator(object):
                     if sip["template_parameters"]:
                         decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
                     decl += "\n" + pad + "{\n"
-                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
+                    decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(h_file)
                     decl += sip["code"]
                     body = decl + sip["body"] + pad + "};\n"
                     #
@@ -953,7 +953,6 @@ def main(argv=None):
     parser.add_argument("--flags",
                         help=_("Semicolon-separated C++ compile flags to use"))
     parser.add_argument("project_rules", help=_("Project rules"))
-    parser.add_argument("--include_filename", help=_("C++ header include to compile"))
     parser.add_argument("source", help=_("C++ header to process"))
     parser.add_argument("output", help=_("output filename to write"))
     try:
@@ -967,7 +966,9 @@ def main(argv=None):
         #
         rules = rules_engine.rules(args.project_rules, args.flags.lstrip().split(";"))
         g = SipGenerator(rules, args.verbose)
-        body, includes = g.create_sip(args.source, args.include_filename)
+        root = os.path.dirname(args.source)
+        h_file = os.path.basename(args.source)
+        body, includes = g.create_sip(root, h_file)
         with open(args.output, "w") as outputFile:
             outputFile.write(body)
     except Exception as e:

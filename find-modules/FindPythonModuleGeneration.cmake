@@ -269,7 +269,6 @@ function(ecm_generate_python_binding
         add_custom_command(OUTPUT ${sip_file}
             COMMAND ${GPB_PYTHON2_COMMAND} ${GPB_MODULE_DIR}/sip_generation/sip_generator.py
               --flags " ${inc_dirs};${sys_inc_dirs};${comp_defs};${comp_flags}"
-              --include_filename "${hdr_filename}"
               ${GPB_RULES_FILE}
               "${hdr_file}"
               "${sip_file}"
