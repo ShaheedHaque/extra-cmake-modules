@@ -64,19 +64,23 @@ def feature_for_sip_module(module):
 
 
 class SipBulkGenerator(SipGenerator):
-    def __init__(self, project_rules, omitter, selector, project_root, output_dir):
+    def __init__(self, module_name, project_rules, includes, sips, omitter, selector, project_root, output_dir):
         """
         Constructor.
 
+        :param module_name:         The module name for the project.
         :param project_rules:       The rules for the project.
+        :param includes:            Comma-separated CXX includes directories to use.
+        :param sips:                Comma-separated SIP module directories to use.
         :param omitter:             A regular expression which sets the files from project_root NOT to be processed.
         :param selector:            A regular expression which limits the files from project_root to be processed.
         :param project_root:        The root of files for which to generate SIP.
         :param output_dir:          The destination SIP directory.
         """
         super(SipBulkGenerator, self).__init__(project_rules)
-        self.includes = self.rules.includes()
-        self.sips = self.rules.sips()
+        self.module_name = module_name
+        self.includes = includes
+        self.sips = sips
         self.root = project_root
         self.omitter = omitter
         self.selector = selector
@@ -153,7 +157,7 @@ class SipBulkGenerator(SipGenerator):
                 if e.errno != errno.EEXIST:
                     raise
             logger.info(_("Creating {}").format(full_output))
-            decl += "%Module(name={}.{})\n".format(self.rules.project_name(), module)
+            decl += "%Module(name={}.{})\n".format(self.module_name, module)
             #
             # Create something which the SIP compiler can process that includes what appears to be the
             # immediate fanout from this module.
@@ -377,8 +381,24 @@ class SipBulkGenerator(SipGenerator):
 // 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 %End
 //
-""".format(output_file, self.rules.project_name(), h_file, datetime.datetime.utcnow().year)
+""".format(output_file, self.module_name, h_file, datetime.datetime.utcnow().year)
         return header
+
+
+def walk_directories(root, fn):
+    """
+    Walk over a directory tree and for each directory, apply a function.
+    :param root:                Tree to be walked.
+    :param fn:                  Function to apply.
+    :return: None
+    """
+    names = os.listdir(root)
+    for name in names:
+        srcname = os.path.join(root, name)
+        if os.path.isdir(srcname):
+            fn(srcname)
+        if os.path.isdir(srcname):
+            walk_directories(srcname, fn)
 
 
 def main(argv=None):
@@ -407,6 +427,7 @@ def main(argv=None):
                         help=_("Comma-separated C++ header directories to use"))
     parser.add_argument("--sips", default="/usr/share/sip/PyQt5",
                         help=_("Comma-separated SIP module directories to use"))
+    parser.add_argument("--module-name", default="PyKF5", help=_("Module name"))
     parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), "PyKF5_rules.py"),
                         help=_("Project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
@@ -426,8 +447,12 @@ def main(argv=None):
         #
         # Generate!
         #
-        rules = rules_engine.rules(args.project_rules, args.includes + "," + args.sources, args.sips)
-        d = SipBulkGenerator(rules, args.omit, args.select, args.sources, args.sip)
+        includes = args.includes.lstrip().split(",") + [args.sources]
+        exploded_includes = set(includes)
+        for include_root in includes:
+            walk_directories(include_root, lambda d: exploded_includes.add(d))
+        rules = rules_engine.rules(args.project_rules, ["-I" + i for i in exploded_includes])
+        d = SipBulkGenerator(args.module_name, rules, includes, args.sips, args.omit, args.select, args.sources, args.sip)
         d.process_tree()
         if args.dump_rule_usage:
             rules.dump_unused()

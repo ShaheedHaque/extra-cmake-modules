@@ -59,21 +59,23 @@ _ = _
 
 
 class CxxDriver(object):
-    def __init__(self, project_rules, input_dir, output_dir, library_globs, verbose):
+    def __init__(self, module_name, project_rules, input_dir, includes, sips, output_dir, library_globs, verbose):
         """
         Constructor.
 
+        :param module_name:         The module name for the project.
         :param project_rules:       The rules for the project.
         :param input_dir:           The source SIP directory.
-        :param output_dir:          The destination CXX directory.
+        :param includes:            Comma-separated CXX includes directories to use.
+        :param sips:                Comma-separated SIP module directories to use.
         :param library_globs:       Comma-separated globs of library files.
         :param verbose:             Debug info.
         """
         self.rules = project_rules
-        self.includes = self.rules.includes()
-        self.sips = self.rules.sips()
         self.input_dir = input_dir
-        self.output_dir = output_dir
+        self.includes = includes
+        self.sips = sips
+        self.output_dir = module_name
         self.libraries = []
         for lg in library_globs.split(","):
             lg = lg.strip()
@@ -215,11 +217,11 @@ class CxxDriver(object):
             cpython_module = os.path.join(full_output, package + ".so")
             package_path = os.path.dirname(module_path)
             if package_path:
-                logger.info(_("Publishing {}.{}.{}").format(self.rules.project_name(),
+                logger.info(_("Publishing {}.{}.{}").format(self.module_name,
                                                             package_path.replace(os.path.sep, "."), package))
                 package_path = os.path.join(self.output_dir, package_path)
             else:
-                logger.info(_("Publishing {}.{}").format(self.rules.project_name(), package))
+                logger.info(_("Publishing {}.{}").format(self.module_name, package))
                 package_path = self.output_dir
             try:
                 os.makedirs(package_path)
@@ -243,6 +245,22 @@ class CxxDriver(object):
             raise RuntimeError(stdout)
         if self.verbose and stdout:
             print(stdout)
+
+
+def walk_directories(root, fn):
+    """
+    Walk over a directory tree and for each directory, apply a function.
+    :param root:                Tree to be walked.
+    :param fn:                  Function to apply.
+    :return: None
+    """
+    names = os.listdir(root)
+    for name in names:
+        srcname = os.path.join(root, name)
+        if os.path.isdir(srcname):
+            fn(srcname)
+        if os.path.isdir(srcname):
+            walk_directories(srcname, fn)
 
 
 def main(argv=None):
@@ -273,12 +291,12 @@ def main(argv=None):
                         help=_("Comma-separated globs of libraries to use"))
     parser.add_argument("--sips", default="/usr/share/sip/PyQt5",
                         help=_("Comma-separated SIP module directories to use"))
+    parser.add_argument("--module-name", default="PyKF5", help=_("Module name"))
     parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), "PyKF5_rules.py"),
                         help=_("Project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I) if not s.startswith("@") else s[1:],
                         help=_("Regular expression of SIP modules from '--project-rules' to be processed, or a filename starting with '@'"))
     parser.add_argument("sip", help=_("Root of SIP modules to process"))
-    parser.add_argument("cxx", nargs="?", help=_("C++ output directory, default is project name from '--project-rules'"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -288,12 +306,11 @@ def main(argv=None):
         #
         # Compile!
         #
-        rules = rules_engine.rules(args.project_rules, args.includes, args.sips)
-        if not args.cxx:
-            args.cxx = rules.project_name()
-        if args.cxx != rules.project_name():
-            logger.warn(_("{} must be renamed to {} before use").format(args.cxx, rules.project_name()))
-        d = CxxDriver(rules, args.sip, args.cxx, args.links, args.verbose)
+        includes = args.includes.lstrip().split(",")
+        for include_root in includes:
+            walk_directories(include_root, lambda d: exploded_includes.add(d))
+        rules = rules_engine.rules(args.project_rules, ["-I" + i for i in exploded_includes])
+        d = CxxDriver(args.module_name, rules, args.sip, includes, args.sips, args.links, args.verbose)
         if isinstance(args.select, str):
             d.process_one_module(args.select, standalone=True)
         else:
