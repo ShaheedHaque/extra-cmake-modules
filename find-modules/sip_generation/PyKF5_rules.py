@@ -40,6 +40,7 @@ import rules_engine
 import PyKF5_methodcode
 import PyKF5_modulecode
 import PyKF5_typecode
+import PyKF5_KAuth
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
@@ -228,12 +229,7 @@ def function_rules():
         #
         [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
         #
-        # Protected functions which require access to private stuff.
-        #
         ["KJob", ".*", ".*", ".*", ".*KJob::QPrivateSignal.*", rules_engine.function_discard],
-        ["KUser", "KUser", ".*", ".*", ".*passwd.*", rules_engine.function_discard],
-        ["KUserGroup", "KUserGroup", ".*", ".*", ".*group.*", rules_engine.function_discard],
-        #
         # TODO: Temporarily remove any functions which require templates. SIP seems to support, e.g. QPairs,
         # but we have not made them work yet.
         #
@@ -263,9 +259,8 @@ def function_rules():
         #
         [".*", "operator\|", ".*", ".*", "", rules_engine.function_discard],
         #
-        # kuser.h has inline operators.
+        # Inline operators.
         #
-        [".*", "operator!=", ".*", ".*", "const KUser(Group){0,1} &other", rules_engine.function_discard],
         ["KFileItem", "operator QVariant", ".*", ".*", ".*", rules_engine.function_discard],
         ["KService", "operator KPluginName", ".*", ".*", ".*", rules_engine.function_discard],
         #
@@ -386,6 +381,9 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=parameter_rules, typedef_rules=typedef_rules,
             unexposed_rules=unexposed_rules, variable_rules=variable_rules,
             methodcode=PyKF5_methodcode.code, modulecode=PyKF5_modulecode.code, typecode=PyKF5_typecode.code)
+        self.add_rules(
+            function_rules=PyKF5_KAuth.function_rules,
+            modulecode=PyKF5_KAuth.modulecode)
 
     def container_rules(self):
         return self._container_db
