@@ -42,6 +42,7 @@ import PyKF5_modulecode
 import PyKF5_typecode
 import PyKF5_KAuth
 import PyKF5_KCoreAddons
+import PyKF5_KCodecs
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
@@ -368,6 +369,10 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=PyKF5_KCoreAddons.function_rules,
             parameter_rules=PyKF5_KCoreAddons.parameter_rules,
             typecode=PyKF5_KCoreAddons.typecode)
+        self.add_rules(
+            container_rules=PyKF5_KCodecs.container_rules,
+            function_rules=PyKF5_KCodecs.function_rules,
+            parameter_rules=PyKF5_KCodecs.parameter_rules)
 
     def container_rules(self):
         return self._container_db
