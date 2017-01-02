@@ -43,6 +43,7 @@ import PyKF5_typecode
 import PyKF5_KAuth
 import PyKF5_KCoreAddons
 import PyKF5_KCodecs
+import PyKF5_KCompletion
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
@@ -221,6 +222,7 @@ def function_rules():
         # Discard functions emitted by QOBJECT.
         #
         [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "d_func", ".*", ".*", ".*", rules_engine.function_discard],
         #
         # SIP does not support operator=.
         #
@@ -373,6 +375,8 @@ class RuleSet(rules_engine.RuleSet):
             container_rules=PyKF5_KCodecs.container_rules,
             function_rules=PyKF5_KCodecs.function_rules,
             parameter_rules=PyKF5_KCodecs.parameter_rules)
+        self.add_rules(
+            function_rules=PyKF5_KCompletion.function_rules)
 
     def container_rules(self):
         return self._container_db
