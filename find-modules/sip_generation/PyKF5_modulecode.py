@@ -29,50 +29,6 @@
 SIP binding custom module-related code for PyKF5.
 """
 
-def _kcoreconfigskeleton_item_add_py_subclass(filename, sip, entry):
-    result = """
-%ModuleHeaderCode
-#include <kcoreconfigskeleton.h>
-"""
-    for ctx in ({"Type": "Bool", "cpptype": "bool", "defaultValue": 1},
-            {"Type": "Int", "cpptype": "qint32", "defaultValue": 1},
-            {"Type": "UInt", "cpptype": "quint32", "defaultValue": 1},
-            {"Type": "LongLong", "cpptype": "qint64", "defaultValue": 1},
-            {"Type": "ULongLong", "cpptype": "quint64", "defaultValue": 1},
-            {"Type": "Double", "cpptype": "double", "defaultValue": 1},
-        ):
-        result += """
-class PyItem{Type} : public KCoreConfigSkeleton::Item{Type}
-{{
-public:
-    PyItem{Type} (const QString &group, const QString &key, {cpptype}& val, {cpptype} defaultValue = {defaultValue}) :
-        KCoreConfigSkeleton::Item{Type} (group, key, this->value, defaultValue),
-        value(val)
-    {{
-    }}
-
-private:
-    {cpptype} value;
-}};
-""".format(**ctx)
-
-    result += """
-class PyItemEnum : public KCoreConfigSkeleton::ItemEnum
-{
-public:
-    PyItemEnum (const QString& group, const QString& key, int& val, const QList<KCoreConfigSkeleton::ItemEnum::Choice>& choices, int defaultValue = 0) :
-        KCoreConfigSkeleton::ItemEnum(group, key, this->value, choices, defaultValue),
-        value(val)
-    {
-    };
-
-private:
-    int value;
-};
-%End\n
-"""
-    sip["code"] = result
-
 
 #
 # Main dictionary.
@@ -82,7 +38,4 @@ private:
 #
 def code():
     return {
-    "kcoreconfigskeleton.h": {
-        "code": _kcoreconfigskeleton_item_add_py_subclass
-    },
-}
+    }

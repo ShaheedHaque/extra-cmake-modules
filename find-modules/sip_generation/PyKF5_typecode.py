@@ -1896,63 +1896,6 @@ def code():
 %End
 """
 },
-# ./kdecore/kcoreconfigskeleton.sip
-"kcoreconfigskeleton.h::KCoreConfigSkeleton": { #KCoreConfigSkeleton : QObject
-"code":
-"""
-%ConvertToSubClassCode
-    // CTSCC for subclasses of 'KConfigSkeletonItem'
-    sipType = NULL;
-
-    if (dynamic_cast<KCoreConfigSkeleton::ItemBool*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemBool;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemDateTime*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemDateTime;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemDouble*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemDouble;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemInt*>(sipCpp))
-        {
-        sipType = sipType_KCoreConfigSkeleton_ItemInt;
-        if (dynamic_cast<KCoreConfigSkeleton::ItemEnum*>(sipCpp))
-            sipType = sipType_KCoreConfigSkeleton_ItemEnum;
-        }
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemIntList*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemIntList;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemLongLong*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemLongLong;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemPoint*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemPoint;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemProperty*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemProperty;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemRect*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemRect;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemSize*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemSize;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemString*>(sipCpp))
-        {
-        sipType = sipType_KCoreConfigSkeleton_ItemString;
-        if (dynamic_cast<KCoreConfigSkeleton::ItemPassword*>(sipCpp))
-            sipType = sipType_KCoreConfigSkeleton_ItemPassword;
-        else if (dynamic_cast<KCoreConfigSkeleton::ItemPath*>(sipCpp))
-            sipType = sipType_KCoreConfigSkeleton_ItemPath;
-        }
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemStringList*>(sipCpp))
-        {
-        sipType = sipType_KCoreConfigSkeleton_ItemStringList;
-        if (dynamic_cast<KCoreConfigSkeleton::ItemPathList*>(sipCpp))
-            sipType = sipType_KCoreConfigSkeleton_ItemPathList;
-        }
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemUInt*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemUInt;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemULongLong*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemULongLong;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemUrl*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemUrl;
-    else if (dynamic_cast<KCoreConfigSkeleton::ItemUrlList*>(sipCpp))
-        sipType = sipType_KCoreConfigSkeleton_ItemUrlList;
-%End
-"""
-},
 # ./kdecore/kservice.sip
 "kservice.h::KService": { #QList<KService::Ptr>
     "code": QList_cfttc,
