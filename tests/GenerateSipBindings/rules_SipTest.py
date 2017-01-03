@@ -62,6 +62,25 @@ int myAcumulate(const QList<int> *list) {
                     """
                 }
             },
+            "TypedefUser": {
+                "initialisers": {
+                    "code": """
+                    %MethodCode
+                    // Blah
+                    %End
+                    """,
+                    "decl2": [
+                        "Qt::MatchFlags flagsOne",
+                        "Qt::MatchFlags flagsMultiple",
+                        "int simple",
+                        "int complex",
+                        "int brackets",
+                        "LocalEnum anEnum",
+                        "QMap<const char*, int> chachacha"
+                    ],
+                    "fn_result2": "int",
+                }
+            },
             "cpplib.h": {
                 "anotherCustomMethod": {
                     "code": methodGenerator,

@@ -195,6 +195,39 @@ public:
   void setTagPattern(const QString &tagName,
                      SomeNS::TagFormatter formatter = NULL,
                      int leadingNewlines = 0);
+
+
+  enum LocalEnum {
+    Val1 = 1,
+    Val2
+  };
+
+  int initialisers(
+    //
+    // Flags.
+    //
+    Qt::MatchFlags flagsOne = Qt::MatchWrap,
+    Qt::MatchFlags flagsMultiple = Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap),
+    Qt::MatchFlags flagsMultipleSimple = Qt::MatchStartsWith | Qt::MatchWrap,
+    //
+    // Expressions.
+    //
+    int simple = 1,
+    int complex = 1 + 1,
+    int brackets = (1 + 1),
+    //
+    // Enum.
+    //
+    enum LocalEnum anEnum = Val2,
+    MyObject::LocalEnum remoteEnum = MyObject::Val2,
+    //
+    // Template.
+    //
+    QMap<const char*, int> chachacha = QMap<const char*, int>(),
+    //
+    // Qualified object.
+    //
+    const SomeNS::NonCopyableInNS &qualified = SomeNS::NonCopyableInNS()) { return 0; }
 };
 
 int anotherCustomMethod(QList<int> const& nums);
