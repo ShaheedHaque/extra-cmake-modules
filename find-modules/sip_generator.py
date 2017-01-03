@@ -479,74 +479,40 @@ class SipGenerator(object):
             or a ")" marking the end.
             2. Watch for the assignment.
         """
-        def _get_param_type(parameter):
-            result = parameter.type.get_declaration().type
-
-            if (parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF):
-                isQFlags = False
-                for member in parameter.type.get_declaration().get_children():
-                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == "QFlags":
-                        isQFlags = True
-                    if isQFlags and member.kind == CursorKind.TYPE_REF:
-                        result = member.type
-                        break
-
-            return result
-
-        def _get_param_value(text, parameterType):
-            if text == "0":
-                return text
-            if not "::" in parameterType.spelling:
-                return text
-            try:
-                typeText, typeInit = text.split("(")
-                typeInit = "(" + typeInit
-            except:
-                typeText = text
-                typeInit = ""
-
-            prefix = parameterType.spelling.rsplit("::", 1)[0]
-            if "::" in typeText:
-                typeText = typeText.rsplit("::", 1)[1]
-            return prefix + "::" + typeText + typeInit
-
-
-        for member in parameter.get_children():
-            if member.kind.is_expression():
-
-                possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
-                text = ""
-                bracket_level = 0
-                found_start = False
-                found_end = False
-                for token in self.tu.get_tokens(extent=possible_extent):
-                    if (token.spelling == "="):
-                        found_start = True
-                        continue
-                    if token.spelling == "," and bracket_level == 0:
-                        found_end = True
-                        break
-                    elif token.spelling == "(":
-                        bracket_level += 1
-                        text += token.spelling
-                    elif token.spelling == ")":
-                        if bracket_level == 0:
-                            found_end = True
-                            break
-                        bracket_level -= 1
-                        text += token.spelling
-                        if bracket_level == 0:
-                            found_end = True
-                            break
-                    elif found_start:
-                        text += token.spelling
-                if not found_end and text:
-                    RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
-
-                parameterType = _get_param_type(parameter)
-
-                return _get_param_value(text, parameterType)
-        return ""
+        possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
+        text = ""
+        bracket_level = 0
+        found_end = False
+        was_punctuated = True
+        default_value = None
+        for token in self.tu.get_tokens(extent=possible_extent):
+            if bracket_level <= 0 and token.spelling in [",", ")", ";"]:
+                found_end = True
+                break
+            elif token.spelling == "(":
+                was_punctuated = True
+                bracket_level += 1
+                text += token.spelling
+            elif token.spelling == ")":
+                was_punctuated = True
+                bracket_level -= 1
+                text += token.spelling
+            elif token.kind == TokenKind.PUNCTUATION:
+                was_punctuated = True
+                text += token.spelling
+                if token.spelling == "=" and default_value is None:
+                    default_value = len(text)
+            else:
+                if not was_punctuated:
+                    text += " "
+                text += token.spelling
+                was_punctuated = False
+        if not found_end and text:
+            RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
+        if default_value:
+            return text[default_value:]
+        else:
+            return ""
 
     def _typedef_get(self, typedef, level):
         """
