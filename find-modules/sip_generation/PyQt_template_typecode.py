@@ -45,7 +45,6 @@ def _to_sip_type(type_):
     """
     Convert a C++ type to a SIP type name.
     """
-    import pdb; pdb.set_trace()
     if "<" in type_:
         #
         # This must be a mapped type.

@@ -41,6 +41,7 @@ import PyKF5_methodcode
 import PyKF5_modulecode
 import PyKF5_typecode
 import PyKF5_KAuth
+import PyKF5_KCoreAddons
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
@@ -90,11 +91,6 @@ def _parameter_set_max_int(container, function, parameter, sip, matcher):
 
 def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
-
-
-def _parameter_qualify_enum_initialiser(container, function, parameter, sip, matcher):
-    """Enums in initialisers need to be fully qualified."""
-    sip["init"] = rules_engine._parents(function) + "::" + sip["init"]
 
 
 def _typedef_qmap_typecode(container, typedef, sip, matcher):
@@ -229,7 +225,6 @@ def function_rules():
         #
         [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
         #
-        ["KJob", ".*", ".*", ".*", ".*KJob::QPrivateSignal.*", rules_engine.function_discard],
         # TODO: Temporarily remove any functions which require templates. SIP seems to support, e.g. QPairs,
         # but we have not made them work yet.
         #
@@ -237,22 +232,10 @@ def function_rules():
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
         [".*", ".*", ".*", ".*", ".*QPair.*", rules_engine.function_discard],
         [".*", ".*", ".*", ".*QPair.*", ".*", rules_engine.function_discard],
-        ["KPluginLoader", "instantiatePlugins|findPlugins|forEachPlugin", ".*", ".*", ".*", rules_engine.function_discard],
-        #
-        # Strip protected functions which require private stuff to work.
-        #
-        ["KPluginFactory", "KPluginFactory", ".*", ".*", ".*KPluginFactoryPrivate", rules_engine.function_discard],
-        ["KJob", "KJob", ".*", ".*", "KJobPrivate.*", rules_engine.function_discard],
-        ["KCompositeJob", "KCompositeJob", ".*", ".*", "KCompositeJobPrivate.*", rules_engine.function_discard],
-        #
-        # Use forward declared types.
-        #
-        ["KPluginFactory", "createPartObject", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KPluginFactory", "create", ".*", ".*", ".*", rules_engine.function_discard],
         #
         # This class has inline implementations in the header file.
         #
-        ["KIconEngine|KIconLoader::Group|KPluginName", ".*", ".*", ".*", ".*", _function_discard_impl],
+        ["KIconEngine|KIconLoader::Group", ".*", ".*", ".*", ".*", _function_discard_impl],
         ["kiconloader.h", "operator\+\+", ".*", ".*", ".*", _function_discard_impl],
         #
         # kshell.h, kconfigbase.sip have inline operators.
@@ -263,17 +246,19 @@ def function_rules():
         #
         ["KFileItem", "operator QVariant", ".*", ".*", ".*", rules_engine.function_discard],
         ["KService", "operator KPluginName", ".*", ".*", ".*", rules_engine.function_discard],
-        #
-        # SIP thinks there are duplicate signatures.
-        #
-        ["KRandomSequence", "setSeed", ".*", ".*", "int.*", rules_engine.function_discard],
-        [".*", "qobject_cast", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", "qobject_interface_iid", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMacroExpanderBase", "expandMacrosShellQuote", ".*", ".*", "QString &str", rules_engine.function_discard],
         ["KMultiTabBar", "button|tab", ".*", ".*", ".*", _function_discard_class],
         ["KCalCore::Duration", "operator bool|operator!", ".*", ".*", "", rules_engine.function_discard],
         ["KPageDialog", "pageWidget|buttonBox", ".*", ".*", "", _function_discard_non_const],
         [".*", ".*", ".*", ".*", ".*Private.*", _function_discard_protected],
+        #
+        # This function does not exist.
+        #
+        [".*", "qt_check_for_QGADGET_macro", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # SIP thinks there are duplicate signatures.
+        #
+        [".*", "qobject_cast", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "qobject_interface_iid", ".*", ".*", ".*", rules_engine.function_discard],
     ]
 
 
@@ -293,11 +278,6 @@ def parameter_rules():
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
         ["KMultiTabBarButton", ".*Event", ".*", ".*", ".*", _parameter_strip_class_enum],
         ["KRockerGesture", "KRockerGesture", ".*", ".*", ".*", _parameter_strip_class_enum],
-        #
-        # Add a missing class name ahead of an enum initialiser.
-        #
-        ["KShell", "splitArgs", "flags", ".*", ".*", _parameter_qualify_enum_initialiser],
-        ["KUrlMimeData", "urlsFromMimeData", "decodeOptions", ".*", ".*", _parameter_qualify_enum_initialiser],
     ]
 
 
@@ -384,6 +364,10 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             function_rules=PyKF5_KAuth.function_rules,
             modulecode=PyKF5_KAuth.modulecode)
+        self.add_rules(
+            function_rules=PyKF5_KCoreAddons.function_rules,
+            parameter_rules=PyKF5_KCoreAddons.parameter_rules,
+            typecode=PyKF5_KCoreAddons.typecode)
 
     def container_rules(self):
         return self._container_db
