@@ -381,15 +381,11 @@ class RuleSet(rules_engine.RuleSet):
     and regular expression-based matching rules.
     """
     def __init__(self):
-        self._container_db = rules_engine.ContainerRuleDb(container_rules)
-        self._fn_db = rules_engine.FunctionRuleDb(function_rules)
-        self._param_db = rules_engine.ParameterRuleDb(parameter_rules)
-        self._typedef_db = rules_engine.TypedefRuleDb(typedef_rules)
-        self._unexposed_db = rules_engine.UnexposedRuleDb(unexposed_rules)
-        self._var_db = rules_engine.VariableRuleDb(variable_rules)
-        self._methodcode = rules_engine.MethodCodeDb(PyKF5_methodcode.code)
-        self._modulecode = rules_engine.ModuleCodeDb(PyKF5_modulecode.code)
-        self._typecode = rules_engine.TypeCodeDb(PyKF5_typecode.code)
+        super(RuleSet, self).__init__(
+            container_rules=container_rules, function_rules=function_rules,
+            parameter_rules=parameter_rules, typedef_rules=typedef_rules,
+            unexposed_rules=unexposed_rules, variable_rules=variable_rules,
+            methodcode=PyKF5_methodcode.code, modulecode=PyKF5_modulecode.code, typecode=PyKF5_typecode.code)
 
     def container_rules(self):
         return self._container_db

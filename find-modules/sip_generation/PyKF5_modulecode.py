@@ -80,7 +80,8 @@ private:
 # When using sip_bulk_generator.py, it is important to use the name of any forwardee header in
 # the key, since that is the file we actually use.
 #
-code = {
+def code():
+    return {
     "kcoreconfigskeleton.h": {
         "code": _kcoreconfigskeleton_item_add_py_subclass
     },
