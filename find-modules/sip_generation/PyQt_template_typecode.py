@@ -178,8 +178,7 @@ def QList_cfttc(container, sip, entry):
                                 ptr             Any custom pointer type.
     """
     value_category = entry["value"]["held_as"]
-    code = "// {}".format(entry)
-    code += """
+    code = """
 %TypeHeaderCode
 #include <QList>
 %End
@@ -275,8 +274,7 @@ def QMap_cfttc(container, sip, entry):
     """
     key_category = entry["key"]["held_as"]
     value_category = entry["value"]["held_as"]
-    code = "// {}".format(entry)
-    code += """
+    code = """
 %TypeHeaderCode
 #include <QMap>
 %End

@@ -347,23 +347,28 @@ class SipGenerator(object):
             sip["decl"] = container_type
             sip["base_specifiers"] = ", ".join(base_specifiers)
             sip["body"] = body
-            self.rules.container_rules().apply(container, sip)
+            modifying_rule = self.rules.container_rules().apply(container, sip)
             pad = " " * (level * 4)
             if sip["name"]:
+                decl = ""
+                if modifying_rule:
+                    decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
                 #
                 # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
                 # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
                 # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode,
                 # %TypeHeaderCode other type-related directives)?
                 #
-                self.rules.typecode(container, sip)
+                modifying_rule = self.rules.typecode(container, sip)
+                if modifying_rule:
+                    decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
                 decl += pad + sip["decl"]
                 if "External" in sip["annotations"]:
                     #
                     # SIP /External/ does not seem to work as one might wish. Suppress.
                     #
                     body = decl + " /External/;\n"
-                    body = pad + "// Discarded {}\n".format(SipGenerator.describe(container))
+                    body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), "/External/ handling")
                 else:
                     if sip["base_specifiers"]:
                         decl += ": " + sip["base_specifiers"]
@@ -379,7 +384,7 @@ class SipGenerator(object):
                         mapped_typecode = "%MappedType " + sip["name"] + "\n{\n" + sip["mapped_type"] + "};\n"
                         typecodes.append(mapped_typecode)
             else:
-                body = pad + "// Discarded {}\n".format(SipGenerator.describe(container))
+                body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
         return body, typecodes
 
     def _get_access_specifier(self, member, level):
@@ -451,6 +456,7 @@ class SipGenerator(object):
             "annotations": set()
         }
         parameters = []
+        parameter_modifying_rules = []
         template_parameters = []
         for child in function.get_children():
             if child.kind == CursorKind.PARM_DECL:
@@ -471,7 +477,9 @@ class SipGenerator(object):
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }
-                self.rules.parameter_rules().apply(container, function, child, child_sip)
+                modifying_rule = self.rules.parameter_rules().apply(container, function, child, child_sip)
+                if modifying_rule:
+                    parameter_modifying_rules.append("// Modified {} (by {}):\n".format(SipGenerator.describe(child), modifying_rule))
                 decl = child_sip["decl"]
                 if child_sip["annotations"]:
                     decl += " /" + ",".join(child_sip["annotations"]) + "/"
@@ -512,14 +520,22 @@ class SipGenerator(object):
             sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
-        self.rules.function_rules().apply(container, function, sip)
+        modifying_rule = self.rules.function_rules().apply(container, function, sip)
         pad = " " * (level * 4)
         if sip["name"]:
+            decl1 = ""
+            if modifying_rule:
+                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
+            for modifying_rule in parameter_modifying_rules:
+                decl1 += pad + modifying_rule
+            decl = ""
             #
             # Any method-related code (%MethodCode, %VirtualCatcherCode, VirtualCallCode
             # or other method-related directives)?
             #
-            self.rules.methodcode(function, sip)
+            modifying_rule = self.rules.methodcode(function, sip)
+            if modifying_rule:
+                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
             sip["template_parameters"] = ", ".join(sip["template_parameters"])
             if not isinstance(sip["parameters"], str):
                 sip["parameters"] = ", ".join(sip["parameters"])
@@ -550,8 +566,9 @@ class SipGenerator(object):
                 decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
             decl += ";\n"
             decl += sip["code"]
+            decl = decl1 + decl
         else:
-            decl = pad + "// Discarded {}\n".format(SipGenerator.describe(function))
+            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(function), modifying_rule)
         return decl
 
     def _template_template_param_get(self, container):
@@ -752,24 +769,29 @@ class SipGenerator(object):
                 if len(parts) == 2 and parts[1].startswith("("):
                     sip["fn_result"] = parts[0]
                     sip["decl"] = parts[1][1:-1]
-        self.rules.typedef_rules().apply(container, typedef, sip)
+        modifying_rule = self.rules.typedef_rules().apply(container, typedef, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
         pad = " " * (level * 4)
         if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
             # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
             # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
             # or %TypeHeaderCode)?
             #
-            self.rules.typecode(typedef, sip)
+            modifying_rule = self.rules.typecode(typedef, sip)
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             if sip["fn_result"]:
-                decl = pad + "typedef {}(*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
+                decl += pad + "typedef {}(*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
             else:
-                decl = pad + "typedef {} {}".format(sip["decl"], sip["name"])
+                decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
             #
             # SIP does not support deprecation of typedefs.
             #
@@ -781,7 +803,7 @@ class SipGenerator(object):
                 mapped_typecode = "%MappedType " + typedef.type.get_canonical().spelling + "\n{\n" + sip["mapped_type"] + "};\n"
                 typecodes.append(mapped_typecode)
         else:
-            decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
+            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(typedef), modifying_rule)
         return decl, typecodes
 
     def _unexposed_get(self, container, unexposed, text, level):
@@ -799,15 +821,18 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["decl"] = text
-        self.rules.unexposed_rules().apply(container, unexposed, sip)
+        modifying_rule = self.rules.unexposed_rules().apply(container, unexposed, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
         pad = " " * (level * 4)
         if sip["name"]:
-            decl = pad + sip["decl"] + "\n"
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(unexposed), modifying_rule)
+            decl += pad + sip["decl"] + "\n"
         else:
-            decl = pad + "// Discarded {}\n".format(SipGenerator.describe(unexposed))
+            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(unexposed), modifying_rule)
         return decl
 
     def _var_get(self, container, variable, level):
@@ -854,14 +879,17 @@ class SipGenerator(object):
         #
         decl = variable.type.spelling
         sip["decl"] = decl
-        self.rules.variable_rules().apply(container, variable, sip)
+        modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
         pad = " " * (level * 4)
         if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
             prefix = self._var_get_keywords(variable)
-            decl = pad + prefix + sip["decl"]
+            decl += pad + prefix + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
             decl += sip["name"]
@@ -875,7 +903,7 @@ class SipGenerator(object):
             else:
                 decl = decl + sip["code"] + ";\n"
         else:
-            decl = pad + "// Discarded {}\n".format(SipGenerator.describe(variable))
+            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
         return decl
 
     def _var_get_keywords(self, variable):

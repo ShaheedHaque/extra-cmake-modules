@@ -73,7 +73,11 @@ def _parents(container):
 
 class Rule(object):
     def __init__(self, db, rule_number, fn, pattern_zip):
-        self.db = db
+        #
+        # Derive a useful name for diagnostic purposes.
+        #
+        caller = os.path.basename(inspect.stack()[3][1])
+        self.name =  "{}:{}[{}],{}".format(caller, type(db).__name__, rule_number, fn.__name__)
         self.rule_number = rule_number
         self.fn = fn
         self.usage = 0
@@ -90,10 +94,22 @@ class Rule(object):
         return self.matcher.match(candidate)
 
     def trace_result(self, parents, item, original, modified):
+        """
+        Record any modification both in the log and the returned result. If a rule fired, but
+        caused no modification, that is logged.
+
+        :return: Modifying rule or None.
+        """
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
-        self._trace_result(fqn, original, modified)
+        return self._trace_result(fqn, original, modified)
 
     def _trace_result(self, fqn, original, modified):
+        """
+        Record any modification both in the log and the returned result. If a rule fired, but
+        caused no modification, that is logged.
+
+        :return: Modifying rule or None.
+        """
         if not modified["name"]:
             logger.debug(_("Rule {} suppressed {}, {}").format(self, fqn, original))
         else:
@@ -106,9 +122,11 @@ class Rule(object):
                 logger.debug(_("Rule {} modified {}, {}->{}").format(self, fqn, original, modified))
             else:
                 logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
+                return None
+        return self
 
     def __str__(self):
-        return "[{},{}]".format(self.rule_number, self.fn.__name__)
+        return self.name
 
 
 class AbstractCompiledRuleDb(object):
@@ -121,7 +139,7 @@ class AbstractCompiledRuleDb(object):
             if len(raw_rule) != len(parameter_names) + 1:
                 raise RuntimeError(_("Bad raw rule {}: {}: {}").format(db.__name__, raw_rule, parameter_names))
             z = zip(raw_rule[:-1], parameter_names)
-            self.compiled_rules.append(Rule(db, i, raw_rule[-1], z))
+            self.compiled_rules.append(Rule(self, i, raw_rule[-1], z))
         self.candidate_formatter = _SEPARATOR.join(["{}"] * len(parameter_names))
 
     def _match(self, *args):
@@ -143,7 +161,7 @@ class AbstractCompiledRuleDb(object):
     def dump_usage(self, fn):
         """ Dump the usage counts."""
         for rule in self.compiled_rules:
-            fn(self.__class__.__name__, str(rule), rule.usage)
+            fn(str(rule), rule.usage)
 
 
 class ContainerRuleDb(AbstractCompiledRuleDb):
@@ -203,17 +221,20 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
 
     def apply(self, container, sip):
         """
-        Walk over the rules database for functions, applying the first matching transformation.
+        Walk over the rules database for containers, applying the first matching transformation.
 
         :param container:           The clang.cindex.Cursor for the container.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(container)
         matcher, rule = self._match(parents, sip["name"], sip["template_parameters"], sip["decl"], sip["base_specifiers"])
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
-            rule.trace_result(parents, container, before, sip)
+            return rule.trace_result(parents, container, before, sip)
+        return None
 
 
 class FunctionRuleDb(AbstractCompiledRuleDb):
@@ -281,14 +302,17 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
 
         :param container:           The clang.cindex.Cursor for the container.
         :param function:            The clang.cindex.Cursor for the function.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(function)
         matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"], ", ".join(sip["parameters"]))
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, sip, matcher)
-            rule.trace_result(parents, function, before, sip)
+            return rule.trace_result(parents, function, before, sip)
+        return None
 
 
 class ParameterRuleDb(AbstractCompiledRuleDb):
@@ -354,14 +378,17 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         :param container:           The clang.cindex.Cursor for the container.
         :param function:            The clang.cindex.Cursor for the function.
         :param parameter:           The clang.cindex.Cursor for the parameter.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(function)
         matcher, rule = self._match(parents, function.spelling, sip["name"], sip["decl"], sip["init"])
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, parameter, sip, matcher)
-            rule.trace_result(parents, parameter, before, sip)
+            return rule.trace_result(parents, parameter, before, sip)
+        return None
 
 
 class TypedefRuleDb(AbstractCompiledRuleDb):
@@ -423,14 +450,17 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
 
         :param container:           The clang.cindex.Cursor for the container.
         :param typedef:             The clang.cindex.Cursor for the typedef.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(typedef)
         matcher, rule = self._match(parents, sip["name"], sip["fn_result"], sip["decl"])
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, typedef, sip, matcher)
-            rule.trace_result(parents, typedef, before, sip)
+            return rule.trace_result(parents, typedef, before, sip)
+        return None
 
 
 class UnexposedRuleDb(AbstractCompiledRuleDb):
@@ -487,14 +517,17 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
 
         :param container:           The clang.cindex.Cursor for the container.
         :param unexposed:           The clang.cindex.Cursor for the unexposed item.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(unexposed)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, unexposed, sip, matcher)
-            rule.trace_result(parents, unexposed, before, sip)
+            return rule.trace_result(parents, unexposed, before, sip)
+        return None
 
 
 class VariableRuleDb(AbstractCompiledRuleDb):
@@ -552,20 +585,28 @@ class VariableRuleDb(AbstractCompiledRuleDb):
 
         :param container:           The clang.cindex.Cursor for the container.
         :param variable:            The clang.cindex.Cursor for the variable.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(variable)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
+        sip.setdefault("code", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, variable, sip, matcher)
-            rule.trace_result(parents, variable, before, sip)
+            return rule.trace_result(parents, variable, before, sip)
+        return None
 
 
 class AbstractCompiledCodeDb(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, db):
+        #
+        # Derive a useful name for diagnostic purposes.
+        #
+        caller = os.path.basename(inspect.stack()[2][1])
+        self.name = "{}:{}".format(caller, type(self).__name__)
         self.db = db
 
     @abstractmethod
@@ -573,12 +614,24 @@ class AbstractCompiledCodeDb(object):
         raise NotImplemented(_("Missing subclass"))
 
     def trace_result(self, parents, item, original, modified):
+        """
+        Record any modification both in the log and the returned result. If a rule fired, but
+        caused no modification, that is logged.
+
+        :return: Modifying rule or None.
+        """
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
-        self._trace_result(fqn, original, modified)
+        return self._trace_result(fqn, original, modified)
 
     def _trace_result(self, fqn, original, modified):
+        """
+        Record any modification both in the log and the returned result. If a rule fired, but
+        caused no modification, that is logged.
+
+        :return: Modifying rule or None.
+        """
         if not modified["name"]:
-            logger.debug(_("Rule {} suppressed {}, {}").format(self, fqn, original))
+            logger.debug(_("Rule {} discarded {}, {}").format(self, fqn, original))
         else:
             delta = False
             for k, v in original.iteritems():
@@ -589,10 +642,15 @@ class AbstractCompiledCodeDb(object):
                 logger.debug(_("Rule {} modified {}, {}->{}").format(self, fqn, original, modified))
             else:
                 logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
+                return None
+        return self
 
     @abstractmethod
     def dump_usage(self, fn):
         raise NotImplemented(_("Missing subclass"))
+
+    def __str__(self):
+        return self.name
 
 
 class MethodCodeDb(AbstractCompiledCodeDb):
@@ -677,6 +735,13 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         return entry
 
     def apply(self, function, sip):
+        """
+        Walk over the code database for functions, applying the first matching transformation.
+
+        :param function:            The clang.cindex.Cursor for the function.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
+        """
         entry = self._get(function, sip["name"])
         #
         # SIP supports the notion of a second C++ signature as well as the normal signature. By default, this
@@ -687,11 +752,15 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("code", "")
         if entry:
             before = deepcopy(sip)
-            sip["name"] = entry.get("name", sip["name"])
-            sip["code"] = entry["code"]
-            if callable(sip["code"]):
-                sip["code"](function, sip, entry)
+            if callable(entry["code"]):
+                fn = entry["code"]
+                fn_file = os.path.basename(inspect.getfile(fn))
+                trace = "// Generated (by {}:{}): {}\n".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+                fn(function, sip, entry)
             else:
+                trace = "// Inserted (by {}:{}): {}\n".format(_parents(function), function.spelling, {k:v for (k,v) in entry.items() if k != "code"})
+                sip["name"] = entry.get("name", sip["name"])
+                sip["code"] = entry["code"]
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
                 sip["fn_result"] = entry.get("fn_result", sip["fn_result"])
                 #
@@ -705,7 +774,9 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
-            self.trace_result(_parents(function), function, before, sip)
+            sip["code"] = trace + sip["code"]
+            return self.trace_result(_parents(function), function, before, sip)
+        return None
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""
@@ -713,7 +784,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             vk = self.db[k]
             for l in sorted(vk.keys()):
                 vl = vk[l]
-                fn(type(self).__name__, "[" + k + "," + l + "]", vl["usage"])
+                fn(str(self) + " for " + k + "," + l, vl["usage"])
 
 
 class TypeCodeDb(AbstractCompiledCodeDb):
@@ -785,18 +856,39 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         return entry
 
     def apply(self, container, sip):
+        """
+        Walk over the code database for containers, applying the first matching transformation.
+
+        :param container:           The clang.cindex.Cursor for the container.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Tuple:
+                                        (
+                                        Is this a MappedType?,
+                                        Modifying rule or None (even if a rule matched, it may not modify things).
+                                        )
+        """
         entry = self._get(container, sip["name"])
         sip.setdefault("code", "")
         if entry:
             before = deepcopy(sip)
-            sip["name"] = entry.get("name", sip["name"])
-            sip["code"] = entry["code"]
-            if callable(sip["code"]):
-                sip["code"](container, sip, entry)
+            if callable(entry["code"]):
+                fn = entry["code"]
+                fn_file = os.path.basename(inspect.getfile(fn))
+                trace = "// Generated (by {}:{}): {}\n".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+                fn(container, sip, entry)
+            else:
+                trace = "// Inserted (by {}:{}): {}\n".format(_parents(container), container.spelling, {k:v for (k,v) in entry.items() if k != "code"})
+                sip["name"] = entry.get("name", sip["name"])
+                sip["code"] = entry["code"]
+                sip["decl"] = entry.get("decl", sip["decl"])
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
+            sip["code"] = trace + sip["code"]
+            modifying_rule = self.trace_result(_parents(container), container, before, sip)
+        else:
+            modifying_rule = None
         #
         # Is the resulting code a %MappedType? TODO: Handle combinations of mapped and non-mapped code.
         #
@@ -806,12 +898,13 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             sip["code"] = ""
         else:
             sip["mapped_type"] = ""
+        return modifying_rule
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""
         for k in sorted(self.db.keys()):
             v = self.db[k]
-            fn(type(self).__name__, "[" + k + "]", v["usage"])
+            fn(str(self) + " for " + k, v["usage"])
 
 
 class ModuleCodeDb(AbstractCompiledCodeDb):
@@ -880,9 +973,15 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("code", "")
         if entry:
             before = deepcopy(sip)
-            sip["code"] = entry["code"]
-            if callable(sip["code"]):
-                sip["code"](filename, sip, entry)
+            if callable(entry["code"]):
+                fn = entry["code"]
+                fn_file = os.path.basename(inspect.getfile(fn))
+                trace = "\n// Generated (by {}:{}): {}".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+                fn(filename, sip, entry)
+                sip["code"] = trace + sip["code"]
+            else:
+                sip["code"] = entry["code"]
+                sip["decl"] = entry.get("decl", sip["decl"])
             #
             # Fetch/format the code.
             #
@@ -895,7 +994,7 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         """ Dump the usage counts."""
         for k in sorted(self.db.keys()):
             v = self.db[k]
-            fn(type(self).__name__, "[" + k + "]", v["usage"])
+            fn(str(self) + " for " + k, v["usage"])
 
 
 class RuleSet(object):
@@ -1014,11 +1113,12 @@ class RuleSet(object):
 
     def dump_unused(self):
         """Usage statistics, to identify unused rules."""
-        def dumper(db_name, rule, usage):
+        def dumper(rule, usage):
             if usage:
-                logger.info(_("Rule {}::{} used {} times".format(db_name, rule, usage)))
+                logger.info(_("Rule {} used {} times".format(rule, usage)))
             else:
-                logger.warn(_("Rule {}::{} unused".format(db_name, rule)))
+                logger.warn(_("Rule {} was not used".format(rule)))
+
         for db in [self.container_rules(), self.function_rules(), self.parameter_rules(), self.typedef_rules(),
                    self.unexposed_rules(), self.variable_rules(), self.methodcode_rules(), self.modulecode_rules(),
                    self.typecode_rules()]:

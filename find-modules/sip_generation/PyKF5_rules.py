@@ -33,6 +33,9 @@ SIP binding customisation for PyKF5. This modules describes:
 
 """
 
+import inspect
+import os
+
 import rules_engine
 import PyKF5_methodcode
 import PyKF5_modulecode
@@ -132,6 +135,7 @@ def _typedef_qmap_typecode(container, typedef, sip, matcher):
     key_t = template_parameters[0]
     value_t = template_parameters[1]
     entry = {
+        "code": QMap_cfttc,
         "key": {
             "type": base_type(key_t),
             "held_as": categorise(key_t),
@@ -147,7 +151,11 @@ def _typedef_qmap_typecode(container, typedef, sip, matcher):
     if entry["value"]["held_as"] == HELD_AS.POINTER:
         if not value_t.endswith("*"):
             entry["value"]["ptr"] = value_t
-    QMap_cfttc(typedef, sip, entry)
+    fn = entry["code"]
+    fn_file = os.path.basename(inspect.getfile(fn))
+    trace = "// Generated (by {}:{}): {}\n".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+    fn(typedef, sip, entry)
+    sip["code"] = trace + sip["code"]
 
 
 def _typedef_discard(container, typedef, sip, matcher):
@@ -411,10 +419,10 @@ class RuleSet(rules_engine.RuleSet):
         return self._typecode
 
     def methodcode(self, function, sip):
-        self._methodcode.apply(function, sip)
+        return self._methodcode.apply(function, sip)
 
     def modulecode(self, filename, sip):
-        self._modulecode.apply(filename, sip)
+        return self._modulecode.apply(filename, sip)
 
     def typecode(self, container, sip):
         return self._typecode.apply(container, sip)
