@@ -429,7 +429,9 @@ class SipGenerator(object):
                 # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode,
                 # %TypeHeaderCode other type-related directives)?
                 #
-                self.rules.typecode(container, sip)
+                modifying_rule = self.rules.typecode(container, sip)
+                if modifying_rule:
+                    decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
                 decl += pad + sip["decl"]
                 if sip["base_specifiers"]:
                     decl += ": " + ", ".join(sip["base_specifiers"])
@@ -957,24 +959,29 @@ class SipGenerator(object):
                     sip["fn_result"] = sip["decl"].split("(*)", 1)[0]
                 args = [spelling for spelling, name in args]
                 sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
-        self.rules.typedef_rules().apply(container, typedef, sip)
+        modifying_rule = self.rules.typedef_rules().apply(container, typedef, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
         pad = " " * (level * 4)
         if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
             # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
             # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
             # or %TypeHeaderCode)?
             #
-            self.rules.typecode(typedef, sip)
+            modifying_rule = self.rules.typecode(typedef, sip)
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             if sip["fn_result"]:
-                decl = pad + "typedef {}(*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
+                decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
             else:
-                decl = pad + "typedef {} {}".format(sip["decl"], sip["name"])
+                decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
             #
             # SIP does not support deprecation of typedefs.
             #
@@ -1071,8 +1078,11 @@ class SipGenerator(object):
         #
         pad = " " * (level * 4)
         if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
             prefix = self._var_get_keywords(variable)
-            decl = pad + prefix + sip["decl"]
+            decl += pad + prefix + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
             decl += sip["name"]
