@@ -3760,10 +3760,6 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 %End
 """
 },
-# ./kdeui/kratingwidget.sip
-"kratingwidget.h::KRatingWidget": { #KRatingWidget : QFrame
-    "code": _kdeui_qobject_ctscc
-},
 # ./kdeui/kpixmapcache.sip
 "KPixmapCache": { #KPixmapCache
 "code":
