@@ -3793,10 +3793,6 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
         "held_as": HELD_AS.OBJECT,
     },
 },
-# ./kdeui/kabstractwidgetjobtracker.sip
-"kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": { #KAbstractWidgetJobTracker : KJobTrackerInterface
-    "code": _kdeui_qobject_ctscc
-},
 # ./kdeui/kcursor.sip
 "kcursor.h::KCursor": { #KCursor : QCursor
 "code":

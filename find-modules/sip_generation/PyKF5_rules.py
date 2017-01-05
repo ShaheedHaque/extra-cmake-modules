@@ -47,6 +47,7 @@ import PyKF5_KCompletion
 import PyKF5_KConfig
 import PyKF5_KConfigGui
 import PyKF5_KGuiAddons
+import PyKF5_KJobWidgets
 import PyKF5_KWidgetsAddons
 from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
@@ -396,6 +397,9 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=PyKF5_KWidgetsAddons.parameter_rules,
             modulecode=PyKF5_KWidgetsAddons.modulecode,
             typecode=PyKF5_KWidgetsAddons.typecode)
+        self.add_rules(
+            modulecode=PyKF5_KJobWidgets.modulecode,
+            typecode=PyKF5_KJobWidgets.typecode)
 
     def container_rules(self):
         return self._container_db
