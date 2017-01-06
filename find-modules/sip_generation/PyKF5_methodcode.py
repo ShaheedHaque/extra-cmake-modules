@@ -72,58 +72,6 @@ def code():
         """
     },
 },
-# ./kdecore/klocalizedstring.sip
-"klocalizedstring.h":
-{
-    "i18n":
-    {
-        "code":
-        """
-        %MethodCode
-            QString result = klocalizedstring_i18n_template(ki18n(a0),a1,&sipIsErr);
-            if (!sipIsErr) {
-                sipRes = new QString(result);
-            }
-        %End
-        """
-    },
-    "i18nc":
-    {
-        "code":
-        """
-        %MethodCode
-            QString result = klocalizedstring_i18n_template(ki18nc(a0,a1),a2,&sipIsErr);
-            if (!sipIsErr) {
-                sipRes = new QString(result);
-            }
-        %End
-        """
-    },
-    "i18np":
-    {
-        "code":
-        """
-        %MethodCode
-            QString result = klocalizedstring_i18n_template(ki18np(a0,a1),a2,&sipIsErr);
-            if (!sipIsErr) {
-                sipRes = new QString(result);
-            }
-        %End
-        """
-    },
-    "i18ncp":
-    {
-        "code":
-        """
-        %MethodCode
-            QString result = klocalizedstring_i18n_template(ki18ncp(a0,a1,a2),a3,&sipIsErr);
-            if (!sipIsErr) {
-                sipRes = new QString(result);
-            }
-        %End
-        """
-    },
-},
 # ./kdecore/kurl.sip
 "kdecore/kurl.h":
 {
