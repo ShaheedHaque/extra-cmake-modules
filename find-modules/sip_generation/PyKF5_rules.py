@@ -35,23 +35,25 @@ SIP binding customisation for PyKF5. This modules describes:
 
 import inspect
 import os
+import sys
 
 import rules_engine
-import PyKF5_methodcode
-import PyKF5_modulecode
-import PyKF5_typecode
-import PyKF5_KAuth
-import PyKF5_KCoreAddons
-import PyKF5_KCodecs
-import PyKF5_KCompletion
-import PyKF5_KConfig
-import PyKF5_KConfigGui
-import PyKF5_KConfigWidgets
-import PyKF5_KGuiAddons
-import PyKF5_KI18n
-import PyKF5_KJobWidgets
-import PyKF5_KWidgetsAddons
-from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
+sys.path.append(os.path.dirname(inspect.getfile(rules_engine)))
+from PyKF5_rules import common_methodcode
+from PyKF5_rules import common_modulecode
+from PyKF5_rules import common_typecode
+from PyKF5_rules import KAuth
+from PyKF5_rules import KCoreAddons
+from PyKF5_rules import KCodecs
+from PyKF5_rules import KCompletion
+from PyKF5_rules import KConfig
+from PyKF5_rules import KConfigGui
+from PyKF5_rules import KConfigWidgets
+from PyKF5_rules import KGuiAddons
+from PyKF5_rules import KI18n
+from PyKF5_rules import KJobWidgets
+from PyKF5_rules import KWidgetsAddons
+from PyKF5_rules.PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
 
@@ -370,43 +372,43 @@ class RuleSet(rules_engine.RuleSet):
             container_rules=container_rules, function_rules=function_rules,
             parameter_rules=parameter_rules, typedef_rules=typedef_rules,
             unexposed_rules=unexposed_rules, variable_rules=variable_rules,
-            methodcode=PyKF5_methodcode.code, modulecode=PyKF5_modulecode.code, typecode=PyKF5_typecode.code)
+            methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
         self.add_rules(
-            function_rules=PyKF5_KAuth.function_rules,
-            modulecode=PyKF5_KAuth.modulecode)
+            function_rules=KAuth.function_rules,
+            modulecode=KAuth.modulecode)
         self.add_rules(
-            function_rules=PyKF5_KCoreAddons.function_rules,
-            parameter_rules=PyKF5_KCoreAddons.parameter_rules,
-            typecode=PyKF5_KCoreAddons.typecode)
+            function_rules=KCoreAddons.function_rules,
+            parameter_rules=KCoreAddons.parameter_rules,
+            typecode=KCoreAddons.typecode)
         self.add_rules(
-            container_rules=PyKF5_KCodecs.container_rules,
-            function_rules=PyKF5_KCodecs.function_rules,
-            parameter_rules=PyKF5_KCodecs.parameter_rules)
+            container_rules=KCodecs.container_rules,
+            function_rules=KCodecs.function_rules,
+            parameter_rules=KCodecs.parameter_rules)
         self.add_rules(
-            function_rules=PyKF5_KCompletion.function_rules)
+            function_rules=KCompletion.function_rules)
         self.add_rules(
-            container_rules=PyKF5_KConfig.container_rules,
-            function_rules=PyKF5_KConfig.function_rules,
-            modulecode=PyKF5_KConfig.modulecode,
-            methodcode=PyKF5_KConfig.methodcode,
-            typecode=PyKF5_KConfig.typecode)
+            container_rules=KConfig.container_rules,
+            function_rules=KConfig.function_rules,
+            modulecode=KConfig.modulecode,
+            methodcode=KConfig.methodcode,
+            typecode=KConfig.typecode)
         self.add_rules(
-            parameter_rules=PyKF5_KConfigWidgets.parameter_rules,
-            modulecode=PyKF5_KConfigWidgets.modulecode)
+            parameter_rules=KConfigWidgets.parameter_rules,
+            modulecode=KConfigWidgets.modulecode)
         self.add_rules(
-            modulecode=PyKF5_KConfigGui.modulecode)
+            modulecode=KConfigGui.modulecode)
         self.add_rules(
-            parameter_rules=PyKF5_KGuiAddons.parameter_rules)
+            parameter_rules=KGuiAddons.parameter_rules)
         self.add_rules(
-            function_rules=PyKF5_KI18n.function_rules)
+            function_rules=KI18n.function_rules)
         self.add_rules(
-            function_rules=PyKF5_KWidgetsAddons.function_rules,
-            parameter_rules=PyKF5_KWidgetsAddons.parameter_rules,
-            modulecode=PyKF5_KWidgetsAddons.modulecode,
-            typecode=PyKF5_KWidgetsAddons.typecode)
+            function_rules=KWidgetsAddons.function_rules,
+            parameter_rules=KWidgetsAddons.parameter_rules,
+            modulecode=KWidgetsAddons.modulecode,
+            typecode=KWidgetsAddons.typecode)
         self.add_rules(
-            modulecode=PyKF5_KJobWidgets.modulecode,
-            typecode=PyKF5_KJobWidgets.typecode)
+            modulecode=KJobWidgets.modulecode,
+            typecode=KJobWidgets.typecode)
 
     def container_rules(self):
         return self._container_db

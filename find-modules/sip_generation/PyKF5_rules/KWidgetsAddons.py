@@ -23,7 +23,7 @@ SIP binding customisation for PyKF5.KWidgetsAddons. This modules describes:
 """
 
 import rules_engine
-import PyKF5_typecode
+import common_typecode
 
 
 def noop(*args):
@@ -62,6 +62,6 @@ def typecode():
     return {
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED kratingwidget.h::KRatingWidget": {
-            "code": PyKF5_typecode._kdeui_qobject_ctscc
+            "code": common_typecode._kdeui_qobject_ctscc
         },
     }

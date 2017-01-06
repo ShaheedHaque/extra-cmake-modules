@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KJobWidgets. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import PyKF5_typecode
+import common_typecode
 
 
 def modulecode():
@@ -40,6 +40,6 @@ def typecode():
     return {
     # DISABLED until I figure out an approach for CTSCC.
     "DISABLED kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": {
-        "code": PyKF5_typecode._kdeui_qobject_ctscc
+        "code": common_typecode._kdeui_qobject_ctscc
         },
     }
