@@ -22,9 +22,7 @@ SIP binding customisation for PyKF5.KConfigWidgets. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-
-def noop(*args):
-    pass
+import rules_engine
 
 
 def _delete_duplicate_content(filename, sip, entry):
@@ -39,7 +37,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KStandardAction", ".*", "parent", ".*", ".*", noop]
+        ["KStandardAction", ".*", "parent", ".*", ".*", rules_engine.noop]
     ]
 
 

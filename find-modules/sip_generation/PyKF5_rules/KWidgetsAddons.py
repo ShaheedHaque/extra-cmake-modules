@@ -26,10 +26,6 @@ import rules_engine
 import common_typecode
 
 
-def noop(*args):
-    pass
-
-
 def function_rules():
     return [
         ["KRatingWidget", "ratingChanged|set.*Rating", ".*", ".*", "unsigned.*", rules_engine.function_discard],
@@ -43,7 +39,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KMessageBox", ".*", "parent", ".*", ".*", noop]
+        ["KMessageBox", ".*", "parent", ".*", ".*", rules_engine.noop]
     ]
 
 
