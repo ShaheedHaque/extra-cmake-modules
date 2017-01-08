@@ -42,6 +42,7 @@ sys.path.append(os.path.dirname(inspect.getfile(rules_engine)))
 from PyKF5_rules import common_methodcode
 from PyKF5_rules import common_modulecode
 from PyKF5_rules import common_typecode
+from PyKF5_rules import Akonadi
 from PyKF5_rules import KAuth
 from PyKF5_rules import KCoreAddons
 from PyKF5_rules import KCodecs
@@ -183,10 +184,6 @@ def _typedef_rewrite_enums(container, typedef, sip, matcher):
     sip["decl"] = sip["args"][0]
 
 
-def _unexposed_discard(container, unexposed, sip, matcher):
-    sip["name"] = ""
-
-
 def _variable_discard(container, variable, sip, matcher):
     sip["name"] = ""
 
@@ -194,10 +191,6 @@ def _variable_discard(container, variable, sip, matcher):
 def _variable_discard_protected(container, variable, sip, matcher):
     if variable.access_specifier in [AccessSpecifier.PROTECTED, AccessSpecifier.PRIVATE]:
         _variable_discard(container, variable, sip, matcher)
-
-
-def _variable_array_to_star(container, variable, sip, matcher):
-    sip["decl"] = sip["decl"].replace("[]", "*")
 
 
 def container_rules():
@@ -210,7 +203,6 @@ def container_rules():
         #
         # SIP does not seem to be able to handle empty containers.
         #
-        ["Akonadi::AkonadiCore", "Monitor|Protocol", ".*", ".*", ".*", rules_engine.container_discard],
         ["KParts::ScriptableExtension", "Null|Undefined", ".*", ".*", ".*", rules_engine.container_discard],
         #
         # SIP does not seem to be able to handle templated containers.
@@ -334,12 +326,6 @@ def typedef_rules():
 def unexposed_rules():
 
     return [
-        #
-        # Discard ....
-        #
-        ["Akonadi", ".*", ".*Item::setPayloadImpl.*", _unexposed_discard],
-        ["Akonadi", ".*", ".*std::enable_if.*", _unexposed_discard],
-        ["exception.h", ".*", ".*AKONADI_EXCEPTION_MAKE_TRIVIAL_INSTANCE.*", _unexposed_discard],
     ]
 
 
@@ -355,11 +341,6 @@ def variable_rules():
         #
         [".*", "d_ptr", ".*", _variable_discard_protected],
         [".*", "d", ".*Private.*", _variable_discard_protected],
-        #
-        # [] -> *
-        #
-        ["Akonadi::Item", "FullPayload", ".*", _variable_array_to_star],
-        ["Akonadi::Tag", "PLAIN|GENERIC", ".*", _variable_array_to_star],
     ]
 
 
@@ -374,6 +355,11 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=parameter_rules, typedef_rules=typedef_rules,
             unexposed_rules=unexposed_rules, variable_rules=variable_rules,
             methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
+        self.add_rules(
+            container_rules=Akonadi.container_rules,
+            typedef_rules=Akonadi.typedef_rules,
+            unexposed_rules=Akonadi.unexposed_rules,
+            variable_rules=Akonadi.variable_rules)
         self.add_rules(
             function_rules=KAuth.function_rules,
             modulecode=KAuth.modulecode)
