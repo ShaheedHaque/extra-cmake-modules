@@ -631,14 +631,14 @@ class SipGenerator(object):
         was_punctuated = True
         default_value = None
         for token in self.tu.get_tokens(extent=possible_extent):
-            if bracket_level <= 0 and token.spelling in [",", ")", ";"]:
+            if bracket_level <= 0 and token.spelling in ",)>;":
                 found_end = True
                 break
-            elif token.spelling == "(":
+            elif token.spelling in "(<":
                 was_punctuated = True
                 bracket_level += 1
                 text += token.spelling
-            elif token.spelling == ")":
+            elif token.spelling in ")>":
                 was_punctuated = True
                 bracket_level -= 1
                 text += token.spelling

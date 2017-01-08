@@ -53,6 +53,7 @@ from PyKF5_rules import KGuiAddons
 from PyKF5_rules import KI18n
 from PyKF5_rules import KJobWidgets
 from PyKF5_rules import KWidgetsAddons
+from PyKF5_rules import Syndication
 from PyKF5_rules.PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
 from clang.cindex import AccessSpecifier
@@ -409,6 +410,9 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             modulecode=KJobWidgets.modulecode,
             typecode=KJobWidgets.typecode)
+        self.add_rules(
+            function_rules=Syndication.function_rules,
+            typedef_rules=Syndication.typedef_rules)
 
     def container_rules(self):
         return self._container_db
