@@ -181,7 +181,6 @@ class SipGenerator(object):
             "name": container.displayname,
             "annotations": set()
         }
-        name = container.displayname
         if container.access_specifier == AccessSpecifier.PRIVATE:
             if self.dump_privates:
                 logger.debug("Ignoring private {}".format(SipGenerator.describe(container)))
@@ -212,8 +211,27 @@ class SipGenerator(object):
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
                 decl = self._get_access_specifier(member, level + 1)
             elif member.kind == CursorKind.TYPEDEF_DECL:
-                decl, mapped_typecodes = self._typedef_get(container, member, level + 1)
-                typecodes.extend(mapped_typecodes)
+                #
+                # Typedefs for inlined enums/structs/unions seem to be emitted twice. Refer back to original.
+                # There should be only one child...
+                #
+                typedef_children = list(member.get_children())
+                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL, CursorKind.STRUCT_DECL,
+                                                                               CursorKind.UNION_DECL]:
+                    child = typedef_children[0]
+                    if child.kind == CursorKind.ENUM_DECL:
+                        original = "enum {}\n".format(child.displayname or "__enum{}".format(child.extent.start.line))
+                        typedef = "enum {}\n".format(member.type.spelling)
+                    elif child.kind == CursorKind.STRUCT_DECL:
+                        original = "struct {}\n".format(child.displayname or "__struct{}".format(child.extent.start.line))
+                        typedef = "struct {}\n".format(member.type.spelling)
+                    elif child.kind == CursorKind.UNION_DECL:
+                        original = "union {}\n".format(child.displayname or "__union{}".format(child.extent.start.line))
+                        typedef = "union {}\n".format(member.type.spelling)
+                    body = body.replace(original, typedef, 1)
+                else:
+                    decl, mapped_typecodes = self._typedef_get(container, member, level + 1)
+                    typecodes.extend(mapped_typecodes)
             elif member.kind == CursorKind.CXX_BASE_SPECIFIER:
                 #
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
@@ -324,17 +342,21 @@ class SipGenerator(object):
                 sip["annotations"].add("External")
         if body and level >= 0:
             if container.kind == CursorKind.NAMESPACE:
-                container_type = "namespace " + name
+                container_type = "namespace " + sip["name"]
             elif container.kind in [CursorKind.CLASS_DECL, CursorKind.CLASS_TEMPLATE,
                                     CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
-                container_type = "class " + name
+                container_type = "class " + sip["name"]
             elif container.kind == CursorKind.STRUCT_DECL:
-                container_type = "struct {}".format(name or "__struct{}".format(container.extent.start.line))
+                if not sip["name"]:
+                    sip["name"] = "__struct{}".format(container.extent.start.line)
+                container_type = "struct {}".format(sip["name"])
             elif container.kind == CursorKind.UNION_DECL:
-                container_type = "union {}".format(name or "__union{}".format(container.extent.start.line))
+                if not sip["name"]:
+                    sip["name"] = "__union{}".format(container.extent.start.line)
+                container_type = "union {}".format(sip["name"])
             else:
                 raise AssertionError(
-                    _("Unexpected container {}: {}[{}]").format(container.kind, name, container.extent.start.line))
+                    _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
             #
             # Generate private copy constructor for non-copyable types.
             #
@@ -415,7 +437,8 @@ class SipGenerator(object):
 
     def _enum_get(self, container, enum, level):
         pad = " " * (level * 4)
-        decl = pad + "enum {} {{\n".format(enum.displayname or "__enum{}".format(enum.extent.start.line))
+        decl = pad + "enum {}\n".format(enum.displayname or "__enum{}".format(enum.extent.start.line))
+        decl += pad + "{\n"
         enumerations = []
         for enum in enum.get_children():
             #
@@ -704,15 +727,10 @@ class SipGenerator(object):
                 #
                 result_type = child.type.spelling
             elif child.kind == CursorKind.ENUM_DECL:
-                if child.underlying_typedef_type:
-                    #
-                    # Typedefs for inlined enums seem to be emitted twice. Refer back to original.
-                    #
-                    enum = child.type.get_declaration()
-                    decl = "__enum{}".format(enum.extent.start.line)
-                else:
-                    decl = self._enum_get(container, child, level)
-                args.append(decl)
+                #
+                # Typedefs for enums are not suported by SIP, we deal wih them elsewhere.
+                #
+                assert False
             elif child.kind == CursorKind.STRUCT_DECL:
                 if child.underlying_typedef_type:
                     #
