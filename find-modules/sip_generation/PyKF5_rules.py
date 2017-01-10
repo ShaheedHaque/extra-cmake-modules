@@ -51,8 +51,10 @@ from PyKF5_rules import KConfig
 from PyKF5_rules import KConfigGui
 from PyKF5_rules import KConfigWidgets
 from PyKF5_rules import KGuiAddons
+from PyKF5_rules import KIOCore
 from PyKF5_rules import KI18n
 from PyKF5_rules import KJobWidgets
+from PyKF5_rules import KService
 from PyKF5_rules import KWidgetsAddons
 from PyKF5_rules import Syndication
 from PyKF5_rules.PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
@@ -180,10 +182,6 @@ def _typedef_rewrite_without_colons(container, typedef, sip, matcher):
     sip["decl"] = sip["decl"].strip(":")
 
 
-def _typedef_rewrite_enums(container, typedef, sip, matcher):
-    sip["decl"] = sip["args"][0]
-
-
 def _variable_discard(container, variable, sip, matcher):
     sip["name"] = ""
 
@@ -303,11 +301,6 @@ def typedef_rules():
         ["org::kde", "KDirNotify", "", ".*", _typedef_rewrite_without_colons],
         ["org::kde", "KSSLDInterface", "", ".*", _typedef_rewrite_without_colons],
         #
-        #
-        #
-        ["KProtocolInfo", "FileNameUsedForCopying", ".*", ".*", _typedef_rewrite_enums],
-        ["KSycoca", "DatabaseType", ".*", ".*", _typedef_rewrite_enums],
-        #
         # There are two version of KSharedConfigPtr in ksharedconfig.h and kconfiggroup.h.
         #
         [".*", "KSharedConfigPtr", ".*", "QExplicitlySharedDataPointer<KSharedConfig>", _typedef_discard],
@@ -388,6 +381,12 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=KGuiAddons.parameter_rules)
         self.add_rules(
             function_rules=KI18n.function_rules)
+        self.add_rules(
+            function_rules=KIOCore.function_rules,
+            typecode=KIOCore.typecode)
+        self.add_rules(
+            container_rules=KService.container_rules,
+            typecode=KService.typecode)
         self.add_rules(
             function_rules=KWidgetsAddons.function_rules,
             parameter_rules=KWidgetsAddons.parameter_rules,
