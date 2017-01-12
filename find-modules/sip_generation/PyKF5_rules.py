@@ -49,6 +49,7 @@ from PyKF5_rules import KCompletion
 from PyKF5_rules import KConfig
 from PyKF5_rules import KConfigGui
 from PyKF5_rules import KConfigWidgets
+from PyKF5_rules import KF5KDEGames
 from PyKF5_rules import KGuiAddons
 from PyKF5_rules import KIOCore
 from PyKF5_rules import KI18n
@@ -317,6 +318,10 @@ class RuleSet(rules_engine.RuleSet):
             modulecode=KConfigWidgets.modulecode)
         self.add_rules(
             modulecode=KConfigGui.modulecode)
+        self.add_rules(
+            container_rules=KF5KDEGames.container_rules,
+            function_rules=KF5KDEGames.function_rules,
+            modulecode=KF5KDEGames.modulecode)
         self.add_rules(
             parameter_rules=KGuiAddons.parameter_rules)
         self.add_rules(
