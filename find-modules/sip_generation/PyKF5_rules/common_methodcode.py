@@ -1109,36 +1109,4 @@ def code():
         """
     },
 },
-# ./kdeui/kxmlguibuilder.sip
-"KXMLGUIBuilder":
-{
-    "createContainer":
-    {
-        "parameters": "QWidget* parent /Transfer/, int index, const QDomElement& element",
-        "fn_result": "SIP_PYTUPLE",
-        "decl2": "QWidget* parent /Transfer/, int index, const QDomElement& element, QAction*& containerAction",
-        "fn_result2": "QWidget*",
-        "code":
-        """
-        %MethodCode
-            QAction *containerAction;
-            QWidget* res;
-            Py_BEGIN_ALLOW_THREADS
-            res = sipSelfWasArg ? sipCpp->KXMLGUIBuilder::createContainer (a0, a1, *a2, containerAction) : sipCpp->createContainer (a0, a1, *a2, containerAction);
-            Py_END_ALLOW_THREADS
-    
-            PyObject *pyWidget;
-            PyObject *pyContainerAction;
-    
-            if ((pyWidget = sipConvertFromNewInstance(res, sipClass_QWidget, NULL)) == NULL)
-                return NULL;
-    
-            if ((pyContainerAction = sipConvertFromNewInstance(containerAction, sipClass_QAction, NULL)) == NULL)
-                return NULL;
-    
-            sipRes = Py_BuildValue ("NN", pyWidget, pyContainerAction);
-        %End
-        """
-    },
-},
 }

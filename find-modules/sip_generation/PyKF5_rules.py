@@ -56,6 +56,7 @@ from PyKF5_rules import KI18n
 from PyKF5_rules import KJobWidgets
 from PyKF5_rules import KService
 from PyKF5_rules import KWidgetsAddons
+from PyKF5_rules import KXmlGui
 from PyKF5_rules import Syndication
 from PyKF5_rules.PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
 
@@ -392,6 +393,9 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=KWidgetsAddons.parameter_rules,
             modulecode=KWidgetsAddons.modulecode,
             typecode=KWidgetsAddons.typecode)
+        self.add_rules(
+            modulecode=KXmlGui.modulecode,
+            methodcode=KXmlGui.methodcode)
         self.add_rules(
             modulecode=KJobWidgets.modulecode,
             typecode=KJobWidgets.typecode)
