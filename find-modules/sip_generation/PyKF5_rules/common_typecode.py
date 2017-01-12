@@ -47,7 +47,7 @@
 SIP binding custom type-related code for PyKF5.
 """
 
-from PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
+from PyQt_template_typecode import HELD_AS, list_cfttc
 
 
 _akonadi_qobject_ctscc = """
@@ -887,7 +887,7 @@ def code():
 },
 # ./akonadi/entity.sip
 "QList<Akonadi::Entity::Id>": { #QList<Akonadi::Entity::Id>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "Akonadi::Entity::Id",
         "held_as": HELD_AS.INTEGRAL,
@@ -1689,21 +1689,21 @@ def code():
 },
 # ./soprano/pluginmanager.sip
 "QList<const Soprano::Backend*>": { #QList<const Soprano::Backend*>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "Soprano::Backend",
         "held_as": HELD_AS.POINTER,
     },
 },
 "QList<const Soprano::Parser*>": { #QList<const Soprano::Parser*>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "Soprano::Parser",
         "held_as": HELD_AS.POINTER,
     },
 },
 "QList<const Soprano::Serializer*>": { #QList<const Soprano::Serializer*>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "Soprano::Serializer",
         "held_as": HELD_AS.POINTER,
@@ -1835,7 +1835,7 @@ def code():
 },
 # ./kdecore/kmimetype.sip
 "QList<KMimeType::Ptr>": { #QList<KMimeType::Ptr>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "KMimeType",
         "ptr": "KMimeType::Ptr",
@@ -2658,7 +2658,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./dnssd/remoteservice.sip
 "QList<DNSSD::RemoteService::Ptr>": { #QList<DNSSD::RemoteService::Ptr>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "DNSSD::RemoteService",
         "ptr": "DNSSD::RemoteService::Ptr",
@@ -3183,22 +3183,10 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kwidgetitemdelegate.sip
 "QList<QEvent::Type>": { #QList<QEvent::Type>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "QEvent::Type",
         "held_as": HELD_AS.INTEGRAL,
-    },
-},
-# ./kdeui/kcompletion.sip
-"QMap<KCompletionBase::KeyBindingType,KShortcut>": { #QMap<KCompletionBase::KeyBindingType,KShortcut>
-    "code": QMap_cfttc,
-    "key": {
-        "type": "KCompletionBase::KeyBindingType",
-        "held_as": HELD_AS.INTEGRAL,
-    },
-    "value": {
-        "type": "KShortcut",
-        "held_as": HELD_AS.OBJECT,
     },
 },
 # ./kdeui/kcursor.sip
@@ -3278,7 +3266,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kstandardaction.sip
 "QList<KStandardAction::StandardAction>": { #QList<KStandardAction::StandardAction>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "KStandardAction::StandardAction",
         "held_as": HELD_AS.INTEGRAL,
@@ -3327,7 +3315,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kwindowsystem.sip
 "QList<WId>": { #QList<WId>
-    "code": QList_cfttc,
+    "code": list_cfttc,
     "value": {
         "type": "WId",
         "held_as": HELD_AS.INTEGRAL,

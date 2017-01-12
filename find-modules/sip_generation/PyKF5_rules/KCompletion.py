@@ -22,9 +22,6 @@ SIP binding customisation for PyKF5.KCompletion. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import os
-import sys
-
 import rules_engine
 
 

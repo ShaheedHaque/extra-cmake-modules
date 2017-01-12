@@ -33,12 +33,11 @@ SIP binding customisation for PyKF5. This modules describes:
 
 """
 
-import inspect
-import os
-import sys
+from __future__ import print_function
+
+from clang.cindex import AccessSpecifier
 
 import rules_engine
-sys.path.append(os.path.dirname(inspect.getfile(rules_engine)))
 from PyKF5_rules import common_methodcode
 from PyKF5_rules import common_modulecode
 from PyKF5_rules import common_typecode
@@ -58,9 +57,7 @@ from PyKF5_rules import KService
 from PyKF5_rules import KWidgetsAddons
 from PyKF5_rules import KXmlGui
 from PyKF5_rules import Syndication
-from PyKF5_rules.PyQt_template_typecode import HELD_AS, QList_cfttc, QMap_cfttc
-
-from clang.cindex import AccessSpecifier
+from PyKF5_rules.PyQt_template_typecode import dict_cfttc, list_cfttc, set_cfttc
 
 
 def _function_discard_class(container, function, sip, matcher):
@@ -107,68 +104,6 @@ def _parameter_set_max_int(container, function, parameter, sip, matcher):
 
 def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
-
-
-def _typedef_qmap_typecode(container, typedef, sip, matcher):
-
-    def categorise(type):
-        if type in ["int", "long"]:
-            return HELD_AS.INTEGRAL
-        if type.endswith(("Ptr", "*")):
-            return HELD_AS.POINTER
-        return HELD_AS.OBJECT
-
-    def base_type(type):
-        if type.endswith("Ptr"):
-            type = type[:-3]
-            if type.endswith("::"):
-                type = type[:-2]
-        elif type.endswith("*"):
-            type = type[:-1].strip()
-        return type
-
-    #
-    # We expect exactly 2 template parameters. Extract them even in cases like
-    # 'QMap<QWidget *, QMap<QAction *, KIPI::Category> >'.
-    #
-    template_parameters = []
-    bracket_level = 0
-    text = sip["decl"][5:-1]
-    left = 0
-    for right, token in enumerate(text):
-        if bracket_level <= 0 and token is ",":
-            template_parameters.append(text[left:right].strip())
-            left = right + 1
-        elif token is "<":
-            bracket_level += 1
-        elif token is ">":
-            bracket_level -= 1
-    template_parameters.append(text[left:].strip())
-    assert len(template_parameters) == 2, _("Cannot extract template_parameters from {}").format(sip["decl"])
-    key_t = template_parameters[0]
-    value_t = template_parameters[1]
-    entry = {
-        "code": QMap_cfttc,
-        "key": {
-            "type": base_type(key_t),
-            "held_as": categorise(key_t),
-        },
-        "value": {
-            "type": base_type(value_t),
-            "held_as": categorise(value_t),
-        },
-    }
-    if entry["key"]["held_as"] == HELD_AS.POINTER:
-        if not key_t.endswith("*"):
-            entry["key"]["ptr"] = key_t
-    if entry["value"]["held_as"] == HELD_AS.POINTER:
-        if not value_t.endswith("*"):
-            entry["value"]["ptr"] = value_t
-    fn = entry["code"]
-    fn_file = os.path.basename(inspect.getfile(fn))
-    trace = "// Generated (by {}:{}): {}\n".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
-    fn(typedef, sip, entry)
-    sip["code"] = trace + sip["code"]
 
 
 def _typedef_discard(container, typedef, sip, matcher):
@@ -289,9 +224,13 @@ def typedef_rules():
 
     return [
         #
-        # Supplement QMap<> templates with manual code.
+        # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", "QMap<.*>", _typedef_qmap_typecode],
+        [".*", ".*", ".*", "QHash<.*>", dict_cfttc],
+        [".*", ".*", ".*", "QList<.*>", list_cfttc],
+        [".*", ".*", ".*", "QMap<.*>", dict_cfttc],
+        [".*", ".*", ".*", "QSet<.*>", set_cfttc],
+        [".*", ".*", ".*", "QVector<.*>", list_cfttc],
         #
         # Rewrite uid_t, gid_t as int.
         #

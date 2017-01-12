@@ -200,7 +200,8 @@ class SipGenerator(object):
             decl = ""
             if member.kind in [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
                                CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
-                decl = self._fn_get(container, member, level + 1)
+                decl, mapped_typecodes = self._fn_get(container, member, level + 1)
+                typecodes.extend(mapped_typecodes)
                 #
                 # Abstract?
                 #
@@ -243,12 +244,13 @@ class SipGenerator(object):
                 template_type_parameters.append(member.type.spelling + " " + member.displayname)
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified()
-                decl = self._var_get(container, member, level + 1)
+                decl, mapped_typecodes = self._var_get(container, member, level + 1)
+                typecodes.extend(mapped_typecodes)
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-                decl, tmp = self._container_get(member, level + 1, h_file)
-                typecodes.extend(tmp)
+                decl, mapped_typecodes = self._container_get(member, level + 1, h_file)
+                typecodes.extend(mapped_typecodes)
             elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
@@ -265,12 +267,14 @@ class SipGenerator(object):
                     if skippable_attribute(member, text):
                         pass
                     else:
-                        decl = self._unexposed_get(container, member, text, level + 1)
+                        decl, mapped_typecodes = self._unexposed_get(container, member, text, level + 1)
+                        typecodes.extend(mapped_typecodes)
                 elif member.kind == CursorKind.UNEXPOSED_DECL:
                     if SipGenerator.CONTAINER_SKIPPABLE_UNEXPOSED_DECL.search(text):
                         pass
                     else:
-                        decl = self._unexposed_get(container, member, text, level + 1)
+                        decl, mapped_typecodes = self._unexposed_get(container, member, text, level + 1)
+                        typecodes.extend(mapped_typecodes)
                 else:
                     SipGenerator._report_ignoring(container, member)
 
@@ -403,8 +407,7 @@ class SipGenerator(object):
                     decl += sip["code"]
                     body = decl + sip["body"] + pad + "};\n"
                     if sip["mapped_type"]:
-                        mapped_typecode = "%MappedType " + sip["name"] + "\n{\n" + sip["mapped_type"] + "};\n"
-                        typecodes.append(mapped_typecode)
+                        typecodes.append(sip["mapped_type"])
             else:
                 body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
         return body, typecodes
@@ -481,6 +484,7 @@ class SipGenerator(object):
         parameters = []
         parameter_modifying_rules = []
         template_parameters = []
+        typecodes = []
         for child in function.get_children():
             if child.kind == CursorKind.PARM_DECL:
                 parameter = child.displayname or "__{}".format(len(parameters))
@@ -508,6 +512,8 @@ class SipGenerator(object):
                     decl += " /" + ",".join(child_sip["annotations"]) + "/"
                 if child_sip["init"]:
                     decl += " = " + child_sip["init"]
+                if child_sip["mapped_type"]:
+                    typecodes.append(child_sip["mapped_type"])
                 parameters.append(decl)
             elif child.kind in [CursorKind.COMPOUND_STMT, CursorKind.CXX_OVERRIDE_ATTR,
                                 CursorKind.MEMBER_REF, CursorKind.DECL_REF_EXPR, CursorKind.CALL_EXPR] + TEMPLATE_KINDS:
@@ -590,9 +596,11 @@ class SipGenerator(object):
             decl += ";\n"
             decl += sip["code"]
             decl = decl1 + decl
+            if sip["mapped_type"]:
+                typecodes.append(sip["mapped_type"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(function), modifying_rule)
-        return decl
+        return decl, typecodes
 
     def _template_template_param_get(self, container):
         """
@@ -818,8 +826,7 @@ class SipGenerator(object):
                 decl += " /" + ",".join(sip["annotations"]) + "/"
             decl += sip["code"] + ";\n"
             if sip["mapped_type"]:
-                mapped_typecode = "%MappedType " + typedef.type.get_canonical().spelling + "\n{\n" + sip["mapped_type"] + "};\n"
-                typecodes.append(mapped_typecode)
+                typecodes.append(sip["mapped_type"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(typedef), modifying_rule)
         return decl, typecodes
@@ -839,6 +846,7 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["decl"] = text
+        typecodes = []
         modifying_rule = self.rules.unexposed_rules().apply(container, unexposed, sip)
         #
         # Now the rules have run, add any prefix/suffix.
@@ -849,9 +857,11 @@ class SipGenerator(object):
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(unexposed), modifying_rule)
             decl += pad + sip["decl"] + "\n"
+            if sip["mapped_type"]:
+                typecodes.append(sip["mapped_type"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(unexposed), modifying_rule)
-        return decl
+        return decl, typecodes
 
     def _var_get(self, container, variable, level):
         """
@@ -897,6 +907,7 @@ class SipGenerator(object):
         #
         decl = variable.type.spelling
         sip["decl"] = decl
+        typecodes = []
         modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
         #
         # Now the rules have run, add any prefix/suffix.
@@ -917,12 +928,14 @@ class SipGenerator(object):
             # SIP does not support protected variables, so we ignore them.
             #
             if variable.access_specifier == AccessSpecifier.PROTECTED:
-                decl = pad + "// Discarded {}\n".format(SipGenerator.describe(variable))
+                decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), "protected handling")
             else:
                 decl = decl + sip["code"] + ";\n"
+                if sip["mapped_type"]:
+                    typecodes.append(sip["mapped_type"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
-        return decl
+        return decl, typecodes
 
     def _var_get_keywords(self, variable):
         """

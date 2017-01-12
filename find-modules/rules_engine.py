@@ -71,6 +71,19 @@ def _parents(container):
     return parents
 
 
+_mapped_type_re = re.compile("^%(TypeHeaderCode|ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
+
+
+def handle_mapped_types(type_, sip):
+    #
+    # Is the resulting code a %MappedType? TODO: Handle combinations of mapped and non-mapped code.
+    #
+    mapped_type = _mapped_type_re.search(sip["code"])
+    if mapped_type:
+        sip["mapped_type"] = "%MappedType " + sip["decl"] + "\n{\n" + sip["code"] + "};\n"
+        sip["code"] = ""
+
+
 class Rule(object):
     def __init__(self, rule_name, fn, pattern_zip):
         self.name =  "{},{}".format(rule_name, fn.__name__)
@@ -262,9 +275,11 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
         parents = _parents(container)
         matcher, rule = self._match(parents, sip["name"], sip["template_parameters"], sip["decl"], sip["base_specifiers"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
+            handle_mapped_types(container, sip)
             return rule.trace_result(parents, container, before, sip)
         return None
 
@@ -340,9 +355,11 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         parents = _parents(function)
         matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"], ", ".join(sip["parameters"]))
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, sip, matcher)
+            handle_mapped_types(function, sip)
             return rule.trace_result(parents, function, before, sip)
         return None
 
@@ -416,9 +433,11 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         parents = _parents(function)
         matcher, rule = self._match(parents, function.spelling, sip["name"], sip["decl"], sip["init"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, parameter, sip, matcher)
+            handle_mapped_types(parameter, sip)
             return rule.trace_result(parents, parameter, before, sip)
         return None
 
@@ -488,9 +507,11 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
         parents = _parents(typedef)
         matcher, rule = self._match(parents, sip["name"], sip["fn_result"], sip["decl"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, typedef, sip, matcher)
+            handle_mapped_types(typedef, sip)
             return rule.trace_result(parents, typedef, before, sip)
         return None
 
@@ -555,9 +576,11 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
         parents = _parents(unexposed)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, unexposed, sip, matcher)
+            handle_mapped_types(unexposed, sip)
             return rule.trace_result(parents, unexposed, before, sip)
         return None
 
@@ -623,9 +646,11 @@ class VariableRuleDb(AbstractCompiledRuleDb):
         parents = _parents(variable)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, variable, sip, matcher)
+            handle_mapped_types(variable, sip)
             return rule.trace_result(parents, variable, before, sip)
         return None
 
@@ -827,6 +852,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("decl2", "")
         sip.setdefault("fn_result2", "")
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if entry:
             before = deepcopy(sip)
             if callable(entry["code"]):
@@ -852,6 +878,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
+            handle_mapped_types(function, sip)
             return self.trace_result(entry, _parents(function), function, before, sip)
         return None
 
@@ -926,7 +953,6 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         for k, v in raw_rules().items():
             self.compiled_rules[k]["usage"] = 0
             self.compiled_rules[k]["ruleset"] = ruleset
-        self.mapped_type_re = re.compile("^%(TypeHeaderCode|ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
 
     def _get(self, item, name):
         #
@@ -953,6 +979,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         """
         entry = self._get(container, sip["name"])
         sip.setdefault("code", "")
+        sip.setdefault("mapped_type", "")
         if entry:
             before = deepcopy(sip)
             if callable(entry["code"]):
@@ -973,15 +1000,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             modifying_rule = self.trace_result(entry, _parents(container), container, before, sip)
         else:
             modifying_rule = None
-        #
-        # Is the resulting code a %MappedType? TODO: Handle combinations of mapped and non-mapped code.
-        #
-        mapped_type = self.mapped_type_re.search(sip["code"])
-        if mapped_type:
-            sip["mapped_type"] = sip["code"]
-            sip["code"] = ""
-        else:
-            sip["mapped_type"] = ""
+        handle_mapped_types(container, sip)
         return modifying_rule
 
     def dump_usage(self, fn):
