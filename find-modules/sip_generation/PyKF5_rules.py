@@ -43,6 +43,7 @@ from PyKF5_rules import common_modulecode
 from PyKF5_rules import common_typecode
 from PyKF5_rules import Akonadi
 from PyKF5_rules import KAuth
+from PyKF5_rules import KBookmarks
 from PyKF5_rules import KCoreAddons
 from PyKF5_rules import KCodecs
 from PyKF5_rules import KCompletion
@@ -297,6 +298,11 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             function_rules=KAuth.function_rules,
             modulecode=KAuth.modulecode)
+        self.add_rules(
+            container_rules=KBookmarks.container_rules,
+            variable_rules=KBookmarks.variable_rules,
+            modulecode=KBookmarks.modulecode,
+            typecode=KBookmarks.typecode)
         self.add_rules(
             function_rules=KCoreAddons.function_rules,
             parameter_rules=KCoreAddons.parameter_rules,

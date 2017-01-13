@@ -211,19 +211,6 @@ def typecode():
                 %End
                 """
         },
-        # ./kio/kbookmarkmanager.sip
-        "kbookmarkowner.h::KBookmarkOwner": {  # KBookmarkOwner
-            "code":
-                """
-                %ConvertToSubClassCode
-                    // CTSCC for subclasses of 'KBookmarkOwner'
-                    sipType = NULL;
-
-                    if (dynamic_cast<KonqBookmarkOwner*>(sipCpp))
-                        sipType = sipType_KonqBookmarkOwner;
-                %End
-                """
-        },
         # ./kio/thumbcreator.sip
         "thumbcreator.h::ThumbCreator": {  # ThumbCreator
             "code":
@@ -236,23 +223,6 @@ def typecode():
                         sipType = sipType_ThumbCreatorV2;
                     else if (dynamic_cast<ThumbSequenceCreator*>(sipCpp))
                         sipType = sipType_ThumbSequenceCreator;
-                %End
-                """
-        },
-        # ./kio/kbookmarkexporter.sip
-        "kbookmarkexporter.h::KBookmarkExporterBase": {  # KBookmarkExporterBase
-            "code":
-                """
-                %ConvertToSubClassCode
-                    // CTSCC for subclasses of 'KBookmarkExporterBase'
-                    sipType = NULL;
-
-                    if (dynamic_cast<KIEBookmarkExporterImpl*>(sipCpp))
-                        sipType = sipType_KIEBookmarkExporterImpl;
-                    else if (dynamic_cast<KNSBookmarkExporterImpl*>(sipCpp))
-                        sipType = sipType_KNSBookmarkExporterImpl;
-                    else if (dynamic_cast<KOperaBookmarkExporterImpl*>(sipCpp))
-                        sipType = sipType_KOperaBookmarkExporterImpl;
                 %End
                 """
         },
