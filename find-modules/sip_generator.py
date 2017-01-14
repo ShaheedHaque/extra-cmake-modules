@@ -362,11 +362,6 @@ class SipGenerator(object):
                 raise AssertionError(
                     _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
             #
-            # Generate private copy constructor for non-copyable types.
-            #
-            if had_const_member and not had_copy_constructor:
-                body += "    private:\n        {}(const {} &); // Generated\n".format(name, container.type.get_canonical().spelling)
-            #
             # Flesh out the SIP context for the rules engine.
             #
             sip["template_parameters"] = ", ".join(template_type_parameters)
@@ -405,7 +400,16 @@ class SipGenerator(object):
                     decl += "\n" + pad + "{\n"
                     decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(h_file)
                     decl += sip["code"]
-                    body = decl + sip["body"] + pad + "};\n"
+                    body = decl + sip["body"]
+                    #
+                    # Generate private copy constructor for non-copyable types.
+                    #
+                    if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
+                        body += pad + "private:\n"
+                        body += pad + "    // Generated for {} (by {})\n".format(SipGenerator.describe(container),
+                                                                                 "non-copyable type handling")
+                        body += pad + "    {}(const {} &);\n".format(sip["name"], container.type.get_canonical().spelling)
+                    body += pad + "};\n"
                     if sip["mapped_type"]:
                         typecodes.append(sip["mapped_type"])
             else:
@@ -568,8 +572,17 @@ class SipGenerator(object):
             sip["template_parameters"] = ", ".join(sip["template_parameters"])
             if not isinstance(sip["parameters"], str):
                 sip["parameters"] = ", ".join(sip["parameters"])
-            sip["annotations"] = ",".join(sip["annotations"])
             decl += sip["name"] + "(" + sip["parameters"] + ")"
+            if sip["fn_result"]:
+                if sip["fn_result"][-1] in "*&":
+                    decl = sip["fn_result"] + decl
+                else:
+                    decl = sip["fn_result"] + " " + decl
+            decl = pad + sip["prefix"] + decl + sip["suffix"]
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
+            if sip["template_parameters"]:
+                decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
             if sip["decl2"] or sip["fn_result2"]:
                 if not isinstance(sip["decl2"], str):
                     sip["decl2"] = ", ".join(sip["decl2"])
@@ -583,16 +596,6 @@ class SipGenerator(object):
                     else:
                         decl += sip["fn_result2"] + " "
                 decl += "(" + sip["decl2"] + ")]"
-            if sip["fn_result"]:
-                if sip["fn_result"][-1] in "*&":
-                    decl = sip["fn_result"] + decl
-                else:
-                    decl = sip["fn_result"] + " " + decl
-            decl = pad + sip["prefix"] + decl + sip["suffix"]
-            if sip["annotations"]:
-                decl += " /" + sip["annotations"] + "/"
-            if sip["template_parameters"]:
-                decl = pad + "template <" + sip["template_parameters"] + ">\n" + decl
             decl += ";\n"
             decl += sip["code"]
             decl = decl1 + decl
