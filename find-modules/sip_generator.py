@@ -497,7 +497,10 @@ class SipGenerator(object):
                 #
                 theType = child.type.get_canonical()
                 typeSpelling = theType.spelling
-                if theType.kind == TypeKind.POINTER:
+                #
+                # Add a pointer suffix except for function pointers.
+                #
+                if theType.kind == TypeKind.POINTER and not typeSpelling.find("(*)"):
                     typeSpelling = theType.get_pointee().spelling + "* "
 
                 decl = "{} {}".format(typeSpelling, parameter)
@@ -755,11 +758,7 @@ class SipGenerator(object):
                 args.append(decl)
             elif child.kind == CursorKind.PARM_DECL:
                 decl = child.displayname or "__{}".format(len(args))
-                #
-                # So far so good, but we need any default value.
-                #
-                decl = "{} {}".format(child.type.spelling, decl)
-                args.append(decl)
+                args.append((child.type.spelling, decl))
             elif child.kind in EXPR_KINDS + [CursorKind.NAMESPACE_REF]:
                 #
                 # Ignore:
@@ -781,23 +780,30 @@ class SipGenerator(object):
         sip["fn_result"] = ""
         if typedef.underlying_typedef_type.kind == TypeKind.MEMBERPOINTER:
             sip["fn_result"] = result_type
-            sip["decl"] = ", ".join(args)
+            args = ["{} {}".format(spelling, name) for spelling, name in args]
+            sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
         elif typedef.underlying_typedef_type.kind == TypeKind.RECORD:
             sip["decl"] = result_type
         else:
             sip["decl"] = typedef.underlying_typedef_type.spelling
-        sip["args"] = args
-        #
-        # Working out if a typedef is for a function pointer seems hard if not impossible in many cases. For such
-        # cases, the only recourse right now is the following heristic (maybe it is safer to put this in the rules
-        # engine?)
-        #
-        if typedef.underlying_typedef_type.kind != TypeKind.MEMBERPOINTER:
-            if sip["decl"].endswith(")"):
-                parts = sip["decl"].split("(*)", 2)
-                if len(parts) == 2 and parts[1].startswith("("):
-                    sip["fn_result"] = parts[0]
-                    sip["decl"] = parts[1][1:-1]
+            #
+            # Working out if a typedef is for a function pointer seems hard. The recourse right now is the following
+            # heuristic...
+            #
+            #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
+            #   (
+            #   - The typedef has a result OR
+            #   - We found some arguments OR
+            #   - We see what looks like the thing clang seems to use for a function pointer
+            #   )
+            #
+            if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find("(*)") != -1:
+                if typedef.result_type.kind != TypeKind.INVALID:
+                    sip["fn_result"] = typedef.result_type.spelling
+                else:
+                    sip["fn_result"] = sip["decl"].split("(*)", 1)[0]
+                args = [spelling for spelling, name in args]
+                sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
         modifying_rule = self.rules.typedef_rules().apply(container, typedef, sip)
         #
         # Now the rules have run, add any prefix/suffix.
@@ -817,7 +823,7 @@ class SipGenerator(object):
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             if sip["fn_result"]:
-                decl += pad + "typedef {}(*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
+                decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
             else:
                 decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
