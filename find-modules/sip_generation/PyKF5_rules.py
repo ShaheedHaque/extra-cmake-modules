@@ -55,6 +55,7 @@ from PyKF5_rules import KGuiAddons
 from PyKF5_rules import KIOCore
 from PyKF5_rules import KI18n
 from PyKF5_rules import KJobWidgets
+from PyKF5_rules import KLDAP
 from PyKF5_rules import KService
 from PyKF5_rules import KWidgetsAddons
 from PyKF5_rules import KXmlGui
@@ -331,10 +332,17 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             parameter_rules=KGuiAddons.parameter_rules)
         self.add_rules(
-            function_rules=KI18n.function_rules)
-        self.add_rules(
             function_rules=KIOCore.function_rules,
             typecode=KIOCore.typecode)
+        self.add_rules(
+            function_rules=KI18n.function_rules)
+        self.add_rules(
+            modulecode=KJobWidgets.modulecode,
+            typecode=KJobWidgets.typecode)
+        self.add_rules(
+            parameter_rules=KLDAP.parameter_rules,
+            variable_rules=KLDAP.variable_rules,
+            typedef_rules=KLDAP.typedef_rules)
         self.add_rules(
             container_rules=KService.container_rules,
             typecode=KService.typecode)
@@ -346,9 +354,6 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             modulecode=KXmlGui.modulecode,
             methodcode=KXmlGui.methodcode)
-        self.add_rules(
-            modulecode=KJobWidgets.modulecode,
-            typecode=KJobWidgets.typecode)
         self.add_rules(
             function_rules=Syndication.function_rules,
             typedef_rules=Syndication.typedef_rules)
