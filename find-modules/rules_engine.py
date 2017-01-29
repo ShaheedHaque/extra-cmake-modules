@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#=============================================================================
+#
 # Copyright 2016 by Shaheed Haque (srhaque@theiet.org)
 # Copyright 2016 Stephen Kelly <steveire@gmail.com>
 #
@@ -25,7 +25,7 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#=============================================================================
+#
 
 """SIP file generation rules engine."""
 
@@ -54,6 +54,10 @@ logger = logging.getLogger(__name__)
 gettext.install(__name__)
 _SEPARATOR = "\x00"
 
+# Keep PyCharm happy.
+_ = _
+
+
 def _parents(container):
     parents = []
     parent = container.semantic_parent
@@ -80,7 +84,10 @@ class Rule(object):
         try:
             groups = ["(?P<{}>{})".format(name, pattern) for pattern, name in pattern_zip]
             groups = _SEPARATOR.join(groups)
-            self.matcher = re.compile(groups)
+            #
+            # We'll use re.match to anchor the start of the match, and so need a $ to anchor the end.
+            #
+            self.matcher = re.compile(groups + "$")
         except Exception as e:
             groups = ["{} '{}'".format(name, pattern) for pattern, name in pattern_zip]
             groups = ", ".join(groups)
@@ -339,7 +346,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
                                     name                The name of the function.
                                     template_parameters Any template parameters.
                                     fn_result           Result, if not a constructor.
-                                    decl                The declaration.
+                                    parameters          The parameters.
                                     prefix              Leading keyworks ("static"). Separated by space,
                                                         ends with a space.
                                     suffix              Trailing keywords ("const"). Separated by space, starts with
@@ -484,6 +491,8 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
             :param sip:         A dict with the following keys:
 
                                     name                The name of the typedef.
+                                    fn_result           Result, for a function pointer.
+                                    decl                The declaration.
                                     annotations         Any SIP annotations.
 
             :param matcher:         The re.Match object. This contains named
@@ -653,7 +662,9 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
     Each inner dictionary has entries which update the declaration as follows:
 
-        "parameters":   Optional list. If present, update the argument list.
+        "name":         Optional string. If present, overrides the name of the
+                        method.
+        "parameters":   Optional string. If present, update the argument list.
 
         "fn_result":    Optional string. If present, update the return type.
 
@@ -689,12 +700,16 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 v[l]["usage"] = 0
 
     def _get(self, item, name):
-
+        #
+        # Lookup any parent-level entries.
+        #
         parents = _parents(item)
         entries = self.db.get(parents, None)
         if not entries:
             return None
-
+        #
+        # Now look for an actual hit.
+        #
         entry = entries.get(name, None)
         if not entry:
             return None
@@ -748,7 +763,7 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
 
     The raw rule database must be a dictionary as follows:
 
-        0. Each key is the basenanme of a module file.
+        0. Each key is the basename of a header file.
 
         1. Each value has entries which update the declaration as follows:
 
@@ -762,8 +777,9 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
             Return a string to insert for the file.
 
             :param filename:    The filename.
-            :param sip:         A dict with the key "name" for the module name
-                                plus the "code" key described above.
+            :param sip:         A dict with the key "name" for the filename,
+                                "decl" for the module body plus the "code" key
+                                described above.
             :param entry:       The dictionary entry.
 
             :return: A string.
@@ -776,7 +792,7 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
     def __init__(self, db):
         super(ModuleCodeDb, self).__init__(db)
         #
-        # Add a usage count for each item in the database.
+        # Add a usage count and other diagnostic support for each item in the database.
         #
         for k, v in self.db.items():
             v["usage"] = 0
@@ -792,6 +808,13 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         return entry
 
     def apply(self, filename, sip):
+        """
+        Walk over the code database for modules, applying the first matching transformation.
+
+        :param filename:            The file for the module.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
+        """
         entry = self._get(filename)
         sip.setdefault("code", "")
         if entry:
