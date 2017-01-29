@@ -54,6 +54,10 @@ logger = logging.getLogger(__name__)
 gettext.install(__name__)
 _SEPARATOR = "\x00"
 
+# Keep PyCharm happy.
+_ = _
+
+
 def _parents(container):
     parents = []
     parent = container.semantic_parent
@@ -487,6 +491,8 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
             :param sip:         A dict with the following keys:
 
                                     name                The name of the typedef.
+                                    fn_result           Result, for a function pointer.
+                                    decl                The declaration.
                                     annotations         Any SIP annotations.
 
             :param matcher:         The re.Match object. This contains named
@@ -658,6 +664,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
         "name":         Optional string. If present, overrides the name of the
                         method.
+
         "parameters":   Optional list. If present, update the argument list.
 
         "fn_result":    Optional string. If present, update the return type.
@@ -694,12 +701,16 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 v[l]["usage"] = 0
 
     def _get(self, item, name):
-
+        #
+        # Lookup any parent-level entries.
+        #
         parents = _parents(item)
         entries = self.db.get(parents, None)
         if not entries:
             return None
-
+        #
+        # Now look for an actual hit.
+        #
         entry = entries.get(name, None)
         if not entry:
             return None
