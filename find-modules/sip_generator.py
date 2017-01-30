@@ -51,6 +51,10 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescript
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
 
+# Keep PyCharm happy.
+_ = _
+
+
 EXPR_KINDS = [
     CursorKind.UNEXPOSED_EXPR,
     CursorKind.CONDITIONAL_OPERATOR, CursorKind.UNARY_OPERATOR, CursorKind.BINARY_OPERATOR,
@@ -171,6 +175,9 @@ class SipGenerator(object):
             if self.dump_privates:
                 logger.debug("Ignoring private {}".format(SipGenerator.describe(parent)))
             sip["name"] = ""
+            return True
+        if text.find("_DEPRECATED") != -1:
+            sip["annotations"].add("Deprecated")
             return True
         return False
 
