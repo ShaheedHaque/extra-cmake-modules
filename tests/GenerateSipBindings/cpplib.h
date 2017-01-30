@@ -203,3 +203,32 @@ enum __attribute__((visibility("default"))) EnumWithAttributes {
     Foo,
     Bar = 2
 };
+
+#define OBSCURE_SYNTAX_EXPORT __attribute__((visibility("default")))
+#define OBSCURE_SYNTAX_NO_EXPORT __attribute__((visibility("hidden")))
+
+/**
+ * Exercise some more obscure pieces of syntax.
+ */
+class ObscureSyntax
+{
+public:
+  /**
+   * Test visibility.
+   */
+  class OBSCURE_SYNTAX_EXPORT Visible
+  {
+  public:
+    OBSCURE_SYNTAX_EXPORT int visible_var;
+    OBSCURE_SYNTAX_NO_EXPORT int invisible_var;
+    OBSCURE_SYNTAX_EXPORT int visible_fn() { return 1; }
+    OBSCURE_SYNTAX_NO_EXPORT int invisible_fn() { return 1; }
+  };
+  class OBSCURE_SYNTAX_NO_EXPORT Invisible
+  {
+  };
+
+  OBSCURE_SYNTAX_EXPORT typedef int TypdefVisible;
+  OBSCURE_SYNTAX_NO_EXPORT int TypedefInvisible;
+};
+

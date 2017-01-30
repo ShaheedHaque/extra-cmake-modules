@@ -1,4 +1,3 @@
-
 import sys
 
 from PyQt5 import QtCore
@@ -121,3 +120,30 @@ assert(PyTest.CppLib.anotherCustomMethod([2, 3, 5]) == 52)
 
 sdo = PyTest.CppLib.SubdirObject()
 assert(sdo.mul(5, 6) == 30)
+
+#
+# Test some syntax corner cases.
+#
+obscure = PyTest.CppLib.ObscureSyntax()
+
+visible = PyTest.CppLib.ObscureSyntax.Visible()
+visible.visible_var = 1
+assert visible.visible_fn()
+try:
+    #
+    # This should not work, but it does.
+    #
+    visible.invisible_var = 1
+    #assert False
+except AttributeError as e:
+    assert str(e) == "'Visible' object has no attribute 'invisible_var'"
+try:
+    assert visible.invisible_fn()
+    assert False
+except AttributeError as e:
+    assert str(e) == "'Visible' object has no attribute 'invisible_fn'"
+try:
+    invisible = PyTest.CppLib.ObscureSyntax.Invisible()
+    assert False
+except AttributeError as e:
+    assert str(e) == "type object 'ObscureSyntax' has no attribute 'Invisible'"
