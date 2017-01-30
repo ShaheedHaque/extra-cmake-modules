@@ -239,3 +239,10 @@ public:
 protected:
   void virtualInterface() override;
 };
+
+#define TEST_DEPRECATED __attribute__((__deprecated__))
+class TEST_DEPRECATED DeprecatedClass
+{
+public:
+  TEST_DEPRECATED void deprecatedFn(int bar) {};
+};

@@ -51,6 +51,10 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescript
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
 
+# Keep PyCharm happy.
+_ = _
+
+
 EXPR_KINDS = [
     CursorKind.UNEXPOSED_EXPR,
     CursorKind.CONDITIONAL_OPERATOR, CursorKind.UNARY_OPERATOR, CursorKind.BINARY_OPERATOR,
@@ -165,12 +169,18 @@ class SipGenerator(object):
         :param member:          The attribute.
         :param text:            The raw source corresponding to the region of member.
         """
+        if member.kind == CursorKind.UNEXPOSED_ATTR and text.find("_DEPRECATED") != -1:
+            sip["annotations"].add("Deprecated")
+            return True
         if member.kind != CursorKind.VISIBILITY_ATTR:
             return False
         if member.spelling == "hidden":
             if self.dump_privates:
                 logger.debug("Ignoring private {}".format(SipGenerator.describe(parent)))
             sip["name"] = ""
+            return True
+        if text.find("_DEPRECATED") != -1:
+            sip["annotations"].add("Deprecated")
             return True
         return False
 
@@ -448,6 +458,7 @@ class SipGenerator(object):
 
         sip = {
             "name": function.spelling,
+            "annotations": set(),
         }
         parameters = []
         parameter_modifying_rules = []
@@ -529,6 +540,8 @@ class SipGenerator(object):
             decl = pad + sip["prefix"] + decl + sip["suffix"]
             if sip["template_parameters"]:
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
             decl += ";\n"
             decl += sip["code"]
         else:
@@ -691,7 +704,8 @@ class SipGenerator(object):
         """
 
         sip = {
-            "name": variable.spelling
+            "name": variable.spelling,
+            "annotations": set(),
         }
         for child in variable.get_children():
             if child.kind in TEMPLATE_KINDS + [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
