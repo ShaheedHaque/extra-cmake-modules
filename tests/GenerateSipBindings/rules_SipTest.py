@@ -35,12 +35,10 @@ def methodGenerator(function, sip, entry):
 
 class RuleSet(Qt5Ruleset.RuleSet):
     def __init__(self):
-        Qt5Ruleset.RuleSet.__init__(self)
-        self._container_db = rules_engine.ContainerRuleDb(lambda: local_container_rules() + Qt5Ruleset.container_rules())
-        self._forward_declaration_db = rules_engine.ForwardDeclarationRuleDb(lambda: local_forward_declaration_rules() + Qt5Ruleset.forward_declaration_rules())
-        self._fn_db = rules_engine.FunctionRuleDb(lambda: local_function_rules() + Qt5Ruleset.function_rules())
-        self._typedef_db = rules_engine.TypedefRuleDb(lambda: local_typedef_rules() + Qt5Ruleset.typedef_rules())
-        self._modulecode = rules_engine.ModuleCodeDb({
+        super(RuleSet, self).__init__()
+        self.add_rules(container_rules=local_container_rules, forward_declaration_rules=local_forward_declaration_rules,
+                       function_rules=local_function_rules, typedef_rules=local_typedef_rules,
+                       modulecode=lambda : {
             "cpplib.h": {
             "code": """
 %ModuleCode
@@ -50,9 +48,8 @@ int myAcumulate(const QList<int> *list) {
 %End\n
             """
             }
-            })
-
-        self._methodcode = rules_engine.MethodCodeDb({
+            },
+                        methodcode=lambda : {
             "SomeNS": {
                 "customMethod": {
                     "code": """
