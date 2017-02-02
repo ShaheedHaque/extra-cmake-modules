@@ -123,11 +123,17 @@ class SipGenerator(object):
     def create_sip(self, h_file, include_filename):
         """
         Actually convert the given source header file into its SIP equivalent.
+        This is the main entry point for this class.
 
         :param h_file:              The source (header) file of interest.
         :param include_filename:    The (header) to generate in the sip file.
+        :returns: A (body, module_code, includes). The body is the SIP text
+                corresponding to the h_file, it can be a null string indicating
+                there was nothing that could be generated. The module_code is
+                a dictionary of fragments of code that are to be emitted at
+                module scope. The includes is a iterator over the files which
+                clang #included while processing h_file.
         """
-
         #
         # Read in the original file.
         #
@@ -159,8 +165,23 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body = self._container_get(self.tu.cursor, -1, h_file, include_filename)
-        return body, self.tu.get_includes
+        body, module_code = self._container_get(self.tu.cursor, -1, h_file, include_filename)
+        if body:
+            #
+            # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
+            # module-level directives?
+            #
+            name = os.path.basename(h_file)
+            sip = {
+                "name": name,
+                "decl": body
+            }
+            body = ""
+            modifying_rule = self.rules.modulecode(name, sip)
+            if modifying_rule:
+                body += "// Modified {} (by {}):\n".format(name, modifying_rule)
+            body += sip["decl"] + sip["code"]
+        return body, module_code, self.tu.get_includes
 
     def skippable_attribute(self, parent, member, text, sip):
         """
@@ -191,33 +212,20 @@ class SipGenerator(object):
         :return:                    A string.
         """
 
-        if container.kind.is_translation_unit():
-            #
-            # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
-            # module-level directives?
-            #
-            sip = {
-                "name": include_filename,
-                "decl": ""
-            }
-            self.rules.modulecode(include_filename, sip)
-            body = sip["code"]
-        else:
-            body = ""
-
         sip = {
             "name": container.displayname,
             "annotations": set()
         }
-        name = container.displayname
-        if container.access_specifier == AccessSpecifier.PRIVATE:
-            if self.dump_privates:
-                logger.debug("Ignoring private {}".format(SipGenerator.describe(container)))
-            return ""
+        body = ""
         base_specifiers = []
         template_type_parameters = []
         had_copy_constructor = False
         had_const_member = False
+        module_code = {}
+        if container.access_specifier == AccessSpecifier.PRIVATE:
+            if self.dump_privates:
+                logger.debug("Ignoring private {}".format(SipGenerator.describe(container)))
+            return "", module_code
         for member in container.get_children():
             #
             # Only emit items in the translation unit.
@@ -227,31 +235,52 @@ class SipGenerator(object):
             decl = ""
             if member.kind in [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
                                CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
-                decl = self._fn_get(container, member, level + 1)
-                if member.is_pure_virtual_method():
-                    sip["annotations"].add("Abstract")
+                decl, tmp = self._fn_get(container, member, level + 1)
+                module_code.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
                 decl = self._get_access_specifier(member, level + 1)
             elif member.kind == CursorKind.TYPEDEF_DECL:
-                decl = self._typedef_get(container, member, level + 1)
+                #
+                # Typedefs for inlined enums/structs/unions seem to be emitted twice. Refer back to original.
+                # There should be only one child...
+                #
+                typedef_children = list(member.get_children())
+                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL, CursorKind.STRUCT_DECL,
+                                                                               CursorKind.UNION_DECL]:
+                    child = typedef_children[0]
+                    if child.kind == CursorKind.ENUM_DECL:
+                        original = "enum {}\n".format(child.displayname or "__enum{}".format(child.extent.start.line))
+                        typedef = "enum {}\n".format(member.type.spelling)
+                    elif child.kind == CursorKind.STRUCT_DECL:
+                        original = "struct {}\n".format(child.displayname or "__struct{}".format(child.extent.start.line))
+                        typedef = "struct {}\n".format(member.type.spelling)
+                    elif child.kind == CursorKind.UNION_DECL:
+                        original = "union {}\n".format(child.displayname or "__union{}".format(child.extent.start.line))
+                        typedef = "union {}\n".format(member.type.spelling)
+                    body = body.replace(original, typedef, 1)
+                else:
+                    decl, tmp = self._typedef_get(container, member, level + 1)
+                    module_code.update(tmp)
             elif member.kind == CursorKind.CXX_BASE_SPECIFIER:
                 #
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
                 #
-                base_specifiers.append(member.displayname.split(None, 2)[-1])
+                base_specifiers.append(member.displayname.replace("class ", ""))
             elif member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
                 template_type_parameters.append(member.displayname)
             elif member.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
                 template_type_parameters.append(member.type.spelling + " " + member.displayname)
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified()
-                decl = self._var_get(container, member, level + 1)
+                decl, tmp = self._var_get(container, member, level + 1)
+                module_code.update(tmp)
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-                decl = self._container_get(member, level + 1, h_file, include_filename)
+                decl, tmp = self._container_get(member, level + 1, h_file, include_filename)
+                module_code.update(tmp)
             elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
@@ -266,7 +295,7 @@ class SipGenerator(object):
                 text = self._read_source(member.extent)
                 if self.skippable_attribute(container, member, text, sip):
                     if not sip["name"]:
-                        return ""
+                        return "", module_code
                 else:
                     SipGenerator._report_ignoring(container, member)
 
@@ -328,28 +357,31 @@ class SipGenerator(object):
 
 
         if container.kind == CursorKind.TRANSLATION_UNIT:
-            return body
+            return body, module_code
 
         if container.kind == CursorKind.NAMESPACE:
-            container_type = "namespace " + name
+            container_type = "namespace " + sip["name"]
         elif container.kind in [CursorKind.CLASS_DECL, CursorKind.CLASS_TEMPLATE,
                                 CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
-            container_type = "class " + name
+            container_type = "class " + sip["name"].split("<", 1)[0]
         elif container.kind == CursorKind.STRUCT_DECL:
-            container_type = "struct " + name
+            if not sip["name"]:
+                sip["name"] = "__struct{}".format(container.extent.start.line)
+            container_type = "struct {}".format(sip["name"])
         elif container.kind == CursorKind.UNION_DECL:
-            container_type = "union " + name
+            if not sip["name"]:
+                sip["name"] = "__union{}".format(container.extent.start.line)
+            container_type = "union {}".format(sip["name"])
         else:
             raise AssertionError(
-                _("Unexpected container {}: {}[{}]").format(container.kind, name, container.extent.start.line))
-
+                _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
         sip["decl"] = container_type
         sip["template_parameters"] = template_type_parameters
+        sip["base_specifiers"] = base_specifiers
 
         pad = " " * (level * 4)
-
         #
-        # Empty containers are still useful if they provide namespaces or forward declarations.
+        # Empty containers are still useful if they provide namespaces, classes or forward declarations.
         #
         if not body:
             text = self._read_source(container.extent)
@@ -366,39 +398,48 @@ class SipGenerator(object):
                         body += " /External/;\n"
                     else:
                         body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), "default forward declaration handling")
-
                 else:
                     body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
-        else:
+                return body, module_code
+            else:
+                #
+                # Empty body provides a namespace or no-op subclass.
+                #
+                body = pad + "    // Empty!\n"
+        #
+        # Flesh out the SIP context for the rules engine.
+        #
+        sip["body"] = body
+        modifying_rule = self.rules.container_rules().apply(container, sip)
+        if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
+            decl += pad + sip["decl"]
+            if sip["base_specifiers"]:
+                decl += ": " + ", ".join(sip["base_specifiers"])
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
+            if sip["template_parameters"]:
+                decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
+            decl += "\n" + pad + "{\n"
+            decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
+            decl += sip["code"]
+            body = decl + sip["body"]
             #
             # Generate private copy constructor for non-copyable types.
             #
-            if had_const_member and not had_copy_constructor:
-                body += "    private:\n        {}(const {} &); // Generated\n".format(name, container.type.get_canonical().spelling)
-            #
-            # Flesh out the SIP context for the rules engine.
-            #
-            sip["base_specifiers"] = base_specifiers
-            sip["body"] = body
-            modifying_rule = self.rules.container_rules().apply(container, sip)
-            if sip["name"]:
-                decl = ""
-                if modifying_rule:
-                    decl += "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
-                decl += pad + sip["decl"]
-
-                if sip["base_specifiers"]:
-                    decl += ": " + ", ".join(sip["base_specifiers"])
-                if sip["annotations"]:
-                    decl += " /" + ",".join(sip["annotations"]) + "/"
-                if sip["template_parameters"]:
-                    decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
-                decl += "\n" + pad + "{\n"
-                decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
-                body = decl + sip["body"] + pad + "};\n"
-            else:
-                body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
-        return body
+            if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
+                body += pad + "private:\n"
+                body += pad + "    // Generated for {} (by {})\n".format(SipGenerator.describe(container),
+                                                                         "non-copyable type handling")
+                body += pad + "    {}(const {} &);\n".format(sip["name"], container.type.get_canonical().spelling)
+            body += pad + "};\n"
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
+        else:
+            body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
+        return body, module_code
 
     def _get_access_specifier(self, member, level):
         """
@@ -425,7 +466,8 @@ class SipGenerator(object):
 
     def _enum_get(self, container, enum, level):
         pad = " " * (level * 4)
-        decl = pad + "enum {} {{\n".format(enum.displayname)
+        decl = pad + "enum {}\n".format(enum.displayname or "__enum{}".format(enum.extent.start.line))
+        decl += pad + "{\n"
         enumerations = []
         for enum in enum.get_children():
             #
@@ -451,7 +493,7 @@ class SipGenerator(object):
                  function.semantic_parent.kind == CursorKind.STRUCT_DECL) and \
                 function.is_definition():
             # Skip inline methods
-            return
+            return "", {}
 
         sip = {
             "name": function.spelling,
@@ -460,15 +502,32 @@ class SipGenerator(object):
         parameters = []
         parameter_modifying_rules = []
         template_parameters = []
+        module_code = {}
         for child in function.get_children():
             if child.kind == CursorKind.PARM_DECL:
                 parameter = child.displayname or "__{}".format(len(parameters))
-                theType = child.type.get_canonical()
-                typeSpelling = theType.spelling
-                if theType.kind == TypeKind.POINTER:
-                    typeSpelling = theType.get_pointee().spelling + "* "
+                #
+                # So far so good, but we need any default value.
+                #
+                the_type = child.type.get_canonical()
+                type_spelling = the_type.spelling
+                #
+                # Get rid of any pointer const-ness and add a pointer suffix. Not removing the const-ness causes
+                # SIP to generate sequences which the C++ compiler seems to optimise away:
+                #
+                #   QObject* const a1 = 0;
+                #
+                #   if (sipParseArgs(..., &a1))
+                #
+                if the_type.kind == TypeKind.POINTER:
+                    #
+                    # Except that we want to leave function pointers alone here. See elsewhere...
+                    #
+                    if type_spelling.find("(*)") == -1:
+                        type_spelling = the_type.get_pointee().spelling + "* "
 
-                decl = "{} {}".format(typeSpelling, parameter)
+                decl = "{} {}".format(type_spelling, parameter)
+                decl = decl.replace("* ", "*").replace("& ", "&")
                 child_sip = {
                     "name": parameter,
                     "decl": decl,
@@ -483,6 +542,8 @@ class SipGenerator(object):
                     decl += " /" + ",".join(child_sip["annotations"]) + "/"
                 if child_sip["init"]:
                     decl += " = " + child_sip["init"]
+                if child_sip["module_code"]:
+                    module_code.update(child_sip["module_code"])
                 parameters.append(decl)
             elif child.kind in [CursorKind.COMPOUND_STMT, CursorKind.CXX_OVERRIDE_ATTR,
                                 CursorKind.MEMBER_REF, CursorKind.DECL_REF_EXPR, CursorKind.CALL_EXPR] + TEMPLATE_KINDS:
@@ -499,11 +560,13 @@ class SipGenerator(object):
                 template_parameters.append(child.displayname)
             elif child.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
                 template_parameters.append(child.type.spelling + " " + child.displayname)
+            elif child.kind == CursorKind.TEMPLATE_TEMPLATE_PARAMETER:
+                template_parameters.append(self._template_template_param_get(child))
             else:
                 text = self._read_source(child.extent)
                 if self.skippable_attribute(function, child, text, sip):
                     if not sip["name"]:
-                        return ""
+                        return "", module_code
                 else:
                     SipGenerator._report_ignoring(function, child)
         #
@@ -534,18 +597,55 @@ class SipGenerator(object):
                 decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
             decl += sip["name"] + "(" + ", ".join(sip["parameters"]) + ")"
             if sip["fn_result"]:
-                decl = sip["fn_result"] + " " + decl
+                if sip["fn_result"][-1] in "*&":
+                    decl = sip["fn_result"] + decl
+                else:
+                    decl = sip["fn_result"] + " " + decl
             decl = pad + sip["prefix"] + decl + sip["suffix"]
-            if sip["template_parameters"]:
-                decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             if sip["annotations"]:
                 decl += " /" + ",".join(sip["annotations"]) + "/"
+            if sip["template_parameters"]:
+                decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
+            if sip["cxx_decl"] or sip["cxx_fn_result"]:
+                if not isinstance(sip["cxx_decl"], str):
+                    sip["cxx_decl"] = ", ".join(sip["cxx_decl"])
+                decl += "\n    " + pad + "["
+                #
+                # SIP does not want the result for constructors.
+                #
+                if function.kind != CursorKind.CONSTRUCTOR:
+                    if sip["cxx_fn_result"][-1] in "*&":
+                        decl += sip["cxx_fn_result"]
+                    else:
+                        decl += sip["cxx_fn_result"] + " "
+                decl += "(" + sip["cxx_decl"] + ")]"
             decl += ";\n"
             decl += sip["code"]
             decl = decl1 + decl
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(function), modifying_rule)
-        return decl
+        return decl, module_code
+
+    def _template_template_param_get(self, container):
+        """
+        Recursive template template parameter walk.
+
+        :param container:                   The template template object.
+        :return:                            String containing the template template parameter.
+        """
+        template_type_parameters = []
+        for member in container.get_children():
+            if member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
+                template_type_parameters.append("typename")
+            elif member.kind == CursorKind.TEMPLATE_TEMPLATE_PARAMETER:
+                template_type_parameters.append(self._template_template_param_get(member))
+            else:
+                SipGenerator._report_ignoring(container, member)
+        template_type_parameters = "template <" + (", ".join(template_type_parameters)) + "> class " + \
+                                   container.displayname
+        return template_type_parameters
 
     def _fn_get_decorators(self, function):
         """
@@ -675,22 +775,111 @@ class SipGenerator(object):
         :param level:               Recursion level controls indentation.
         :return:                    A string.
         """
-
         sip = {
             "name": typedef.displayname,
-            "decl": typedef.underlying_typedef_type.spelling,
-            "annotations": set(),
+            "annotations": set()
         }
-
-        self.rules.typedef_rules().apply(container, typedef, sip)
-
+        args = []
+        result_type = ""
+        module_code = {}
+        for child in typedef.get_children():
+            if child.kind == CursorKind.TEMPLATE_REF:
+                result_type = child.displayname
+            elif child.kind == CursorKind.TYPE_REF:
+                #
+                # Sigh. For results which are pointers, we dont have a way of detecting the need for the "*".
+                #
+                result_type = child.type.spelling
+            elif child.kind == CursorKind.ENUM_DECL:
+                #
+                # Typedefs for enums are not suported by SIP, we deal wih them elsewhere.
+                #
+                assert False
+            elif child.kind == CursorKind.STRUCT_DECL:
+                if child.underlying_typedef_type:
+                    #
+                    # Typedefs for inlined structs seem to be emitted twice. Refer back to original.
+                    #
+                    struct = child.type.get_declaration()
+                    decl = "__struct{}".format(struct.extent.start.line)
+                else:
+                    decl, tmp = self._container_get(child, level, None)
+                    module_code.update(tmp)
+                args.append(decl)
+            elif child.kind == CursorKind.PARM_DECL:
+                decl = child.displayname or "__{}".format(len(args))
+                args.append((child.type.spelling, decl))
+            elif child.kind in EXPR_KINDS + [CursorKind.NAMESPACE_REF]:
+                #
+                # Ignore:
+                #
+                #   EXPR_KINDS: Array size etc.
+                #   CursorKind.NAMESPACE_REF: Type stuff.
+                #
+                pass
+            else:
+                text = self._read_source(child.extent)
+                if self.skippable_attribute(typedef, child, text, SipGenerator.TYPEDEF_SKIPPABLE_ATTR, sip):
+                    if not sip["name"]:
+                        return "", module_code
+                else:
+                    SipGenerator._report_ignoring(typedef, child)
+        #
+        # Flesh out the SIP context for the rules engine.
+        #
+        sip["fn_result"] = ""
+        if typedef.underlying_typedef_type.kind == TypeKind.MEMBERPOINTER:
+            sip["fn_result"] = result_type
+            args = ["{} {}".format(spelling, name) for spelling, name in args]
+            sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
+        elif typedef.underlying_typedef_type.kind == TypeKind.RECORD:
+            sip["decl"] = result_type
+        else:
+            sip["decl"] = typedef.underlying_typedef_type.spelling
+            #
+            # Working out if a typedef is for a function pointer seems hard. The recourse right now is the following
+            # heuristic...
+            #
+            #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
+            #   (
+            #   - The typedef has a result OR
+            #   - We found some arguments OR
+            #   - We see what looks like the thing clang seems to use for a function pointer
+            #   )
+            #
+            if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find("(*)") != -1:
+                if typedef.result_type.kind != TypeKind.INVALID:
+                    sip["fn_result"] = typedef.result_type.spelling
+                else:
+                    sip["fn_result"] = sip["decl"].split("(*)", 1)[0]
+                args = [spelling for spelling, name in args]
+                sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
+        modifying_rule = self.rules.typedef_rules().apply(container, typedef, sip)
+        #
+        # Now the rules have run, add any prefix/suffix.
+        #
         pad = " " * (level * 4)
         if sip["name"]:
-            decl = pad + "typedef {} {}".format(sip["decl"], sip["name"])
-            decl += ";\n"
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
+            if sip["fn_result"]:
+                decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
+                decl = decl.replace("* ", "*").replace("& ", "&")
+            else:
+                decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
+            #
+            # SIP does not support deprecation of typedefs.
+            #
+            sip["annotations"].discard("Deprecated")
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
+            decl += sip["code"] + ";\n"
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
         else:
             decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
-        return decl
+        return decl, module_code
 
     def _var_get(self, container, variable, level):
         """
@@ -706,6 +895,7 @@ class SipGenerator(object):
             "name": variable.spelling,
             "annotations": set(),
         }
+        module_code = {}
         for child in variable.get_children():
             if child.kind in TEMPLATE_KINDS + [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
                 #
@@ -718,29 +908,41 @@ class SipGenerator(object):
                 text = self._read_source(child.extent)
                 if self.skippable_attribute(variable, child, text, sip):
                     if not sip["name"]:
-                        return ""
+                        return "", module_code
                 else:
                     SipGenerator._report_ignoring(variable, child)
         #
         # Flesh out the SIP context for the rules engine.
         #
-        decl = "{} {}".format(variable.type.spelling, variable.spelling)
+        decl = variable.type.spelling
         sip["decl"] = decl
         modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
-
+        #
+        # Now the rules have run, add any prefix/suffix.
+        #
         pad = " " * (level * 4)
         if sip["name"]:
-            decl = sip["decl"]
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
+            decl += pad + sip["decl"]
+            if decl[-1] not in "*&":
+                decl += " "
+            decl += sip["name"]
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
             #
             # SIP does not support protected variables, so we ignore them.
             #
             if variable.access_specifier == AccessSpecifier.PROTECTED:
-                decl = pad + "// Discarded {}\n".format(SipGenerator.describe(variable))
+                decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), "protected handling")
             else:
-                decl = pad + decl + ";\n"
+                decl = decl + sip["code"] + ";\n"
+                if sip["module_code"]:
+                    module_code.update(sip["module_code"])
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
-        return decl
+        return decl, module_code
 
     def _read_source(self, extent):
         """
@@ -798,12 +1000,17 @@ def main(argv=None):
         else:
             logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
         #
-        # Generate!
+        # Load the given libclang.
         #
         cindex.Config.set_library_file(args.libclang)
+        #
+        # Generate!
+        #
         rules = rules_engine.rules(args.project_rules)
         g = SipGenerator(rules, args.flags.lstrip().split(";"), args.verbose)
-        body, includes = g.create_sip(args.source, args.include_filename)
+        body, module_code, includes = g.create_sip(args.source, args.include_filename)
+        for typecode in sorted(module_code):
+            body += "\n\n" + module_code[typecode] + "\n\n"
         with open(args.output, "w") as outputFile:
             outputFile.write(body)
         #

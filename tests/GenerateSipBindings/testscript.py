@@ -140,3 +140,26 @@ concrete = PyTest.CppLib.Concrete()
 
 assert(concrete.callableMultiply(2, 3) == 6)
 assert(concrete.callableAdd(2, 3) == 5)
+
+#
+# Test some syntax corner cases.
+#
+obscure = PyTest.CppLib.ObscureSyntax()
+
+try:
+    qmap = obscure.returnTemplate()
+    #
+    # This currently fails with a suspected SIP error:
+    #
+    # Traceback (most recent call last):
+    #  File ".../GenerateSipBindings/testscript.py", line 130, in <module>
+    #    qmap = obscure.returnTemplate()
+    # TypeError: ObscureSyntax.returnTemplate() is a private method
+    #
+    assert False
+    assert qmap["foo"] == PyTest.CppLib.ObscureSyntax.CORRECT
+except TypeError as e:
+    assert str(e) == "ObscureSyntax.returnTemplate() is a private method"
+
+empty = PyTest.CppLib.ObscureSyntax.Empty()
+
