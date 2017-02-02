@@ -70,6 +70,21 @@ def _parents(container):
     return parents
 
 
+_mapped_type_re = re.compile("^%(ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
+
+
+def handle_mapped_types(cursor, sip):
+    #
+    # Is the resulting code a %MappedType? TODO: Handle combinations of mapped and non-mapped code.
+    #
+    mapped_type = _mapped_type_re.search(sip["code"])
+    if mapped_type:
+        name = "{}:{}[{}]".format(cursor.spelling, os.path.basename(cursor.extent.start.file.name),
+                                  cursor.extent.start.line)
+        sip["module_code"][name] = "%MappedType " + sip["decl"] + "\n{" + sip["code"] + "};\n"
+        sip["code"] = ""
+
+
 class Rule(object):
     def __init__(self, rule_name, fn, pattern_zip):
         self.name =  "{},{}".format(rule_name, fn.__name__)
@@ -285,6 +300,8 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
                                     ", ".join(sip["template_parameters"]),
                                     sip["decl"],
                                     ", ".join(sip["base_specifiers"]))
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
@@ -350,9 +367,12 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
         parents = _parents(container)
         matcher, rule = self._match(parents, sip["name"],
                                     ", ".join(sip["template_parameters"]))
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
+            handle_mapped_types(container, sip)
             return rule.trace_result(parents, container, before, sip)
         return None
 
@@ -414,7 +434,8 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
     :return: The compiled form of the rules.
     """
     def __init__(self, db):
-        super(FunctionRuleDb, self).__init__(db, ["container", "function", "template_parameters", "fn_result", "parameters"])
+        super(FunctionRuleDb, self).__init__(db, ["container", "function", "template_parameters", "fn_result",
+                                                  "parameters", "prefix", "suffix"])
 
     def apply(self, container, function, sip):
         """
@@ -426,11 +447,14 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(function)
-        matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"], ", ".join(sip["parameters"]))
+        matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"],
+                                    ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
-            sip.setdefault("code", "")
             before = deepcopy(sip)
             rule.fn(container, function, sip, matcher)
+            handle_mapped_types(function, sip)
             return rule.trace_result(parents, function, before, sip)
         return None
 
@@ -503,10 +527,12 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         """
         parents = _parents(function)
         matcher, rule = self._match(parents, function.spelling, sip["name"], sip["decl"], sip["init"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
-            sip.setdefault("code", "")
             before = deepcopy(sip)
             rule.fn(container, function, parameter, sip, matcher)
+            handle_mapped_types(parameter, sip)
             return rule.trace_result(parents, parameter, before, sip)
         return None
 
@@ -526,7 +552,13 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
 
         1. A regular expression which matches the typedef name.
 
-        2. A function.
+        2. A regular expression which matches the function result for a function
+        pointer typedef.
+
+        3. A regular expression which matches the typedef declaration (e.g.
+        "typedef int foo").
+
+        4. A function.
 
     In use, the database is walked in order from the first entry. If the regular
     expressions are matched, the function is called, and no further entries are
@@ -556,7 +588,7 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
     :return: The compiled form of the rules.
     """
     def __init__(self, db):
-        super(TypedefRuleDb, self).__init__(db, ["container", "typedef"])
+        super(TypedefRuleDb, self).__init__(db, ["container", "typedef", "fn_result", "decl"])
 
     def apply(self, container, typedef, sip):
         """
@@ -564,13 +596,17 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
 
         :param container:           The clang.cindex.Cursor for the container.
         :param typedef:             The clang.cindex.Cursor for the typedef.
-        :param sip:                 The SIP dict.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(typedef)
-        matcher, rule = self._match(parents, sip["name"])
+        matcher, rule = self._match(parents, sip["name"], sip["fn_result"], sip["decl"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, typedef, sip, matcher)
+            handle_mapped_types(typedef, sip)
             return rule.trace_result(parents, typedef, before, sip)
         return None
 
@@ -635,10 +671,12 @@ class VariableRuleDb(AbstractCompiledRuleDb):
         """
         parents = _parents(variable)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if matcher:
-            sip.setdefault("code", "")
             before = deepcopy(sip)
             rule.fn(container, variable, sip, matcher)
+            handle_mapped_types(variable, sip)
             return rule.trace_result(parents, variable, before, sip)
         return None
 
@@ -764,6 +802,12 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
         "fn_result":    Optional string. If present, update the return type.
 
+        "cxx_decl", "cxx_fn_result"
+                        Both optional. If either is present, the SIP method's
+                        optional C++ declaration is added (if only one is
+                        present, "cxx_decl" is defaulted from "parameters" and
+                        "cxx_fn_result" is defaulted from "fn_result").
+
         "code":         Required. Either a string, with the %XXXCode content,
                         or a callable.
 
@@ -777,7 +821,8 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             Return a modified declaration for the given function.
 
             :param function:    The clang.cindex.Cursor for the function.
-            :param sip:         A dict with keys as for function rules and (string)
+            :param sip:         A dict with keys as for function rules
+                                plus the "cxx_decl", "cxx_fn_result" and (string)
                                 "code" keys described above.
             :param entry:       The inner dictionary entry.
 
@@ -830,7 +875,14 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         entry = self._get(function, sip["name"])
+        #
+        # SIP supports the notion of a second C++ signature as well as the normal signature. By default, this
+        # is not present.
+        #
+        sip.setdefault("cxx_decl", "")
+        sip.setdefault("cxx_fn_result", "")
         sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
         if entry:
             before = deepcopy(sip)
             if callable(entry["code"]):
@@ -840,14 +892,23 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 fn(function, sip, entry)
             else:
                 trace = "// Inserted for '{}:{}' (by {}):\n".format(_parents(function), function.spelling, self.names[entry["ruleset"]])
+                sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
                 sip["fn_result"] = entry.get("fn_result", sip["fn_result"])
+                #
+                # The user might provide one or other or both of cxx_decl and cxx_fn_result to signify a C++ signature. If
+                # needed, default a missing value from decl/fn_result.
+                #
+                if "cxx_decl" in entry or "cxx_fn_result" in entry:
+                    sip["cxx_decl"] = entry.get("cxx_decl", sip["parameters"])
+                    sip["cxx_fn_result"] = entry.get("cxx_fn_result", sip["cxx_fn_result"])
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
+            handle_mapped_types(function, sip)
             return self.trace_result(entry, _parents(function), function, before, sip)
         return None
 

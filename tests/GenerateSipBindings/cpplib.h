@@ -214,6 +214,47 @@ class ObscureSyntax
 {
 public:
   /**
+   * A friend declaration.
+   */
+  friend MyObject;
+
+  enum LocalEnum {
+    CORRECT = 555,
+    INCORRECT
+  };
+
+  /**
+   * A template return.
+   * The function is *declared* to return an empty map, but we want to verify the %MethodCode returns CORRECT.
+   */
+  QMap<const char *, int> *returnTemplate() { return new QMap<const char *, int>(); }
+
+  /**
+   * Anonymous enum's need special logic to fixup clang's handling of them. See the code.
+   */
+  typedef LocalEnum TypedefForEnum;
+
+  /**
+   * Empty classes cannot be discarded.
+   */
+  class Empty
+  {
+  };
+
+  /**
+   * Test derivation from a templated class. This has two parts: stripping off the "class " part of the base class,
+   * which is handled automatically, and the handling of base classes with a <>, currently left to the rules.
+   *
+   * The latter could be fixed up automatically by adding a synthetic typedef to the SIP as per
+   * https://www.riverbankcomputing.com/pipermail/pyqt/2017-January/038660.html but the corresponding C++ typedef
+   * can only be injected at global scope using the %TypeHeaderCode trick in the mailing list...that does not work
+   * in the case of a nested class.
+   */
+  class TemplateDerivative : public QMap<int, int>
+  {
+  };
+
+  /**
    * Test visibility.
    */
   class OBSCURE_SYNTAX_EXPORT Visible
@@ -228,7 +269,45 @@ public:
   {
   };
 
+  /**
+   * Typedef handling. See also LocalEnum and TemplateDerivative above.
+   */
+  typedef QMap<int, LocalEnum> TemplateTypedefWithIntegralTypes;
+  typedef QMap<int, TemplateDerivative> TemplateTypedefWithNonIntegralTypes;
+  struct anon_struct
+  {
+    int bar;
+  };
+  typedef struct anon_struct TypedefWithAnonymousStruct;
+  typedef void *(*TypedefFnPtr)(char *a, int b);
   OBSCURE_SYNTAX_EXPORT typedef int TypdefVisible;
   OBSCURE_SYNTAX_NO_EXPORT int TypedefInvisible;
+  typedef TemplateDerivative TypedefSimpleClass;
+  class DerivativeViaTypedef : ObscureSyntax::TypedefSimpleClass
+  {
+  };
+  //
+  // This does not work for unknown reasons: "sip: .../cpplib.sip:279: Super-class list contains an invalid type".
+  //
+#if 0
+  class TemplateDerivativeViaTypedef : ObscureSyntax::TemplateTypedefWithNonIntegralTypes
+  {
+  };
+#endif
+
+  /**
+   * Verify %ModuleCode handling for:
+   *
+   *    - Type
+   *    - Typedef (this also exercises the typedef rule database).
+   *    - Function result
+   *    - Function parameter
+   */
+  class ModuleCodeType : public QMap<int, int>
+  {
+  };
+  typedef QMap<int, LocalEnum> ModuleCodeTypedef;
+  QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
+  void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
 };
 
