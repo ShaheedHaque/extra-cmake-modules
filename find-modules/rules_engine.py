@@ -41,9 +41,8 @@ import sys
 import textwrap
 import traceback
 from copy import deepcopy
-from clang.cindex import CursorKind
 
-from clang.cindex import AccessSpecifier
+from clang.cindex import CursorKind
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
