@@ -462,7 +462,16 @@ class SipGenerator(object):
 
     def _get_access_specifier(self, member, level):
         """
-        Skip access specifiers embedded in the Q_OBJECT macro.
+        In principle, we just want member.access_specifier.name.lower(), except that we need to handle:
+
+          Q_OBJECT
+          Q_SIGNALS:|signals:
+          public|private|protected Q_SLOTS:|slots:
+
+        which are converted by the preprocessor...so read the original text.
+
+        :param member:                  The access_specifier.
+        :return:
         """
         access_specifier_text = self._read_source(member.extent)
         if access_specifier_text == "Q_OBJECT":
@@ -479,7 +488,10 @@ class SipGenerator(object):
             access_specifier = "protected:"
         elif member.access_specifier == AccessSpecifier.PUBLIC:
             access_specifier = "public:"
-
+        else:
+            access_specifier = "public: // Mapped from " + access_specifier_text
+            logger.warn(_("// Replaced '{}' with 'public' (by {})\n".format(access_specifier_text,
+                                                                            "access specifier handling")))
         decl = pad + access_specifier + "\n"
         return decl
 
