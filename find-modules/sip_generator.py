@@ -957,23 +957,6 @@ class SipGenerator(object):
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
         return decl, module_code
 
-    def _var_get_keywords(self, variable):
-        """
-        The parser does not provide direct access to the complete keywords (static, etc) of a variable
-        in the displayname. It would be nice to get these from the AST, but I cannot find where they are hiding.
-
-        :param variable:                    The variable object.
-        :return: prefix                     String containing any prefix keywords.
-        """
-        if variable.storage_class == StorageClass.STATIC:
-            #
-            # SIP does not support "static".
-            #
-            prefix = ""
-        else:
-            prefix = ""
-        return prefix
-
     def _read_source(self, extent):
         """
         Read the given range from the unpre-processed source.
