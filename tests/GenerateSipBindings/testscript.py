@@ -126,6 +126,8 @@ assert(sdo.mul(5, 6) == 30)
 #
 obscure = PyTest.CppLib.ObscureSyntax()
 
+assert obscure.defaultsAndParameterTemplate() == PyTest.CppLib.ObscureSyntax.CORRECT
+
 try:
     qmap = obscure.returnTemplate()
     #
