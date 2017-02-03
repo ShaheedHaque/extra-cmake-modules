@@ -126,6 +126,23 @@ assert(sdo.mul(5, 6) == 30)
 #
 obscure = PyTest.CppLib.ObscureSyntax()
 
+try:
+    qmap = obscure.returnTemplate()
+    #
+    # This currently fails with a suspected SIP error:
+    #
+    # Traceback (most recent call last):
+    #  File ".../GenerateSipBindings/testscript.py", line 130, in <module>
+    #    qmap = obscure.returnTemplate()
+    # TypeError: ObscureSyntax.returnTemplate() is a private method
+    #
+    assert False
+    assert qmap["foo"] == PyTest.CppLib.ObscureSyntax.CORRECT
+except TypeError as e:
+    assert str(e) == "ObscureSyntax.returnTemplate() is a private method"
+
+empty = PyTest.CppLib.ObscureSyntax.Empty()
+
 visible = PyTest.CppLib.ObscureSyntax.Visible()
 visible.visible_var = 1
 assert visible.visible_fn()
