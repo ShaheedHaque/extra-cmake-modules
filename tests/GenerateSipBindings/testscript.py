@@ -143,6 +143,12 @@ try:
 except TypeError as e:
     assert str(e) == "ObscureSyntax.returnTemplate() is a private method"
 
+try:
+    my_abstract = PyTest.CppLib.ObscureSyntax.Abstract()
+    assert False
+except TypeError as e:
+    assert str(e) == "PyTest.CppLib.Abstract cannot be instantiated or sub-classed"
+
 empty = PyTest.CppLib.ObscureSyntax.Empty()
 
 visible = PyTest.CppLib.ObscureSyntax.Visible()

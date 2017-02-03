@@ -261,6 +261,16 @@ public:
   QMap<const char *, int> *returnTemplate() { return new QMap<const char *, int>(); }
 
   /**
+   * A class which needs to be marked abstract.
+   * Test we cannot instantiate an abstract class.
+   */
+  class Abstract
+  {
+  public:
+    virtual void pure() = 0;
+  };
+
+  /**
    * Anonymous enum's need special logic to fixup clang's handling of them. See the code.
    */
   typedef LocalEnum TypedefForEnum;
