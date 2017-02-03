@@ -315,6 +315,12 @@ class SipGenerator(object):
                 if self.skippable_attribute(container, member, text, SipGenerator.CONTAINER_SKIPPABLE_ATTR, sip):
                     if not sip["name"]:
                         return "", module_code
+                elif member.kind == CursorKind.UNEXPOSED_DECL:
+                    if SipGenerator.CONTAINER_SKIPPABLE_UNEXPOSED_DECL.search(text):
+                        pass
+                    else:
+                        decl, tmp = self._unexposed_get(container, member, text, level + 1)
+                        module_code.update(tmp)
                 else:
                     SipGenerator._report_ignoring(container, member)
 
@@ -432,6 +438,15 @@ class SipGenerator(object):
         modifying_rule = self.rules.container_rules().apply(container, sip)
         if sip["name"]:
             decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
+            #
+            # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
+            # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
+            # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode,
+            # %TypeHeaderCode other type-related directives)?
+            #
+            modifying_rule = self.rules.typecode(container, sip)
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
             decl += pad + sip["decl"]
@@ -943,6 +958,15 @@ class SipGenerator(object):
             decl = ""
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
+            #
+            # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
+            # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
+            # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
+            # or %TypeHeaderCode)?
+            #
+            modifying_rule = self.rules.typecode(typedef, sip)
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
             if sip["fn_result"]:
                 decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
@@ -959,6 +983,41 @@ class SipGenerator(object):
                 module_code.update(sip["module_code"])
         else:
             decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
+        return decl, module_code
+
+    def _unexposed_get(self, container, unexposed, text, level):
+        """
+        The parser does not seem to provide access to the complete text of an unexposed decl.
+
+            1. Run the lexer from "here" to the end of the outer scope, bailing out when we see the ";"
+            or a "{" marking the end.
+        """
+        sip = {
+            "name": unexposed.displayname,
+            "annotations": set()
+        }
+        #
+        # Flesh out the SIP context for the rules engine. NOTE: Typically, the sip["name"] for an unexposed item will
+        # be "", and thus trigger the discard logic (unless there is a rule in place to set the sip["name"]!).
+        #
+        sip["decl"] = text
+        module_code = {}
+        modifying_rule = self.rules.unexposed_rules().apply(container, unexposed, sip)
+        #
+        # Now the rules have run, add any prefix/suffix.
+        #
+        pad = " " * (level * 4)
+        if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(unexposed, text), modifying_rule)
+            decl += pad + sip["decl"] + "\n"
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
+        else:
+            if not modifying_rule:
+                modifying_rule = "default unexposed handling"
+            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(unexposed, text), modifying_rule)
         return decl, module_code
 
     def _var_get(self, container, variable, level):
