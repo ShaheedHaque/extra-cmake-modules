@@ -379,3 +379,8 @@ public:
    */
   //static int static_var;
 };
+
+/**
+ * Unexposed syntax.
+ */
+extern "C" double obscure_unexposed(const char *s00, char **se);

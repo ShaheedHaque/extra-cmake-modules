@@ -610,6 +610,75 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
         return None
 
 
+class UnexposedRuleDb(AbstractCompiledRuleDb):
+    """
+    THE RULES FOR UNEXPOSED ITEMS.
+
+    These are used to customise the behaviour of the SIP generator by allowing
+    the declaration for any unexposed item to be customised, for example to
+    add SIP compiler annotations.
+
+    Each entry in the raw rule database must be a list with members as follows:
+
+        0. A regular expression which matches the fully-qualified name of the
+        "container" enclosing the unexposed item.
+
+        1. A regular expression which matches the unexposed item name.
+
+        2. A regular expression which matches the unexposed item declaration.
+
+        3. A function.
+
+    In use, the database is walked in order from the first entry. If the regular
+    expressions are matched, the function is called, and no further entries are
+    walked. The function is called with the following contract:
+
+        def unexposed_xxx(container, unexposed, sip, matcher):
+            '''
+            Return a modified declaration for the given container.
+
+            :param container:   The clang.cindex.Cursor for the container.
+            :param unexposed:   The clang.cindex.Cursor for the unexposed item.
+            :param sip:         A dict with the following keys:
+
+                                    name                The name of the unexposed item.
+                                    decl                The declaration.
+                                    annotations         Any SIP annotations.
+
+            :param matcher:         The re.Match object. This contains named
+                                    groups corresponding to the key names above
+                                    EXCEPT annotations.
+
+            :return: An updated set of sip.xxx values. Setting sip.name to the
+                     empty string will cause the unexposed item to be suppressed.
+            '''
+
+    :return: The compiled form of the rules.
+    """
+    def __init__(self, db):
+        super(UnexposedRuleDb, self).__init__(db, ["container", "unexposed", "decl"])
+
+    def apply(self, container, unexposed, sip):
+        """
+        Walk over the rules database for unexposed items, applying the first matching transformation.
+
+        :param container:           The clang.cindex.Cursor for the container.
+        :param unexposed:           The clang.cindex.Cursor for the unexposed item.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
+        """
+        parents = _parents(unexposed)
+        matcher, rule = self._match(parents, sip["name"], sip["decl"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
+        if matcher:
+            before = deepcopy(sip)
+            rule.fn(container, unexposed, sip, matcher)
+            handle_mapped_types(unexposed, sip)
+            return rule.trace_result(parents, unexposed, before, sip)
+        return None
+
+
 class VariableRuleDb(AbstractCompiledRuleDb):
     """
     THE RULES FOR VARIABLES.
@@ -921,6 +990,119 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 fn(self.names[vl["ruleset"]] + " for " + k + "," + l, vl["usage"])
 
 
+class TypeCodeDb(AbstractCompiledCodeDb):
+    """
+    THE RULES FOR INJECTING TYPE-RELATED CODE (such as %BIGetBufferCode,
+    %BIGetReadBufferCode, %BIGetWriteBufferCode, %BIGetSegCountCode,
+    %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertFromTypeCode,
+    %ConvertToSubClassCode, %ConvertToTypeCode, %GCClearCode, %GCTraverseCode,
+    %InstanceCode, %PickleCode, %TypeCode, %TypeHeaderCode or other type-level
+    directives).
+
+    These are used to customise the behaviour of the SIP generator by allowing
+    type-level code injection.
+
+    The raw rule database must be a dictionary as follows:
+
+        0. Each key is the fully-qualified name of a "container" class,
+        struct, namespace etc.
+
+        1. Each value has entries which update the declaration as follows:
+
+        "name":         Optional string. If present, overrides the name of the
+                        typedef as the name of the %MappedType. Useful for
+                        adding %MappedType entries for parameters where there
+                        is no explicit typedef.
+        "code":         Required. Either a string, with the %XXXCode content,
+                        or a callable.
+
+    In use, the database is directly indexed by "container". If "code" entry
+    is a string, it is used directly. Note that the use of any of
+    %TypeHeaderCode, %ConvertToTypeCode or %ConvertFromTypeCode will cause the
+    container type to be marked as a %MappedType. If "code" is a callable,
+    it is called with the following contract:
+
+        def typecode_xxx(container, sip, entry):
+            '''
+            Return a modified declaration for the given function.
+
+            :param container:   The clang.cindex.Cursor for the container.
+            :param sip:         A dict with keys as for container rules
+                                plus the "code" key described above.
+            :param entry:       The dictionary entry.
+
+            :return: An updated set of sip.xxx values.
+            '''
+
+    :return: The compiled form of the rules.
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self, raw_rules):
+        super(TypeCodeDb, self).__init__(raw_rules)
+
+    def add_rules(self, raw_rules):
+        if raw_rules is None or raw_rules() is None:
+            return
+        super(TypeCodeDb, self).add_rules(raw_rules)
+        #
+        # Add a usage count and other diagnostic support for each item in the database.
+        #
+        ruleset = len(self.names) - 1
+        for k, v in raw_rules().items():
+            self.compiled_rules[k]["usage"] = 0
+            self.compiled_rules[k]["ruleset"] = ruleset
+
+    def _get(self, item, name):
+        #
+        # Lookup for an actual hit.
+        #
+        parents = _parents(item)
+        entry = self.compiled_rules.get(parents + "::" + name, None)
+        if not entry:
+            return None
+        entry["usage"] += 1
+        return entry
+
+    def apply(self, container, sip):
+        """
+        Walk over the code database for containers, applying the first matching transformation.
+
+        :param container:           The clang.cindex.Cursor for the container.
+        :param sip:                 The SIP dict (may be modified on return).
+        :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
+        """
+        entry = self._get(container, sip["name"])
+        sip.setdefault("code", "")
+        sip.setdefault("module_code", {})
+        if entry:
+            before = deepcopy(sip)
+            if callable(entry["code"]):
+                fn = entry["code"]
+                fn_file = os.path.basename(inspect.getfile(fn))
+                trace = "// Generated for '{}' (by {},{}:{}):\n".format(container.spelling, self.names[entry["ruleset"]], fn_file, fn.__name__)
+                fn(container, sip, entry)
+            else:
+                trace = "// Inserted for '{}' (by {}):\n".format(container.spelling, self.names[entry["ruleset"]])
+                sip["name"] = entry.get("name", sip["name"])
+                sip["code"] = entry["code"]
+                sip["decl"] = entry.get("decl", sip["decl"])
+            #
+            # Fetch/format the code.
+            #
+            sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
+            sip["code"] = trace + sip["code"]
+            handle_mapped_types(container, sip)
+            return self.trace_result(entry, _parents(container), container, before, sip)
+        return None
+
+    def dump_usage(self, fn):
+        """ Dump the usage counts."""
+        for k in sorted(self.compiled_rules.keys()):
+            v = self.compiled_rules[k]
+            fn(self.names[v["ruleset"]] + " for " + k, v["usage"])
+
+
 class ModuleCodeDb(AbstractCompiledCodeDb):
     """
     THE RULES FOR INJECTING MODULE-RELATED CODE (such as %ExportedHeaderCode,
@@ -1030,29 +1212,33 @@ class RuleSet(object):
     """
     def __init__(self, container_rules=None, forward_declaration_rules=None,
                  function_rules=None, parameter_rules=None, typedef_rules=None,
-                 variable_rules=None, methodcode=None,
-                 modulecode=None):
+                 unexposed_rules=None, variable_rules=None, methodcode=None,
+                 modulecode=None, typecode=None):
         self._container_db = ContainerRuleDb(container_rules)
         self._forward_declaration_db = ForwardDeclarationRuleDb(forward_declaration_rules)
         self._fn_db = FunctionRuleDb(function_rules)
         self._param_db = ParameterRuleDb(parameter_rules)
         self._typedef_db = TypedefRuleDb(typedef_rules)
+        self._unexposed_db = UnexposedRuleDb(unexposed_rules)
         self._var_db = VariableRuleDb(variable_rules)
         self._methodcode = MethodCodeDb(methodcode)
         self._modulecode = ModuleCodeDb(modulecode)
+        self._typecode = TypeCodeDb(typecode)
 
     def add_rules(self, container_rules=None, forward_declaration_rules=None,
                   function_rules=None, parameter_rules=None, typedef_rules=None,
-                  variable_rules=None, methodcode=None,
-                  modulecode=None):
+                  unexposed_rules=None, variable_rules=None, methodcode=None,
+                  modulecode=None, typecode=None):
         self._container_db.add_rules(container_rules)
         self._forward_declaration_db.add_rules(forward_declaration_rules),
         self._fn_db.add_rules(function_rules)
         self._param_db.add_rules(parameter_rules)
         self._typedef_db.add_rules(typedef_rules)
+        self._unexposed_db.add_rules(unexposed_rules)
         self._var_db.add_rules(variable_rules)
         self._methodcode.add_rules(methodcode)
         self._modulecode.add_rules(modulecode)
+        self._typecode.add_rules(typecode)
 
     def container_rules(self):
         """
@@ -1095,6 +1281,14 @@ class RuleSet(object):
         """
         return self._typedef_db
 
+    def unexposed_rules(self):
+        """
+        Return a compiled list of rules for unexposed itesm.
+
+        :return: An UnexposedRuleDb instance
+        """
+        return self._unexposed_db
+
     def variable_rules(self):
         """
         Return a compiled list of rules for variables.
@@ -1119,6 +1313,14 @@ class RuleSet(object):
         """
         return self._modulecode
 
+    def typecode_rules(self):
+        """
+        Return a compiled list of rules for type-related code.
+
+        :return: A TypeCodeDb instance
+        """
+        return self._typecode
+
     def methodcode(self, function, sip):
         """
         Lookup %MethodCode.
@@ -1130,6 +1332,13 @@ class RuleSet(object):
         Lookup %ModuleCode and friends.
         """
         return self._modulecode.apply(filename, sip)
+
+    def typecode(self, container, sip):
+        """
+        Lookup %TypeCode and friends. Return True or False depending on whether a
+        %MappedType is implied.
+        """
+        return self._typecode.apply(container, sip)
 
     def dump_unused(self, fn=None):
         """
@@ -1147,8 +1356,8 @@ class RuleSet(object):
         if fn == None:
             fn = dumper
         for db in [self.container_rules(), self.forward_declaration_rules(), self.function_rules(),
-                    self.parameter_rules(), self.typedef_rules(), self.variable_rules(),
-                    self.methodcode_rules(), self.modulecode_rules()]:
+                    self.parameter_rules(), self.typedef_rules(), self.unexposed_rules(), self.variable_rules(),
+                    self.methodcode_rules(), self.modulecode_rules(), self.typecode_rules()]:
             db.dump_usage(fn)
 
 
@@ -1251,7 +1460,7 @@ def main(argv=None):
         # Generate help!
         #
         for db in [RuleSet, ContainerRuleDb, ForwardDeclarationRuleDb, FunctionRuleDb, ParameterRuleDb, TypedefRuleDb,
-                   VariableRuleDb, MethodCodeDb, ModuleCodeDb]:
+                   UnexposedRuleDb, VariableRuleDb, MethodCodeDb, ModuleCodeDb, TypeCodeDb]:
             name = db.__name__
             print(name)
             print("=" * len(name))
