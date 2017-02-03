@@ -146,6 +146,8 @@ assert(concrete.callableAdd(2, 3) == 5)
 #
 obscure = PyTest.CppLib.ObscureSyntax()
 
+assert obscure.defaultsAndParameterTemplate() == PyTest.CppLib.ObscureSyntax.CORRECT
+
 try:
     qmap = obscure.returnTemplate()
     #
