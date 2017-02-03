@@ -237,6 +237,11 @@ class SipGenerator(object):
                                CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
                 decl, tmp = self._fn_get(container, member, level + 1)
                 module_code.update(tmp)
+                #
+                # Abstract?
+                #
+                if member.is_pure_virtual_method():
+                    sip["annotations"].add("Abstract")
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
