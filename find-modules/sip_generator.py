@@ -992,7 +992,8 @@ class SipGenerator(object):
             decl = ""
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
-            decl += pad + sip["decl"]
+            prefix = self._var_get_keywords(variable)
+            decl += pad + prefix + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
             decl += sip["name"]
@@ -1010,6 +1011,25 @@ class SipGenerator(object):
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
         return decl, module_code
+
+    def _var_get_keywords(self, variable):
+        """
+        The parser does not provide direct access to the complete keywords (static, etc) of a variable
+        in the displayname. It would be nice to get these from the AST, but I cannot find where they are hiding.
+
+        :param variable:                    The variable object.
+        :return: prefix                     String containing any prefix keywords.
+        """
+        if variable.storage_class == StorageClass.STATIC:
+            #
+            # SIP does not support "static".
+            #
+            prefix = ""
+            logger.warn(_("// Strip 'static' for {} (by {})\n".format(SipGenerator.describe(variable),
+                                                                      "static handling")))
+        else:
+            prefix = ""
+        return prefix
 
     def _read_source(self, extent):
         """
