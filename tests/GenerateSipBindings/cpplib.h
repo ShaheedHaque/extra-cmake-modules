@@ -261,6 +261,37 @@ public:
   };
 
   /**
+   * Different types of default value, and a template parameter.
+   * The function is *declared* to return INCORRECT, but we want to verify the %MethodCode returns CORRECT.
+   */
+  int defaultsAndParameterTemplate(
+    //
+    // Flags.
+    //
+    Qt::MatchFlags flagsOne = Qt::MatchWrap,
+    Qt::MatchFlags flagsMultiple = Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap),
+    Qt::MatchFlags flagsMultipleSimple = Qt::MatchStartsWith | Qt::MatchWrap,
+    //
+    // Expressions.
+    //
+    int simple = 1,
+    int complex = 1 + 1,
+    int brackets = (1 + 1),
+    //
+    // Enum.
+    //
+    enum LocalEnum anEnum = INCORRECT,
+    MyObject::LocalEnum remoteEnum = MyObject::Val2,
+    //
+    // Template. The template will need %MethodCode.
+    //
+    QMap<const char *, int> chachacha = QMap<const char *, int>(),
+    //
+    // Qualified object.
+    //
+    const SomeNS::NonCopyableInNS &qualified = SomeNS::NonCopyableInNS()) { return INCORRECT; }
+
+  /**
    * A template return.
    * The function is *declared* to return an empty map, but we want to verify the %MethodCode returns CORRECT.
    */
