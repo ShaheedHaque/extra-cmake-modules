@@ -372,4 +372,10 @@ public:
   typedef QMap<int, LocalEnum> ModuleCodeTypedef;
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
+
+  /**
+   * Static variable. NOTE: we don't currently do anything useful here since SIP does not support it
+   * and the best we can do for now is cause a linker error.
+   */
+  //static int static_var;
 };
