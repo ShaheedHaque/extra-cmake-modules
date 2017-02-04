@@ -505,8 +505,8 @@ class SipGenerator(object):
             access_specifier = "public:"
         else:
             access_specifier = "public: // Mapped from " + access_specifier_text
-            logger.warn(_("// Replaced '{}' with 'public' (by {})\n".format(access_specifier_text,
-                                                                            "access specifier handling")))
+            logger.warn(_("// Replaced '{}' with 'public' (by {})".format(access_specifier_text,
+                                                                          "access specifier handling")))
         decl = pad + access_specifier + "\n"
         return decl
 
@@ -1096,8 +1096,8 @@ class SipGenerator(object):
             # SIP does not support "static".
             #
             prefix = ""
-            logger.warn(_("// Strip 'static' for {} (by {})\n".format(SipGenerator.describe(variable),
-                                                                      "static handling")))
+            logger.warn(_("// Strip 'static' for {} (by {})".format(SipGenerator.describe(variable),
+                                                                    "static handling")))
         else:
             prefix = ""
         return prefix
