@@ -171,15 +171,15 @@ class SipGenerator(object):
             # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
             # module-level directives?
             #
-            name = os.path.basename(h_file)
+            h_name = os.path.basename(h_file)
             sip = {
-                "name": name,
+                "name": os.path.basename(include_filename),
                 "decl": body
             }
             body = ""
-            modifying_rule = self.rules.modulecode(name, sip)
+            modifying_rule = self.rules.modulecode(h_name, sip)
             if modifying_rule:
-                body += "// Modified {} (by {}):\n".format(name, modifying_rule)
+                body += "// Modified {} (by {}):\n".format(h_name, modifying_rule)
             body += sip["decl"] + sip["code"]
         return body, module_code, self.tu.get_includes
 
