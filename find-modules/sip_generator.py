@@ -884,6 +884,17 @@ class SipGenerator(object):
                     decl, tmp = self._container_get(child, level, None)
                     module_code.update(tmp)
                 args.append(decl)
+            elif child.kind == CursorKind.UNION_DECL:
+                if child.underlying_typedef_type:
+                    #
+                    # Typedefs for inlined unions seem to be emitted twice. Refer back to original.
+                    #
+                    union = child.type.get_declaration()
+                    decl = "__union{}".format(union.extent.start.line)
+                else:
+                    decl, tmp = self._container_get(child, level, None)
+                    module_code.update(tmp)
+                args.append(decl)
             elif child.kind == CursorKind.PARM_DECL:
                 decl = child.displayname or "__{}".format(len(args))
                 args.append((child.type.spelling, decl))
@@ -1037,6 +1048,13 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         decl = variable.type.spelling
+        if variable.type.kind == TypeKind.ELABORATED and "anonymous" in decl:
+            #
+            # The spelling will be of the form 'union (anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5)'
+            #
+            words = re.split("[ (:)]+", decl)
+            assert words[0] in ["enum", "struct", "union"]
+            decl = words[0] + " __" + words[0] + words[-3]
         sip["decl"] = decl
         modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
         #
