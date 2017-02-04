@@ -126,6 +126,8 @@ assert(sdo.mul(5, 6) == 30)
 #
 obscure = PyTest.CppLib.ObscureSyntax()
 
+assert obscure.defaultsAndParameterTemplate() == PyTest.CppLib.ObscureSyntax.CORRECT
+
 try:
     qmap = obscure.returnTemplate()
     #
@@ -140,6 +142,12 @@ try:
     assert qmap["foo"] == PyTest.CppLib.ObscureSyntax.CORRECT
 except TypeError as e:
     assert str(e) == "ObscureSyntax.returnTemplate() is a private method"
+
+try:
+    my_abstract = PyTest.CppLib.ObscureSyntax.Abstract()
+    assert False
+except TypeError as e:
+    assert str(e) == "PyTest.CppLib.Abstract cannot be instantiated or sub-classed"
 
 empty = PyTest.CppLib.ObscureSyntax.Empty()
 

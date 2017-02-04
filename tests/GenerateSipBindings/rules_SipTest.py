@@ -128,6 +128,35 @@ int myAcumulate(const QList<int> *list) {
                 }
             },
             "ObscureSyntax": {
+                "defaultsAndParameterTemplate": {
+                    "code": """
+                        %MethodCode
+                        sipRes = ObscureSyntax::INCORRECT;
+                        if ((*a0 == Qt::MatchWrap) &&
+                            (*a1 == Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap)) &&
+                            (*a2 == (Qt::MatchStartsWith | Qt::MatchWrap)) &&
+                            (a3 == 1) &&
+                            (a4 == 2) &&
+                            (a5 == 2) &&
+                            (a6 == ObscureSyntax::INCORRECT) &&
+                            (a7 == MyObject::Val2) &&
+                            (a8.isEmpty()) &&
+                            (a9 != NULL)) {
+                            sipRes = ObscureSyntax::CORRECT;
+                        }
+                        %End
+                        """,
+                    "cxx_decl": [
+                        "Qt::MatchFlags flagsOne",
+                        "Qt::MatchFlags flagsMultiple",
+                        "int simple",
+                        "int complex",
+                        "int brackets",
+                        "LocalEnum anEnum",
+                        "QMap<const char *, int> chachacha"
+                    ],
+                    "cxx_fn_result": "int",
+                },
                 "returnTemplate": {
                     "code": """
                         %MethodCode

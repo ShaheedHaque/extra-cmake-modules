@@ -251,6 +251,11 @@ class SipGenerator(object):
                                CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
                 decl, tmp = self._fn_get(container, member, level + 1)
                 module_code.update(tmp)
+                #
+                # Abstract?
+                #
+                if member.is_pure_virtual_method():
+                    sip["annotations"].add("Abstract")
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
@@ -457,7 +462,16 @@ class SipGenerator(object):
 
     def _get_access_specifier(self, member, level):
         """
-        Skip access specifiers embedded in the Q_OBJECT macro.
+        In principle, we just want member.access_specifier.name.lower(), except that we need to handle:
+
+          Q_OBJECT
+          Q_SIGNALS:|signals:
+          public|private|protected Q_SLOTS:|slots:
+
+        which are converted by the preprocessor...so read the original text.
+
+        :param member:                  The access_specifier.
+        :return:
         """
         access_specifier_text = self._read_source(member.extent)
         if access_specifier_text == "Q_OBJECT":
@@ -474,7 +488,10 @@ class SipGenerator(object):
             access_specifier = "protected:"
         elif member.access_specifier == AccessSpecifier.PUBLIC:
             access_specifier = "public:"
-
+        else:
+            access_specifier = "public: // Mapped from " + access_specifier_text
+            logger.warn(_("// Replaced '{}' with 'public' (by {})".format(access_specifier_text,
+                                                                          "access specifier handling")))
         decl = pad + access_specifier + "\n"
         return decl
 
@@ -686,6 +703,21 @@ class SipGenerator(object):
                 suffix += " = 0"
         return prefix, suffix
 
+    #
+    # There are many cases of parameter defaults we don't handle in _fn_get_parameter_default(). Try to catch those
+    # that break our simple logic...
+    #
+    UNHANDLED_DEFAULT_TYPES = re.compile(
+        r"[a-z0-9_]+<.*::.*>$|" +                           # Right-most "::" inside "<>".
+                                                            #   QSharedPointer<Syndication::RSS2::Document>
+        r"<.*\(.*\)>",                                      # Brackets "()" inside template "<>".
+                                                            #   std::function<bool(const KPluginMetaData &)>()
+        re.I)
+    UNHANDLED_DEFAULT_EXPRESSION = re.compile(
+        r"\(.*\).*\||\|.*\(.*\)",                           # "|"-op outside "()".
+                                                            #   LookUpMode(exactOnly) | defaultOnly
+        re.I)
+
     def _fn_get_parameter_default(self, function, parameter):
         """
         The parser does not seem to provide access to the complete text of a parameter.
@@ -714,34 +746,64 @@ class SipGenerator(object):
                     if isQFlags and member.kind == CursorKind.TYPE_REF:
                         result = member.type
                         break
-
             return result
 
-        def _get_param_value(text, parameterType):
-            if text == "0" or text == "nullptr":
+        def _get_param_value(text, parameter):
+            if text in ["", "0", "nullptr"]:
                 return text
+            parameter_type = _get_param_type(parameter)
             if text == "{}":
-                if parameterType.kind == TypeKind.ENUM:
+                if parameter_type.kind == TypeKind.ENUM:
                     return "0"
-                if parameterType.kind == TypeKind.POINTER:
+                if parameter_type.kind == TypeKind.POINTER:
                     return "nullptr"
-                if parameterType.spelling.startswith("const "):
-                    return parameterType.spelling[6:] + "()"
-                return parameterType.spelling + "()"
-            if not "::" in parameterType.spelling:
+                if parameter_type.spelling.startswith("const "):
+                    return parameter_type.spelling[6:] + "()"
+                return parameter_type.spelling + "()"
+            if not "::" in parameter_type.spelling:
                 return text
-            try:
-                typeText, typeInit = text.split("(")
-                typeInit = "(" + typeInit
-            except:
-                typeText = text
-                typeInit = ""
-
-            prefix = parameterType.spelling.rsplit("::", 1)[0]
-            if "::" in typeText:
-                typeText = typeText.rsplit("::", 1)[1]
-            return prefix + "::" + typeText + typeInit
-
+            #
+            # SIP wants things fully qualified. Without creating a full AST, we can only hope to cover the common
+            # cases:
+            #
+            #   - Enums may come as a single value or an or'd list:
+            #
+            #       Input                       Output
+            #       -----                       ------
+            #       Option1                     parents::Option1
+            #       Flag1|Flag3                 parents::Flag1|parents::Flag3
+            #       FlagsType(Flag1|Flag3)      parents::FlagsType(parents::Flag1|parents::Flag3)
+            #
+            #   - Other stuff:
+            #
+            #       Input                       Output
+            #       -----                       ------
+            #       QString()                   QString::QString()
+            #       QVector<const char*>()      QVector<const char *>::QVector<const char*>()
+            #       QSharedPointer<Document>    QSharedPointer<Syndication::RSS2::Document>()
+            #
+            #
+            if SipGenerator.UNHANDLED_DEFAULT_TYPES.search(parameter_type.spelling):
+                logger.warn(_("Default for {} has unhandled type {}").format(SipGenerator.describe(parameter),
+                                                                             parameter_type.spelling))
+                return text
+            if SipGenerator.UNHANDLED_DEFAULT_EXPRESSION.search(text):
+                logger.warn(_("Default for {} has unhandled expression {}").format(SipGenerator.describe(parameter),
+                                                                                   text))
+                return text
+            prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
+            tmp = re.split("[(|)]", text)
+            if text.endswith(")"):
+                tmp = tmp[:-1]
+            tmp = [(word.rsplit("::", 1)[1] if "::" in word else word) for word in tmp]
+            tmp = [prefix + word if word else "" for word in tmp]
+            result = tmp[0]
+            if len(tmp) > 1 or parameter_type.kind != TypeKind.ENUM:
+                if text.endswith(")"):
+                    result += "(" + "|".join(tmp[1:]) + ")"
+                else:
+                    result = "|".join(tmp)
+            return result
 
         for member in parameter.get_children():
             if member.kind.is_expression():
@@ -751,33 +813,37 @@ class SipGenerator(object):
                 bracket_level = 0
                 found_start = False
                 found_end = False
+                was_punctuated = True
                 for token in self.tu.get_tokens(extent=possible_extent):
-                    if (token.spelling == "="):
+                    #
+                    # Now count balanced anything-which-can-contain-a-comma till we get to the end.
+                    #
+                    if bracket_level == 0 and token.spelling == "=" and not found_start:
                         found_start = True
-                        continue
-                    if token.spelling == "," and bracket_level == 0:
+                    elif bracket_level == 0 and token.spelling in ",)":
                         found_end = True
+                        text = text[1:]
                         break
-                    elif token.spelling == "(":
+                    elif token.spelling in "<(":
                         bracket_level += 1
-                        text += token.spelling
-                    elif token.spelling == ")":
-                        if bracket_level == 0:
-                            found_end = True
-                            break
+                    elif token.spelling in ")>":
                         bracket_level -= 1
+                    if found_start:
+                        if token.kind != TokenKind.PUNCTUATION and not was_punctuated:
+                            text += " "
                         text += token.spelling
-                        if bracket_level == 0:
-                            found_end = True
-                            break
-                    elif found_start:
-                        text += token.spelling
+                        was_punctuated = token.kind == TokenKind.PUNCTUATION
                 if not found_end and text:
                     RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
-
-                parameterType = _get_param_type(parameter)
-
-                return _get_param_value(text, parameterType)
+                #
+                # SIP does not like outer brackets as in "(QHash<QColor,QColor>())". Get rid of them.
+                #
+                if text.startswith("("):
+                    text = text[1:-1]
+                #
+                # Use some heuristics to format the default value as SIP wants in most cases.
+                #
+                return _get_param_value(text, parameter)
         return ""
 
     def _typedef_get(self, container, typedef, level):
@@ -938,7 +1004,8 @@ class SipGenerator(object):
             decl = ""
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
-            decl += pad + sip["decl"]
+            prefix = self._var_get_keywords(variable)
+            decl += pad + prefix + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
             decl += sip["name"]
@@ -956,6 +1023,25 @@ class SipGenerator(object):
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
         return decl, module_code
+
+    def _var_get_keywords(self, variable):
+        """
+        The parser does not provide direct access to the complete keywords (static, etc) of a variable
+        in the displayname. It would be nice to get these from the AST, but I cannot find where they are hiding.
+
+        :param variable:                    The variable object.
+        :return: prefix                     String containing any prefix keywords.
+        """
+        if variable.storage_class == StorageClass.STATIC:
+            #
+            # SIP does not support "static".
+            #
+            prefix = ""
+            logger.warn(_("// Strip 'static' for {} (by {})".format(SipGenerator.describe(variable),
+                                                                    "static handling")))
+        else:
+            prefix = ""
+        return prefix
 
     def _read_source(self, extent):
         """

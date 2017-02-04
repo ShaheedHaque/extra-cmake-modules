@@ -224,10 +224,51 @@ public:
   };
 
   /**
+   * Different types of default value, and a template parameter.
+   * The function is *declared* to return INCORRECT, but we want to verify the %MethodCode returns CORRECT.
+   */
+  int defaultsAndParameterTemplate(
+    //
+    // Flags.
+    //
+    Qt::MatchFlags flagsOne = Qt::MatchWrap,
+    Qt::MatchFlags flagsMultiple = Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap),
+    Qt::MatchFlags flagsMultipleSimple = Qt::MatchStartsWith | Qt::MatchWrap,
+    //
+    // Expressions.
+    //
+    int simple = 1,
+    int complex = 1 + 1,
+    int brackets = (1 + 1),
+    //
+    // Enum.
+    //
+    enum LocalEnum anEnum = INCORRECT,
+    MyObject::LocalEnum remoteEnum = MyObject::Val2,
+    //
+    // Template. The template will need %MethodCode.
+    //
+    QMap<const char *, int> chachacha = QMap<const char *, int>(),
+    //
+    // Qualified object.
+    //
+    const SomeNS::NonCopyableInNS &qualified = SomeNS::NonCopyableInNS()) { return INCORRECT; }
+
+  /**
    * A template return.
    * The function is *declared* to return an empty map, but we want to verify the %MethodCode returns CORRECT.
    */
   QMap<const char *, int> *returnTemplate() { return new QMap<const char *, int>(); }
+
+  /**
+   * A class which needs to be marked abstract.
+   * Test we cannot instantiate an abstract class.
+   */
+  class Abstract
+  {
+  public:
+    virtual void pure() = 0;
+  };
 
   /**
    * Anonymous enum's need special logic to fixup clang's handling of them. See the code.
@@ -309,5 +350,11 @@ public:
   typedef QMap<int, LocalEnum> ModuleCodeTypedef;
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
+
+  /**
+   * Static variable. NOTE: we don't currently do anything useful here since SIP does not support it
+   * and the best we can do for now is cause a linker error.
+   */
+  //static int static_var;
 };
 
