@@ -926,19 +926,6 @@ class RuleSet(object):
         """
         raise NotImplemented(_("Missing subclass implementation"))
 
-    def dump_unused(self):
-        """Usage statistics, to identify unused rules."""
-        def dumper(rule, usage):
-            if usage:
-                logger.info(_("Rule {} used {} times".format(rule, usage)))
-            else:
-                logger.warn(_("Rule {} was not used".format(rule)))
-
-        for db in [self.container_rules(), self.forward_declaration_rules(), self.function_rules(),
-                   self.parameter_rules(), self.typedef_rules(),
-                   self.variable_rules(), self.methodcode_rules(), self.modulecode_rules()]:
-            db.dump_usage(dumper)
-
     @abstractmethod
     def methodcode(self, container, function):
         """
@@ -952,6 +939,26 @@ class RuleSet(object):
         Lookup %ModuleCode and friends.
         """
         raise NotImplemented(_("Missing subclass implementation"))
+
+    def dump_unused(self, fn=None):
+        """
+        Usage statistics, to identify unused rules.
+
+        :param fn:                  An optional callback which takes (rule, usage_count) arguments.
+                                    By default, output will be to the logger.
+        """
+        def dumper(rule, usage_count):
+            if usage_count:
+                logger.info(_("Rule {} used {} times".format(rule, usage_count)))
+            else:
+                logger.warn(_("Rule {} was not used".format(rule)))
+
+        if fn == None:
+            fn = dumper
+        for db in [self.container_rules(), self.forward_declaration_rules(), self.function_rules(),
+                    self.parameter_rules(), self.typedef_rules(), self.variable_rules(),
+                    self.methodcode_rules(), self.modulecode_rules()]:
+            db.dump_usage(fn)
 
 
 #
