@@ -124,7 +124,8 @@ class Rule(object):
             if delta:
                 logger.debug(_("Rule {} modified {}, {}->{}").format(self, fqn, original, modified))
             else:
-                logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
+                if self.fn is not noop:
+                    logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
                 return None
         return self
 
@@ -951,6 +952,16 @@ class RuleSet(object):
         Lookup %ModuleCode and friends.
         """
         raise NotImplemented(_("Missing subclass implementation"))
+
+
+#
+# Some common rule actions, as a convenience for rule writers.
+#
+def noop(*args):
+    """
+    This action function "does nothing" but without causing a warning.
+    """
+    pass
 
 
 def container_discard(container, sip, matcher):
