@@ -1028,3 +1028,43 @@ def rules(project_rules):
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
     return getattr(sys.modules["project_rules"], "RuleSet")()
+
+
+def main(argv=None):
+    """
+    Rules engine for SIP file generation.
+
+    Examples:
+
+        rules.py
+    """
+    if argv is None:
+        argv = sys.argv
+    parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
+                                     formatter_class=HelpFormatter)
+    parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
+    try:
+        args = parser.parse_args(argv[1:])
+        if args.verbose:
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
+        else:
+            logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+        #
+        # Generate help!
+        #
+        for db in [RuleSet, ContainerRuleDb, ForwardDeclarationRuleDb, FunctionRuleDb, ParameterRuleDb, TypedefRuleDb,
+                   VariableRuleDb, MethodCodeDb, ModuleCodeDb]:
+            name = db.__name__
+            print(name)
+            print("=" * len(name))
+            print()
+            print(inspect.getdoc(db))
+            print()
+    except Exception as e:
+        tbk = traceback.format_exc()
+        print(tbk)
+        return -1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
