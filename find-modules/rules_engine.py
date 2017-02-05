@@ -30,8 +30,7 @@
 """SIP file generation rules engine."""
 
 from __future__ import print_function
-
-from abc import *
+from abc import ABCMeta, abstractmethod
 import argparse
 import gettext
 import inspect
@@ -72,13 +71,8 @@ def _parents(container):
 
 
 class Rule(object):
-    def __init__(self, db, rule_number, fn, pattern_zip):
-        #
-        # Derive a useful name for diagnostic purposes.
-        #
-        caller = os.path.basename(inspect.stack()[3][1])
-        self.name =  "{}:{}[{}],{}".format(caller, type(db).__name__, rule_number, fn.__name__)
-        self.rule_number = rule_number
+    def __init__(self, rule_name, fn, pattern_zip):
+        self.name =  "{},{}".format(rule_name, fn.__name__)
         self.fn = fn
         self.usage = 0
         try:
@@ -136,15 +130,28 @@ class Rule(object):
 class AbstractCompiledRuleDb(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, db, parameter_names):
-        self.db = db
+    def __init__(self, raw_rules, parameter_names):
+        """
+        Create a database of compiled rules.
+
+        :param raw_rules:   A function which returns an ordered list of raw rules. The point of
+                            using a function is that a function has a name which can be used for
+                            diagnostics.
+        :parameter_names:   The name of each field in the raw rules.
+        """
         self.compiled_rules = []
-        for i, raw_rule in enumerate(db()):
-            if len(raw_rule) != len(parameter_names) + 1:
-                raise RuntimeError(_("Bad raw rule {}: {}: {}").format(db.__name__, raw_rule, parameter_names))
-            z = zip(raw_rule[:-1], parameter_names)
-            self.compiled_rules.append(Rule(self, i, raw_rule[-1], z))
+        self.parameter_names = parameter_names
         self.candidate_formatter = _SEPARATOR.join(["{}"] * len(parameter_names))
+        #
+        # Backwards compatibility.
+        #
+        # TODO: Remove when Steve and Shaheed are agreed/ready.
+        #
+        if not callable(raw_rules):
+            tmp = lambda: raw_rules
+            self.add_rules(tmp)
+        else:
+            self.add_rules(raw_rules)
 
     def _match(self, *args):
         candidate = self.candidate_formatter.format(*args)
@@ -157,6 +164,40 @@ class AbstractCompiledRuleDb(object):
                 rule.usage += 1
                 return matcher, rule
         return None, None
+
+    def add_rules(self, raw_rules):
+        """
+        Add to the existing set of rules. The new rules have precedence over existing rules.
+
+        :param raw_rules:   A function which returns an ordered list of raw rules. The point of
+                            using a function is that a function has a name which can be used for
+                            diagnostics. May be None.
+        """
+        if raw_rules is None or raw_rules() is None:
+            return
+        file_ = inspect.getfile(raw_rules)
+        if file_ in [__file__, __file__[:-1]]:
+            #
+            # We must have come through the backwards compatibility in __init__.
+            #
+            # TODO: Remove when Steve and Shaheed are agreed/ready.
+            #
+            file_ = inspect.stack()[4][1]
+            name_ = str(inspect.stack()[4][2])
+        else:
+            name_ = raw_rules.__name__
+        file_ = os.path.basename(file_)
+        tmp = []
+        for i, raw_rule in enumerate(raw_rules()):
+            #
+            # Derive a useful name for diagnostic purposes.
+            #
+            rule_name = "{}:{}[{}]".format(file_, name_, i)
+            if len(raw_rule) != len(self.parameter_names) + 1:
+                raise RuntimeError(_("Bad raw rule {}: {}: {}").format(rule_name, raw_rule, self.parameter_names))
+            z = zip(raw_rule[:-1], self.parameter_names)
+            tmp.append(Rule(rule_name, raw_rule[-1], z))
+        self.compiled_rules = tmp + self.compiled_rules
 
     @abstractmethod
     def apply(self, *args):
@@ -597,16 +638,63 @@ class VariableRuleDb(AbstractCompiledRuleDb):
 class AbstractCompiledCodeDb(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, db):
-        caller = os.path.basename(inspect.stack()[2][1])
-        self.name = "{}:{}".format(caller, type(self).__name__)
-        self.db = db
+    def __init__(self, raw_rules):
+        """
+        Create a database of compiled rules.
+
+        :param raw_rules:   A dict of raw rules, or a function which returns a dict of raw rules.
+                            The point of using a function is that a function has a name which can
+                            be used for diagnostics.
+        """
+        self.compiled_rules = {}
+        self.names = []
+        #
+        # Backwards compatibility.
+        #
+        # TODO: Remove when Steve and Shaheed are agreed/ready.
+        #
+        if not callable(raw_rules):
+            tmp = lambda: raw_rules
+            self.add_rules(tmp)
+        else:
+            self.add_rules(raw_rules)
+
+    def add_rules(self, raw_rules):
+        """
+        Add to the existing set of rules. The new rules have precedence over existing rules.
+
+        :param raw_rules:   A function which returns a dict of raw rules. The point of using a
+                            function is that a function has a name which can be used for
+                            diagnostics. May be None.
+        """
+        if raw_rules is None or raw_rules() is None:
+            return
+        file_ = inspect.getfile(raw_rules)
+        if file_ in [__file__, __file__[:-1]]:
+            #
+            # We must have come through the backwards compatibility in __init__.
+            #
+            # TODO: Remove when Steve and Shaheed are agreed/ready.
+            #
+            file_ = inspect.stack()[4][1]
+            name_ = str(inspect.stack()[4][2])
+        else:
+            name_ = raw_rules.__name__
+        file_ = os.path.basename(file_)
+        #
+        # Derive a useful name for diagnostic purposes.
+        #
+        self.names.append("{}:{}".format(file_, name_))
+        for k, v in raw_rules().items():
+            if k in self.compiled_rules:
+                logger.debug(_("Updating raw rule {}").format(k))
+            self.compiled_rules[k] = v
 
     @abstractmethod
     def apply(self, function, sip):
         raise NotImplemented(_("Missing subclass"))
 
-    def trace_result(self, parents, item, original, modified):
+    def trace_result(self, rule, parents, item, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
@@ -614,17 +702,18 @@ class AbstractCompiledCodeDb(object):
         :return: Modifying rule or None.
         """
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
-        self._trace_result(fqn, original, modified)
+        return self._trace_result(rule, fqn, original, modified)
 
-    def _trace_result(self, fqn, original, modified):
+    def _trace_result(self, rule, fqn, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
 
         :return: Modifying rule or None.
         """
+        ruleset = self.names[rule["ruleset"]]
         if not modified["name"]:
-            logger.debug(_("Rule {} suppressed {}, {}").format(self, fqn, original))
+            logger.debug(_("Rule {} discarded {}, {}").format(ruleset, fqn, original))
         else:
             delta = False
             for k, v in original.iteritems():
@@ -632,18 +721,16 @@ class AbstractCompiledCodeDb(object):
                     delta = True
                     break
             if delta:
-                logger.debug(_("Rule {} modified {}, {}->{}").format(self, fqn, original, modified))
+                logger.debug(_("Rule {} modified {}, {}->{}").format(ruleset, fqn, original, modified))
             else:
-                logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
+                logger.warn(_("Rule {} did not modify {}, {}").format(ruleset, fqn, original))
                 return None
-        return self
+        return ruleset
 
     @abstractmethod
     def dump_usage(self, fn):
         raise NotImplemented(_("Missing subclass"))
 
-    def __str__(self):
-        return self.name
 
 class MethodCodeDb(AbstractCompiledCodeDb):
     """
@@ -694,19 +781,28 @@ class MethodCodeDb(AbstractCompiledCodeDb):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, db):
-        super(MethodCodeDb, self).__init__(db)
+    def __init__(self, raw_rules):
+        super(MethodCodeDb, self).__init__(raw_rules)
 
-        for k, v in self.db.items():
+    def add_rules(self, raw_rules):
+        if raw_rules is None or raw_rules() is None:
+            return
+        super(MethodCodeDb, self).add_rules(raw_rules)
+        #
+        # Add a usage count and other diagnostic support for each item in the database.
+        #
+        ruleset = len(self.names) - 1
+        for k, v in raw_rules().items():
             for l in v.keys():
-                v[l]["usage"] = 0
+                self.compiled_rules[k][l]["usage"] = 0
+                self.compiled_rules[k][l]["ruleset"] = ruleset
 
     def _get(self, item, name):
         #
         # Lookup any parent-level entries.
         #
         parents = _parents(item)
-        entries = self.db.get(parents, None)
+        entries = self.compiled_rules.get(parents, None)
         if not entries:
             return None
         #
@@ -733,27 +829,29 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             if callable(entry["code"]):
                 fn = entry["code"]
                 fn_file = os.path.basename(inspect.getfile(fn))
-                trace = "// Generated (by {}:{}): {}\n".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+                trace = "// Generated for '{}:{}' (by {},{}:{}):\n".format(_parents(function), function.spelling, self.names[entry["ruleset"]], fn_file, fn.__name__)
                 fn(function, sip, entry)
             else:
-                trace = "// Inserted (by {}:{}): {}\n".format(_parents(function), function.spelling, {k:v for (k,v) in entry.items() if k != "code"})
+                trace = "// Inserted for '{}:{}' (by {}):\n".format(_parents(function), function.spelling, self.names[entry["ruleset"]])
                 sip["code"] = entry["code"]
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
                 sip["fn_result"] = entry.get("fn_result", sip["fn_result"])
             #
             # Fetch/format the code.
             #
-            sip["code"] = trace + textwrap.dedent(sip["code"]).strip() + "\n"
-            return self.trace_result(_parents(function), function, before, sip)
+            sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
+            sip["code"] = trace + sip["code"]
+            return self.trace_result(entry, _parents(function), function, before, sip)
         return None
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""
-        for k in sorted(self.db.keys()):
-            vk = self.db[k]
+        for k in sorted(self.compiled_rules.keys()):
+            vk = self.compiled_rules[k]
             for l in sorted(vk.keys()):
                 vl = vk[l]
-                fn(str(self) + " for " + k + "," + l, vl["usage"])
+                fn(self.names[vl["ruleset"]] + " for " + k + "," + l, vl["usage"])
+
 
 class ModuleCodeDb(AbstractCompiledCodeDb):
     """
@@ -791,19 +889,26 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, db):
-        super(ModuleCodeDb, self).__init__(db)
+    def __init__(self, raw_rules):
+        super(ModuleCodeDb, self).__init__(raw_rules)
+
+    def add_rules(self, raw_rules):
+        if raw_rules is None or raw_rules() is None:
+            return
+        super(ModuleCodeDb, self).add_rules(raw_rules)
         #
         # Add a usage count and other diagnostic support for each item in the database.
         #
-        for k, v in self.db.items():
-            v["usage"] = 0
+        ruleset = len(self.names) - 1
+        for k, v in raw_rules().items():
+            self.compiled_rules[k]["usage"] = 0
+            self.compiled_rules[k]["ruleset"] = ruleset
 
     def _get(self, filename):
         #
         # Lookup for an actual hit.
         #
-        entry = self.db.get(filename, None)
+        entry = self.compiled_rules.get(filename, None)
         if not entry:
             return None
         entry["usage"] += 1
@@ -824,23 +929,26 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
             if callable(entry["code"]):
                 fn = entry["code"]
                 fn_file = os.path.basename(inspect.getfile(fn))
-                trace = "\n// Generated (by {}:{}): {}".format(fn_file, fn.__name__, {k:v for (k,v) in entry.items() if k != "code"})
+                trace = "// Generated for '{}' (by {},{}:{}):\n".format(filename, self.names[entry["ruleset"]], fn_file, fn.__name__)
                 fn(filename, sip, entry)
-                sip["code"] = trace + sip["code"]
             else:
+                trace = "// Inserted for '{}' (by {}):\n".format(filename, self.names[entry["ruleset"]])
                 sip["code"] = entry["code"]
+                sip["decl"] = entry.get("decl", sip["decl"])
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
-            fqn = filename + "::" + before["name"]
-            self._trace_result(fqn, before, sip)
+            sip["code"] = trace + sip["code"]
+            fqn = filename
+            return self._trace_result(entry, fqn, before, sip)
+        return None
 
     def dump_usage(self, fn):
         """ Dump the usage counts."""
-        for k in sorted(self.db.keys()):
-            v = self.db[k]
-            fn(str(self) + " for " + k, v["usage"])
+        for k in sorted(self.compiled_rules.keys()):
+            v = self.compiled_rules[k]
+            fn(self.names[v["ruleset"]] + " for " + k, v["usage"])
 
 
 class RuleSet(object):
@@ -852,93 +960,108 @@ class RuleSet(object):
     You then simply run the SIP generation and SIP compilation programs passing
     in the name of your rules file
     """
-    __metaclass__ = ABCMeta
+    def __init__(self, container_rules=None, forward_declaration_rules=None,
+                 function_rules=None, parameter_rules=None, typedef_rules=None,
+                 variable_rules=None, methodcode=None,
+                 modulecode=None):
+        self._container_db = ContainerRuleDb(container_rules)
+        self._forward_declaration_db = ForwardDeclarationRuleDb(forward_declaration_rules)
+        self._fn_db = FunctionRuleDb(function_rules)
+        self._param_db = ParameterRuleDb(parameter_rules)
+        self._typedef_db = TypedefRuleDb(typedef_rules)
+        self._var_db = VariableRuleDb(variable_rules)
+        self._methodcode = MethodCodeDb(methodcode)
+        self._modulecode = ModuleCodeDb(modulecode)
 
-    @abstractmethod
+    def add_rules(self, container_rules=None, forward_declaration_rules=None,
+                  function_rules=None, parameter_rules=None, typedef_rules=None,
+                  variable_rules=None, methodcode=None,
+                  modulecode=None):
+        self._container_db.add_rules(container_rules)
+        self._forward_declaration_db.add_rules(forward_declaration_rules),
+        self._fn_db.add_rules(function_rules)
+        self._param_db.add_rules(parameter_rules)
+        self._typedef_db.add_rules(typedef_rules)
+        self._var_db.add_rules(variable_rules)
+        self._methodcode.add_rules(methodcode)
+        self._modulecode.add_rules(modulecode)
+
     def container_rules(self):
         """
         Return a compiled list of rules for containers.
 
         :return: A ContainerRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._container_db
 
-    @abstractmethod
     def forward_declaration_rules(self):
         """
         Return a compiled list of rules for containers.
 
         :return: A ForwardDeclarationRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
 
-    @abstractmethod
+        return self._forward_declaration_db
+
     def function_rules(self):
         """
         Return a compiled list of rules for functions.
 
         :return: A FunctionRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._fn_db
 
-    @abstractmethod
     def parameter_rules(self):
         """
         Return a compiled list of rules for function parameters.
 
         :return: A ParameterRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._param_db
 
-    @abstractmethod
     def typedef_rules(self):
         """
         Return a compiled list of rules for typedefs.
 
         :return: A TypedefRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._typedef_db
 
-    @abstractmethod
     def variable_rules(self):
         """
         Return a compiled list of rules for variables.
 
         :return: A VariableRuleDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._var_db
 
-    @abstractmethod
     def methodcode_rules(self):
         """
         Return a compiled list of rules for method-related code.
 
         :return: A MethodCodeDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._methodcode
 
-    @abstractmethod
     def modulecode_rules(self):
         """
         Return a compiled list of rules for module-related code.
 
         :return: A ModuleCodeDb instance
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._modulecode
 
-    @abstractmethod
-    def methodcode(self, container, function):
+    def methodcode(self, function, sip):
         """
         Lookup %MethodCode.
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._methodcode.apply(function, sip)
 
-    @abstractmethod
-    def modulecode(self, filename):
+    def modulecode(self, filename, sip):
         """
         Lookup %ModuleCode and friends.
         """
-        raise NotImplemented(_("Missing subclass implementation"))
+        return self._modulecode.apply(filename, sip)
 
     def dump_unused(self, fn=None):
         """
