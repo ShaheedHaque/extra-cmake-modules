@@ -51,6 +51,10 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescript
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
 
+# Keep PyCharm happy.
+_ = _
+
+
 EXPR_KINDS = [
     CursorKind.UNEXPOSED_EXPR,
     CursorKind.CONDITIONAL_OPERATOR, CursorKind.UNARY_OPERATOR, CursorKind.BINARY_OPERATOR,
@@ -171,6 +175,9 @@ class SipGenerator(object):
             if self.dump_privates:
                 logger.debug("Ignoring private {}".format(SipGenerator.describe(parent)))
             sip["name"] = ""
+            return True
+        if text.find("_DEPRECATED") != -1:
+            sip["annotations"].add("Deprecated")
             return True
         return False
 
@@ -511,18 +518,19 @@ class SipGenerator(object):
         modifying_rule = self.rules.function_rules().apply(container, function, sip)
         pad = " " * (level * 4)
         if sip["name"]:
+            decl1 = ""
+            if modifying_rule:
+                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
+            for modifying_rule in parameter_modifying_rules:
+                decl1 += pad + modifying_rule
+            decl = ""
             #
             # Any method-related code (%MethodCode, %VirtualCatcherCode, VirtualCallCode
             # or other method-related directives)?
             #
-            self.rules.methodcode(function, sip)
-            decl = ""
+            modifying_rule = self.rules.methodcode(function, sip)
             if modifying_rule:
-                decl += "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule) + pad
-            decl += pad.join(parameter_modifying_rules)
-            if parameter_modifying_rules:
-                decl += pad
-
+                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
             decl += sip["name"] + "(" + ", ".join(sip["parameters"]) + ")"
             if sip["fn_result"]:
                 decl = sip["fn_result"] + " " + decl
@@ -531,6 +539,7 @@ class SipGenerator(object):
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             decl += ";\n"
             decl += sip["code"]
+            decl = decl1 + decl
         else:
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(function), modifying_rule)
         return decl
@@ -772,6 +781,8 @@ def main(argv=None):
     parser.add_argument("--flags",
                         help=_("Semicolon-separated C++ compile flags to use"))
     parser.add_argument("--include_filename", help=_("C++ header include to compile"))
+    parser.add_argument("--dump-rule-usage", action="store_true", default=False,
+                        help=_("Debug dump rule usage statistics"))
     parser.add_argument("libclang", help=_("libclang library to use for parsing"))
     parser.add_argument("project_rules", help=_("Project rules"))
     parser.add_argument("source", help=_("C++ header to process"))
@@ -785,14 +796,30 @@ def main(argv=None):
         #
         # Generate!
         #
-
         cindex.Config.set_library_file(args.libclang)
-
         rules = rules_engine.rules(args.project_rules)
         g = SipGenerator(rules, args.flags.lstrip().split(";"), args.verbose)
         body, includes = g.create_sip(args.source, args.include_filename)
         with open(args.output, "w") as outputFile:
             outputFile.write(body)
+        #
+        # Dump a summary of the rule usage.
+        #
+        if args.dump_rule_usage:
+            #
+            # Fill the dict of the used rules.
+            #
+            def add_usage(rule, usage_count):
+                rule_usage[str(rule)] = usage_count
+
+            rule_usage = {}
+            rules.dump_unused(add_usage)
+            for rule in sorted(rule_usage.keys()):
+                usage_count = rule_usage[rule]
+                if usage_count:
+                    logger.info(_("Rule {} used {} times".format(rule, usage_count)))
+                else:
+                    logger.warn(_("Rule {} was not used".format(rule)))
     except Exception as e:
         tbk = traceback.format_exc()
         print(tbk)
