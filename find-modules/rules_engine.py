@@ -967,8 +967,18 @@ def noop(*args):
 def container_discard(container, sip, matcher):
     sip["name"] = ""
 
+
 def function_discard(container, function, sip, matcher):
     sip["name"] = ""
+
+
+def typedef_discard(container, typedef, sip, matcher):
+    sip["name"] = ""
+
+
+def variable_discard(container, variable, sip, matcher):
+    sip["name"] = ""
+
 
 def parameter_transfer_to_parent(container, function, parameter, sip, matcher):
     if function.is_static_method():
@@ -976,33 +986,35 @@ def parameter_transfer_to_parent(container, function, parameter, sip, matcher):
     else:
         sip["annotations"].add("TransferThis")
 
+
 def param_rewrite_mode_t_as_int(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("mode_t", "unsigned int")
+
 
 def return_rewrite_mode_t_as_int(container, function, sip, matcher):
     sip["fn_result"] = "unsigned int"
 
-def variable_discard(container, variable, sip, matcher):
-    sip["name"] = ""
 
 def parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
+
 
 def function_discard_impl(container, function, sip, matcher):
     if function.extent.start.column == 1:
         sip["name"] = ""
 
-def typedef_discard(container, typedef, sip, matcher):
-    sip["name"] = ""
 
 def discard_QSharedData_base(container, sip, matcher):
     sip["base_specifiers"].remove("QSharedData")
 
+
 def mark_forward_declaration_external(container, sip, matcher):
     sip["annotations"].add("External")
 
+
 def container_mark_abstract(container, sip, matcher):
     sip["annotations"].add("Abstract")
+
 
 def rules(project_rules):
     """
