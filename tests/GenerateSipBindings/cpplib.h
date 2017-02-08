@@ -350,12 +350,6 @@ public:
   typedef QMap<int, LocalEnum> ModuleCodeTypedef;
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
-
-  /**
-   * Static variable. NOTE: we don't currently do anything useful here since SIP does not support it
-   * and the best we can do for now is cause a linker error.
-   */
-  //static int static_var;
 };
 
 /**
@@ -363,3 +357,24 @@ public:
  */
 extern "C" double obscure_unexposed(const char *s00, char **se);
 
+/**
+ * Standalone static variable.
+ */
+static int standaloneStatic = 5;
+
+class Variables
+{
+public:
+  /**
+   * In-class static variable.
+   */
+  static int classStatic;
+  /**
+   * Templated, in-class static variable.
+   */
+  static QMap<int, int> templatedClassStatic;
+  /**
+   * Templated variable. TODO: this does not work because SIP seems to omit the sipPySelf argument name.
+   */
+  // QMap<int, int> templatedVar;
+};

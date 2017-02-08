@@ -44,6 +44,8 @@ from copy import deepcopy
 
 from clang.cindex import CursorKind
 
+import builtin_rules
+
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
@@ -1213,16 +1215,28 @@ class RuleSet(object):
                  function_rules=None, parameter_rules=None, typedef_rules=None,
                  unexposed_rules=None, variable_rules=None, methodcode=None,
                  modulecode=None, typecode=None):
-        self._container_db = ContainerRuleDb(container_rules)
-        self._forward_declaration_db = ForwardDeclarationRuleDb(forward_declaration_rules)
-        self._fn_db = FunctionRuleDb(function_rules)
-        self._param_db = ParameterRuleDb(parameter_rules)
-        self._typedef_db = TypedefRuleDb(typedef_rules)
-        self._unexposed_db = UnexposedRuleDb(unexposed_rules)
-        self._var_db = VariableRuleDb(variable_rules)
-        self._methodcode = MethodCodeDb(methodcode)
-        self._modulecode = ModuleCodeDb(modulecode)
-        self._typecode = TypeCodeDb(typecode)
+        self._container_db = ContainerRuleDb(None)
+        self._forward_declaration_db = ForwardDeclarationRuleDb(None)
+        self._fn_db = FunctionRuleDb(None)
+        self._param_db = ParameterRuleDb(None)
+        self._typedef_db = TypedefRuleDb(None)
+        self._unexposed_db = UnexposedRuleDb(None)
+        self._var_db = VariableRuleDb(None)
+        self._methodcode = MethodCodeDb(None)
+        self._modulecode = ModuleCodeDb(None)
+        self._typecode = TypeCodeDb(None)
+        #
+        # Built-in rules go first.
+        #
+        self.add_rules(variable_rules=builtin_rules.variable_rules)
+        #
+        # User supplied rules.
+        #
+        self.add_rules(
+            container_rules=container_rules, forward_declaration_rules=forward_declaration_rules,
+            function_rules=function_rules, parameter_rules=parameter_rules, typedef_rules=typedef_rules,
+            unexposed_rules=unexposed_rules, variable_rules=variable_rules,
+            methodcode=methodcode, modulecode=modulecode, typecode=typecode)
 
     def add_rules(self, container_rules=None, forward_declaration_rules=None,
                   function_rules=None, parameter_rules=None, typedef_rules=None,

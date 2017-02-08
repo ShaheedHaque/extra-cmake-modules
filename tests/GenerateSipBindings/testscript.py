@@ -172,3 +172,10 @@ try:
     assert False
 except AttributeError as e:
     assert str(e) == "type object 'ObscureSyntax' has no attribute 'Invisible'"
+
+assert PyTest.CppLib.standaloneStatic == 5
+assert PyTest.CppLib.Variables.classStatic == 9876
+variables = PyTest.CppLib.Variables()
+variables.classStatic -= 1
+assert variables.classStatic == 9875
+assert PyTest.CppLib.Variables.classStatic == 9875

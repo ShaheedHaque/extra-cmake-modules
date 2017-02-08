@@ -239,3 +239,7 @@ Shared::Shared(const Shared& other)
 {
 
 }
+
+int Variables::classStatic = 9876;
+
+QMap<int, int> Variables::templatedClassStatic = QMap<int, int>();

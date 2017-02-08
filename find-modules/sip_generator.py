@@ -1072,17 +1072,17 @@ class SipGenerator(object):
             assert words[0] in ["enum", "struct", "union"]
             decl = words[0] + " __" + words[0] + words[-3]
         sip["decl"] = decl
+        #
+        # Before the rules have run, add/remove any prefix.
+        #
+        self._var_get_keywords(container, variable, sip)
         modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
-        #
-        # Now the rules have run, add any prefix/suffix.
-        #
         pad = " " * (level * 4)
         if sip["name"]:
             decl = ""
             if modifying_rule:
                 decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
-            prefix = self._var_get_keywords(variable)
-            decl += pad + prefix + sip["decl"]
+            decl += pad + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
             decl += sip["name"]
@@ -1101,24 +1101,19 @@ class SipGenerator(object):
             decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
         return decl, module_code
 
-    def _var_get_keywords(self, variable):
+    def _var_get_keywords(self, container, variable, sip):
         """
         The parser does not provide direct access to the complete keywords (static, etc) of a variable
         in the displayname. It would be nice to get these from the AST, but I cannot find where they are hiding.
 
+        :param container:                   The variable's container.
         :param variable:                    The variable object.
-        :return: prefix                     String containing any prefix keywords.
+        :param sip:                         The variable's sip. The decl will be updated with any prefix keywords.
         """
+        prefix = ""
         if variable.storage_class == StorageClass.STATIC:
-            #
-            # SIP does not support "static".
-            #
-            prefix = ""
-            logger.warn(_("// Strip 'static' for {} (by {})".format(SipGenerator.describe(variable),
-                                                                    "static handling")))
-        else:
-            prefix = ""
-        return prefix
+            prefix += "static "
+        sip["decl"] = prefix + sip["decl"]
 
     def _read_source(self, extent):
         """
