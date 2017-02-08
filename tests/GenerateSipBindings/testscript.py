@@ -136,6 +136,22 @@ try:
 except AttributeError as e:
     assert str(e) == "module 'PyTest.CppLib' has no attribute 'Invisible'"
 
+visible.visible_var = 1
+try:
+    #
+    # This should not work, but it does.
+    #
+    visible.invisible_var = 1
+    #assert False
+except AttributeError as e:
+    assert str(e) == "'Visible' object has no attribute 'invisible_var'"
+
+try:
+    my_abstract = PyTest.CppLib.Abstract()
+    assert False
+except TypeError as e:
+    assert str(e) == "PyTest.CppLib.Abstract cannot be instantiated or sub-classed"
+
 concrete = PyTest.CppLib.Concrete()
 
 assert(concrete.callableMultiply(2, 3) == 6)
@@ -163,11 +179,11 @@ try:
 except TypeError as e:
     assert str(e) == "ObscureSyntax.returnTemplate() is a private method"
 
-try:
-    my_abstract = PyTest.CppLib.ObscureSyntax.Abstract()
-    assert False
-except TypeError as e:
-    assert str(e) == "PyTest.CppLib.Abstract cannot be instantiated or sub-classed"
-
 empty = PyTest.CppLib.ObscureSyntax.Empty()
 
+assert PyTest.CppLib.standaloneStatic == 5
+assert PyTest.CppLib.Variables.classStatic == 9876
+variables = PyTest.CppLib.Variables()
+variables.classStatic -= 1
+assert variables.classStatic == 9875
+assert PyTest.CppLib.Variables.classStatic == 9875

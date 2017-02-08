@@ -212,6 +212,8 @@ class EXPORT Visible
 public:
   EXPORT int visible_fn() { return 1; }
   NO_EXPORT int invisible_fn() { return 1; }
+  EXPORT int visible;
+  NO_EXPORT int invisible;
 };
 
 class NO_EXPORT Invisible
@@ -298,16 +300,6 @@ public:
   QMap<const char *, int> *returnTemplate() { return new QMap<const char *, int>(); }
 
   /**
-   * A class which needs to be marked abstract.
-   * Test we cannot instantiate an abstract class.
-   */
-  class Abstract
-  {
-  public:
-    virtual void pure() = 0;
-  };
-
-  /**
    * Anonymous enum's need special logic to fixup clang's handling of them. See the code.
    */
   typedef LocalEnum TypedefForEnum;
@@ -372,15 +364,31 @@ public:
   typedef QMap<int, LocalEnum> ModuleCodeTypedef;
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
-
-  /**
-   * Static variable. NOTE: we don't currently do anything useful here since SIP does not support it
-   * and the best we can do for now is cause a linker error.
-   */
-  //static int static_var;
 };
 
 /**
  * Unexposed syntax.
  */
 extern "C" double obscure_unexposed(const char *s00, char **se);
+
+/**
+ * Standalone static variable.
+ */
+static int standaloneStatic = 5;
+
+class Variables
+{
+public:
+  /**
+   * In-class static variable.
+   */
+  static int classStatic;
+  /**
+   * Templated, in-class static variable.
+   */
+  static QMap<int, int> templatedClassStatic;
+  /**
+   * Templated variable. TODO: this does not work because SIP seems to omit the sipPySelf argument name.
+   */
+  // QMap<int, int> templatedVar;
+};
