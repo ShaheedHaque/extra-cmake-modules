@@ -11,3 +11,6 @@ int ExternalFwdDecl::getValue() const
 {
   return m_value;
 }
+
+const char externVar = 1;
+

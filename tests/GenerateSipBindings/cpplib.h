@@ -392,3 +392,8 @@ public:
    */
   // QMap<int, int> templatedVar;
 };
+
+/**
+ * extern support.
+ */
+extern const char externVar;

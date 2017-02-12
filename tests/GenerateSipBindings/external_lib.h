@@ -10,3 +10,5 @@ public:
 private:
   int m_value;
 };
+
+extern const char externVar;
