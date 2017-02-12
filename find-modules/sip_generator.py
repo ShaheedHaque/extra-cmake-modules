@@ -226,6 +226,36 @@ class SipGenerator(object):
         :return:                    A string.
         """
 
+        def is_copy_constructor(member):
+            if member.kind != CursorKind.CONSTRUCTOR:
+                return False
+            numParams = 0
+            hasSelfType = False
+            for child in member.get_children():
+                numParams += 1
+                if child.kind == CursorKind.PARM_DECL:
+                    paramType = child.type.spelling
+                    paramType = paramType.split("::")[-1]
+                    paramType = paramType.replace("const", "").replace("&", "").strip()
+                    hasSelfType = paramType == container.displayname
+            return numParams == 1 and hasSelfType
+
+        def has_parameter_default(parameter):
+            for member in parameter.get_children():
+                if member.kind.is_expression():
+                    return True
+            return False
+
+        def is_default_constructor(member):
+            if member.kind != CursorKind.CONSTRUCTOR:
+                return False
+            numParams = 0
+            for parameter in member.get_children():
+                if (has_parameter_default(parameter)):
+                    break
+                numParams += 1
+            return numParams == 0
+
         sip = {
             "name": container.displayname,
             "annotations": set()
@@ -236,26 +266,49 @@ class SipGenerator(object):
         had_copy_constructor = False
         had_const_member = False
         module_code = {}
-        if container.access_specifier == AccessSpecifier.PRIVATE:
-            if self.dump_privates:
-                logger.debug("Ignoring private {}".format(SipGenerator.describe(container)))
-            return "", module_code
+        VARIABLE_KINDS = [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]
+        FN_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
+                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
         for member in container.get_children():
             #
             # Only emit items in the translation unit.
             #
             if member.location.file.name != self.tu.spelling:
                 continue
+            #
+            # Skip almost anything which is private.
+            #
+            if member.access_specifier == AccessSpecifier.PRIVATE:
+                #
+                # We need to see:
+                #
+                #   - FN_KINDS for any existing constructors (no-copy constructor support) and any pure virtuals (for
+                #     /Abstract/ support).
+                #   - VARIABLE_KINDS to see any const variables (no-copy constructor support).
+                #   - CursorKind.CXX_BASE_SPECIFIER just to preserve any inheritance (is this actually needed?).
+                #   - CursorKind.CXX_ACCESS_SPEC_DECL so that changes in visibility are seen.
+                #
+                if member.kind in FN_KINDS + VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL,
+                                                               CursorKind.CXX_BASE_SPECIFIER]:
+                    pass
+                else:
+                    if self.dump_privates:
+                        logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
+                    continue
             decl = ""
-            if member.kind in [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
-                               CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]:
-                decl, tmp = self._fn_get(container, member, level + 1)
-                module_code.update(tmp)
+            if member.kind in FN_KINDS:
                 #
                 # Abstract?
                 #
                 if member.is_pure_virtual_method():
                     sip["annotations"].add("Abstract")
+                is_copier = is_copy_constructor(member)
+                had_copy_constructor = had_copy_constructor or is_copier
+                if member.access_specifier != AccessSpecifier.PRIVATE or is_copier or is_default_constructor(member):
+                    decl, tmp = self._fn_get(container, member, level + 1)
+                    module_code.update(tmp)
+                elif self.dump_privates:
+                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
@@ -293,8 +346,11 @@ class SipGenerator(object):
                 template_type_parameters.append(member.type.spelling + " " + member.displayname)
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified()
-                decl, tmp = self._var_get(container, member, level + 1)
-                module_code.update(tmp)
+                if member.access_specifier !=  AccessSpecifier.PRIVATE:
+                    decl, tmp = self._var_get(container, member, level + 1)
+                    module_code.update(tmp)
+                elif self.dump_privates:
+                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
@@ -323,63 +379,11 @@ class SipGenerator(object):
                         module_code.update(tmp)
                 else:
                     SipGenerator._report_ignoring(container, member)
-
-            def is_copy_constructor(member):
-                if member.kind != CursorKind.CONSTRUCTOR:
-                    return False
-                numParams = 0
-                hasSelfType = False
-                for child in member.get_children():
-                    numParams += 1
-                    if child.kind == CursorKind.PARM_DECL:
-                        paramType = child.type.spelling
-                        paramType = paramType.split("::")[-1]
-                        paramType = paramType.replace("const", "").replace("&", "").strip()
-                        hasSelfType = paramType == container.displayname
-                return numParams == 1 and hasSelfType
-
-            def has_parameter_default(parameter):
-                for member in parameter.get_children():
-                    if member.kind.is_expression():
-                        return True
-                return False
-
-            def is_default_constructor(member):
-                if member.kind != CursorKind.CONSTRUCTOR:
-                    return False
-                numParams = 0
-                for parameter in member.get_children():
-                    if (has_parameter_default(parameter)):
-                        break
-                    numParams += 1
-                return numParams == 0
-
-            had_copy_constructor = had_copy_constructor or is_copy_constructor(member)
-            #
-            # Discard almost anything which is private.
-            #
-            if member.access_specifier == AccessSpecifier.PRIVATE:
-                if member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
-                    #
-                    # We need these because...
-                    #
-                    pass
-                elif is_copy_constructor(member) or is_default_constructor(member):
-                    #
-                    # ...we need to pass private copy contructors to the SIP compiler.
-                    #
-                    pass
-                else:
-                    if self.dump_privates:
-                        logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
-                    continue
-
             if decl:
                 if self.verbose:
                     pad = " " * ((level + 1) * 4)
                     body += pad + "// {}\n".format(SipGenerator.describe(member))
                 body += decl
-
 
         if container.kind == CursorKind.TRANSLATION_UNIT:
             return body, module_code
