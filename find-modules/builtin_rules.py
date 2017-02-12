@@ -34,7 +34,6 @@ import re
 
 from clang.cindex import CursorKind, TypeKind
 
-
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
 
@@ -205,6 +204,20 @@ class HeldAs(object):
         return code
 
 
+def variable_rewrite_extern(container, variable, sip, matcher):
+    """
+    SIP does not support "extern", so drop the keyword.
+
+    :param container:
+    :param variable:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    assert sip["decl"].startswith("extern ")
+    sip["decl"] = sip["decl"][7:]
+
+
 def variable_rewrite_static(container, variable, sip, matcher):
     """
     SIP does not support "static", so handle static variables.
@@ -358,6 +371,10 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 
 def variable_rules():
     return [
+        #
+        # Discard the extern keyword.
+        #
+        [".*", ".*", "extern .*", variable_rewrite_extern],
         #
         # Emit code for static variables.
         #

@@ -1117,6 +1117,8 @@ class SipGenerator(object):
         prefix = ""
         if variable.storage_class == StorageClass.STATIC:
             prefix += "static "
+        elif variable.storage_class == StorageClass.EXTERN:
+            prefix += "extern "
         sip["decl"] = prefix + sip["decl"]
 
     def _read_source(self, extent):
