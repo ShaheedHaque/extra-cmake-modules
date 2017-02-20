@@ -1,4 +1,4 @@
-# ============================================================================
+#
 # Copyright 2016 by Shaheed Haque (srhaque@theiet.org)
 #
 # Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,7 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# ============================================================================
+#
 """
 SIP binding custom type-related code for PyQt-template classes. The main
 content is:
@@ -47,6 +47,7 @@ import os
 
 from clang.cindex import CursorKind, TypeKind
 
+from builtin_rules import HeldAs
 from sip_generator import SipGenerator
 
 gettext.install(os.path.basename(__file__))
@@ -56,127 +57,27 @@ logger = logging.getLogger(__name__)
 _ = _
 
 
-class HeldAs:
-    """
-    Items are held either as integral values, pointer values or objects. The
-    Python interchange logic depends on this.
-
-    TODO: In the case of pointers, we also need to know whether a specialised
-    pointer type is in use (or just "*").
-    """
-    INTEGRAL = "INTEGRAL"
-    POINTER = "POINTER"
-    OBJECT = "OBJECT"
-
-
-def declare_aliases(name, entry, category, need_string=False):
-    """
-    Make it easier to track changes in generated output.
-
-    By creating local definitions at the top of each section of emitted output, the rest of the expanded template
-    is a constant. This makes it easier to see the effect of any changes using "diff".
-    """
-    cxx_t = entry[name]["type"]
-    sip_t = entry[name]["base_type"]
-    #
-    # This may be a mapped type.
-    #
-    is_mapped_type = ("<" in sip_t)
-    if is_mapped_type:
-        sip_t = "sipFindMappedType(cxx{name}S)"
-    else:
-        sip_t = sip_t.replace("::", "_")
-        sip_t = "sipType_" + sip_t
-    code = ""
-    if is_mapped_type or need_string:
-        code += """    const char *cxx{name}S = "{cxx_t}";
-"""
-    if category in [HeldAs.POINTER, HeldAs.OBJECT]:
-        #
-        # If the sipTypeDef needs a run-time lookup using sipFindMappedType, can convert that into a one-off cost
-        # using a static.
-        #
-        if is_mapped_type:
-            code += """    static const sipTypeDef *gen{name}T = NULL;
-    if (gen{name}T == NULL) {
-        gen{name}T = {sip_t};
-    }
-    typedef {cxx_t} Cxx{name}T;
-"""
-        else:
-            code += """    const sipTypeDef *gen{name}T = {sip_t};
-    typedef {cxx_t} Cxx{name}T;
-"""
-    else:
-        code += """    typedef {cxx_t} Cxx{name}T;
-"""
-    code = code.replace("{sip_t}", sip_t)
-    code = code.replace("{name}", name)
-    code = code.replace("{cxx_t}", cxx_t)
-    return code
-
-
-def convert_cxx_to_py(name, i_value, po_value, category):
-    options = {
-        HeldAs.INTEGRAL:
+class GenerateMappedHelper(HeldAs):
+    cxx_to_py_templates = {
+        HeldAs.INTEGER:
             """#if PY_MAJOR_VERSION >= 3
-        PyObject *{name} = PyLong_FromLong((long){i_value});
+        PyObject *{name} = PyLong_FromLong((long){cxx_i});
 #else
-        PyObject *{name} = PyInt_FromLong((long){i_value});
+        PyObject *{name} = PyInt_FromLong((long){cxx_i});
 #endif
 """,
         HeldAs.POINTER:
-            """        Cxx{name}T cxx{name} = {po_value};
+            """        Cxx{name}T cxx{name} = {cxx_po};
         PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, sipTransferObj);
 """,
         HeldAs.OBJECT:
-            """        Cxx{name}T *cxx{name} = new Cxx{name}T({po_value});
+            """        Cxx{name}T *cxx{name} = new Cxx{name}T({cxx_po});
         PyObject *{name} = sipConvertFromNewType(cxx{name}, gen{name}T, sipTransferObj);
 """,
     }
-    code = options[category]
-    code = code.replace("{name}", name)
-    code = code.replace("{i_value}", i_value)
-    code = code.replace("{po_value}", po_value)
-    return code
 
-
-def decrement_python_reference(name, category):
-    code = """            Py_XDECREF({name});
-"""
-    code = code.replace("{name}", name)
-    return code
-
-
-def check_python_type(name, category, extra=""):
-    options = {
-        HeldAs.INTEGRAL:
-            """#if PY_MAJOR_VERSION >= 3
-            if (!PyLong_Check({name})) {
-                {extra}return 0;
-            }
-#else
-            if (!PyInt_Check({name})) {
-                {extra}return 0;
-            }
-#endif
-""",
-        HeldAs.POINTER:
-            """            if (!sipCanConvertToType({name}, gen{name}T, SIP_NOT_NONE)) {
-                {extra}return 0;
-            }
-""",
-    }
-    options[HeldAs.OBJECT] = options[HeldAs.POINTER]
-    code = options[category]
-    code = code.replace("{name}", name)
-    code = code.replace("{extra}", extra)
-    return code
-
-
-def convert_py_to_cxx(name, category):
-    options = {
-        HeldAs.INTEGRAL:
+    py_to_cxx_templates = {
+        HeldAs.INTEGER:
             """
 #if PY_MAJOR_VERSION >= 3
         Cxx{name}T cxx{name} = (Cxx{name}T)PyLong_AsLong({name});
@@ -195,34 +96,66 @@ def convert_py_to_cxx(name, category):
         cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
 """,
     }
-    code = options[category]
-    code = code.replace("{name}", name)
-    return code
 
+    def cxx_to_py_template(self):
+        return self.cxx_to_py_templates[self.category]
 
-def release_sip_helper(name, category):
-    options = {
-        HeldAs.INTEGRAL:
-            "",
-        HeldAs.POINTER:
-            """        sipReleaseType(cxx{name}, gen{name}T, {name}State);
+    def py_to_cxx_template(self):
+        return self.py_to_cxx_templates[self.category]
+
+    def decrement_python_reference(self, name):
+        code = """            Py_XDECREF({name});
+"""
+        code = code.replace("{name}", name)
+        return code
+
+    def check_python_type(self, name, extra=""):
+        options = {
+            HeldAs.INTEGER:
+                """#if PY_MAJOR_VERSION >= 3
+            if (!PyLong_Check({name})) {
+                {extra}return 0;
+            }
+#else
+            if (!PyInt_Check({name})) {
+                {extra}return 0;
+            }
+#endif
 """,
-    }
-    options[HeldAs.OBJECT] = options[HeldAs.POINTER]
-    code = options[category]
-    code = code.replace("{name}", name)
-    return code
+            HeldAs.POINTER:
+                """            if (!sipCanConvertToType({name}, gen{name}T, SIP_NOT_NONE)) {
+                {extra}return 0;
+            }
+""",
+        }
+        options[HeldAs.OBJECT] = options[HeldAs.POINTER]
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        code = code.replace("{extra}", extra)
+        return code
 
+    def release_sip_helper(self, name):
+        options = {
+            HeldAs.INTEGER:
+                "",
+            HeldAs.POINTER:
+                """        sipReleaseType(cxx{name}, gen{name}T, {name}State);
+""",
+        }
+        options[HeldAs.OBJECT] = options[HeldAs.POINTER]
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        return code
 
-def insertable_cxx_value(name, category):
-    options = {
-        HeldAs.INTEGRAL: "cxx{name}",
-        HeldAs.POINTER: "cxx{name}",
-        HeldAs.OBJECT: "*cxx{name}",
-    }
-    code = options[category]
-    code = code.replace("{name}", name)
-    return code
+    def insertable_cxx_value(self, name):
+        options = {
+            HeldAs.INTEGER: "cxx{name}",
+            HeldAs.POINTER: "cxx{name}",
+            HeldAs.OBJECT: "*cxx{name}",
+        }
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        return code
 
 
 class AbstractExpander(object):
@@ -266,38 +199,6 @@ class AbstractExpander(object):
                                     held_as         Is the item integral, pointer or object?
         """
         raise NotImplemented(_("Missing subclass"))
-
-    def categorise(self, parameter_text, parameter_cursor):
-        """
-        We would like to be able to use clang type system to determine the HELD_AS, but the number of children of the
-        typedef is so inexplicible as to make this impossible at present. For example, int types are not even included.
-
-        TODO: When we figure this out, get rid of the horrid heuristics.
-
-        :param parameter_text:              The text from the source code.
-        :param parameter_cursor:            The clang object.
-        :return: the storage type of the parameter.
-        """
-        if parameter_text.endswith(("Ptr", "*", "&")):
-            return HeldAs.POINTER
-        if parameter_text.startswith(("QSharedPointer", "QExplicitlySharedDataPointer")):
-            return HeldAs.POINTER
-        if parameter_cursor:
-            type_kind = parameter_cursor.type.get_canonical().kind
-            if type_kind == TypeKind.RECORD:
-                return HeldAs.OBJECT
-            elif type_kind in [TypeKind.POINTER, TypeKind.MEMBERPOINTER]:
-                return HeldAs.POINTER
-            elif type_kind in [TypeKind.CHAR_S, TypeKind.CHAR_U, TypeKind.SCHAR, TypeKind.UCHAR, TypeKind.BOOL,
-                               TypeKind.USHORT, TypeKind.UINT, TypeKind.ULONG, TypeKind.ULONGLONG, TypeKind.UINT128,
-                               TypeKind.SHORT, TypeKind.INT, TypeKind.LONG, TypeKind.LONGLONG, TypeKind.INT128,
-                               TypeKind.ENUM]:
-                return HeldAs.INTEGRAL
-            else:
-                raise AssertionError(_("Unexpected template parameter type {} for {}").format(type_kind, parameter_text))
-        if "int" in parameter_text or "long" in parameter_text or parameter_text == "bool":
-            return HeldAs.INTEGRAL
-        return HeldAs.OBJECT
 
     def actual_type(self, manual_override, parameter_text, parameter_cursor):
         """
@@ -417,7 +318,8 @@ class AbstractExpander(object):
             p = {}
             p["type"] = self.actual_type(manual_types[i], decls[i], types[i])
             p["base_type"] = self.base_type(manual_base_types[i], p["type"], types[i])
-            p["held_as"] = self.categorise(p["type"], types[i])
+            kind = types[i].type.get_canonical().kind if types[i] else None
+            p["held_as"] = GenerateMappedHelper(p["type"], kind, p["base_type"])
             entry[parameter] = p
             parameters.append(p["type"])
         parameters = ", ".join(parameters)
@@ -430,10 +332,14 @@ class AbstractExpander(object):
         #
         fn = self._text
         fn_file = os.path.basename(inspect.getfile(fn))
+        from copy import deepcopy
+        tmp = {k: v for (k, v) in deepcopy(entry.items()) if k != "code"}
+        for parameter in expected_parameters:
+            tmp[parameter]["held_as"] = tmp[parameter]["held_as"].category
         trace = "// Generated for {} of {} (by {}:{}): {}".format(SipGenerator.describe(cursor),
                                                                     os.path.basename(cursor.extent.start.file.name),
                                                                     fn_file, fn.__name__,
-                                                                    {k: v for (k, v) in entry.items() if k != "code"})
+                                                                    tmp)
         fn(cursor, entry)
         code = "%MappedType " + entry["mapped_type"] + "\n{\n" + trace + entry["code"] + "};\n"
         sip["module_code"][entry["mapped_type"]] = code
@@ -476,8 +382,8 @@ class DictExpander(AbstractExpander):
 %End
 %ConvertFromTypeCode
 """
-        code += declare_aliases("key", entry, key_category)
-        code += declare_aliases("value", entry, value_category)
+        code += key_category.declare_type_helpers("key", "return 0;")
+        code += value_category.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python dictionary.
     PyObject *dict = PyDict_New();
@@ -491,8 +397,8 @@ class DictExpander(AbstractExpander):
     {cxx_type}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += convert_cxx_to_py("key", "i.key()", "i.key()", key_category)
-        code += convert_cxx_to_py("value", "i.value()", "i.value()", value_category)
+        code += key_category.cxx_to_py("key", True, "i.key()")
+        code += value_category.cxx_to_py("value", True, "i.value()")
         #
         # Error handling assumptions:
         #
@@ -503,11 +409,11 @@ class DictExpander(AbstractExpander):
         if (key == NULL || value == NULL || PyDict_SetItem(dict, key, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert key/value into dict");
 """
-        code += decrement_python_reference("key", key_category) + decrement_python_reference("value", value_category)
-        if key_category == HeldAs.OBJECT:
+        code += key_category.decrement_python_reference("key") + value_category.decrement_python_reference("value")
+        if key_category.category == HeldAs.OBJECT:
             code += """            delete key;
 """
-        if value_category == HeldAs.OBJECT:
+        if value_category.category == HeldAs.OBJECT:
             code += """            delete value;
 """
         code += """            Py_DECREF(dict);
@@ -521,8 +427,8 @@ class DictExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += declare_aliases("key", entry, key_category, need_string=True)
-        code += declare_aliases("value", entry, value_category, need_string=True)
+        code += key_category.declare_type_helpers("key", "return 0;", need_string=True)
+        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
         code += """    PyObject *key;
     PyObject *value;
     Py_ssize_t i = 0;
@@ -535,8 +441,8 @@ class DictExpander(AbstractExpander):
 
         while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
-        code += check_python_type("key", key_category)
-        code += check_python_type("value", value_category)
+        code += key_category.check_python_type("key")
+        code += value_category.check_python_type("value")
         code += """        }
         return 1;
     } else if (*sipIsErr) {
@@ -552,8 +458,8 @@ class DictExpander(AbstractExpander):
     {cxx_type}<CxxkeyT, CxxvalueT> *dict = new {cxx_type}<CxxkeyT, CxxvalueT>();
     while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
-        code += convert_py_to_cxx("key", key_category)
-        code += convert_py_to_cxx("value", value_category)
+        code += key_category.py_to_cxx("key", True, "key")
+        code += value_category.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
             if (cxxkey == NULL) {
@@ -565,17 +471,17 @@ class DictExpander(AbstractExpander):
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += release_sip_helper("key", key_category)
-        code += release_sip_helper("value", value_category)
+        code += key_category.release_sip_helper("key")
+        code += value_category.release_sip_helper("value")
         code += """            delete dict;
             return 0;
         }
         dict->insert("""
-        code += insertable_cxx_value("key", key_category) + ", " + insertable_cxx_value("value", value_category)
+        code += key_category.insertable_cxx_value("key") + ", " + value_category.insertable_cxx_value("value")
         code += """);
 """
-        code += release_sip_helper("key", key_category)
-        code += release_sip_helper("value", value_category)
+        code += key_category.release_sip_helper("key")
+        code += value_category.release_sip_helper("value")
         code += """    }
     *sipCppPtr = dict;
     return sipGetState(sipTransferObj);
@@ -624,7 +530,7 @@ class ListExpander(AbstractExpander):
 %End
 %ConvertFromTypeCode
 """
-        code += declare_aliases("value", entry, value_category)
+        code += value_category.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python list.
     PyObject *list = PyList_New(sipCpp->size());
@@ -637,12 +543,12 @@ class ListExpander(AbstractExpander):
     Py_ssize_t i = 0;
     for (i = 0; i < sipCpp->size(); ++i) {
 """
-        code += convert_cxx_to_py("value", "sipCpp->value(i)", "sipCpp->at(i)", value_category)
+        code += value_category.cxx_to_py("value", True, "sipCpp->value(i)", "sipCpp->at(i)")
         code += """
         if (value == NULL) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into list");
 """
-        code += decrement_python_reference("value", value_category)
+        code += value_category.decrement_python_reference("value")
         code += """            Py_DECREF(list);
             return 0;
         } else {
@@ -653,7 +559,7 @@ class ListExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += declare_aliases("value", entry, value_category, need_string=True)
+        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
         code += """    PyObject *value;
     Py_ssize_t i = 0;
 
@@ -666,7 +572,7 @@ class ListExpander(AbstractExpander):
         for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
             value = PyList_GET_ITEM(sipPy, i);
 """
-        code += check_python_type("value", value_category)
+        code += value_category.check_python_type("value",)
         code += """        }
         return 1;
     } else if (*sipIsErr) {
@@ -683,7 +589,7 @@ class ListExpander(AbstractExpander):
     for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
         value = PyList_GET_ITEM(sipPy, i);
 """
-        code += convert_py_to_cxx("value", value_category)
+        code += value_category.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
             if (cxxvalue == NULL) {
@@ -691,15 +597,15 @@ class ListExpander(AbstractExpander):
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += release_sip_helper("value", value_category)
+        code += value_category.release_sip_helper("value")
         code += """            delete list;
             return 0;
         }
         list->append("""
-        code += insertable_cxx_value("value", value_category)
+        code += value_category.insertable_cxx_value("value")
         code += """);
 """
-        code += release_sip_helper("value", value_category)
+        code += value_category.release_sip_helper("value")
         code += """    }
     *sipCppPtr = list;
     return sipGetState(sipTransferObj);
@@ -746,7 +652,7 @@ class SetExpander(AbstractExpander):
 %End
 %ConvertFromTypeCode
 """
-        code += declare_aliases("value", entry, value_category, need_string=True)
+        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
         code += """
     // Create the Python set.
     PyObject *set = PySet_New(NULL);
@@ -760,12 +666,12 @@ class SetExpander(AbstractExpander):
     {cxx_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += convert_cxx_to_py("value", "sipCpp->value(i)", "*i", value_category)
+        code += value_category.cxx_to_py("value", True, "sipCpp->value(i)", "*i")
         code += """
         if (value == NULL || PySet_Add(set, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into set");
 """
-        code += decrement_python_reference("value", value_category)
+        code += value_category.decrement_python_reference("value")
         code += """            Py_DECREF(set);
             return 0;
         }
@@ -775,7 +681,7 @@ class SetExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += declare_aliases("value", entry, value_category, need_string=True)
+        code += value_category.declare_type_helpers("value", "*sipIsErr = 1;", need_string=True)
         code += """    PyObject *value;
     PyObject *i = PyObject_GetIter(sipPy);
     if (i == NULL) {
@@ -795,7 +701,7 @@ class SetExpander(AbstractExpander):
 
         while (value = PyIter_Next(i)) {
 """
-        code += check_python_type("value", value_category, "Py_DECREF(i);\n                ")
+        code += value_category.check_python_type("value", "Py_DECREF(i);\n                ")
         code += """        }
         Py_DECREF(i);
         return 1;
@@ -814,7 +720,7 @@ class SetExpander(AbstractExpander):
     {cxx_type}<CxxvalueT> *set = new {cxx_type}<CxxvalueT>();
     while (value = PyIter_Next(i)) {
 """
-        code += convert_py_to_cxx("value", value_category)
+        code += value_category.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
             if (cxxvalue == NULL) {
@@ -822,16 +728,16 @@ class SetExpander(AbstractExpander):
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += release_sip_helper("value", value_category)
+        code += value_category.release_sip_helper("value")
         code += """            delete set;
             Py_DECREF(i);
             return 0;
         }
         set->insert("""
-        code += insertable_cxx_value("value", value_category)
+        code += value_category.insertable_cxx_value("value")
         code += """);
 """
-        code += release_sip_helper("value", value_category)
+        code += value_category.release_sip_helper("value")
         code += """    }
     Py_DECREF(i);
     *sipCppPtr = set;

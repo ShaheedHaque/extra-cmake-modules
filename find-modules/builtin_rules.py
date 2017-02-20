@@ -24,10 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
+"""
+Rules which ameliorate some of the shortcomings of SIP.
 
-"""Rules which ameliorate some of the shortcomings of SIP."""
+The main public members of this module are intended to be used in a
+composable manner. For example, a variable array which is also extern
+could be handled by calling @see variable_rewrite_array_nonfixed() and then
+@see variable_rewrite_extern().
+"""
 
 from __future__ import print_function
+from abc import ABCMeta, abstractmethod
 import gettext
 import logging
 import re
@@ -41,6 +48,8 @@ gettext.install(__name__)
 _ = _
 
 
+FIXED_ARRAY_RE = re.compile(".*(\[[^]]+\])+")
+VARIABLE_ARRAY_RE = re.compile(".*(\[\])+")
 MAPPED_TYPE_RE = re.compile(".*<.*")
 
 
@@ -62,6 +71,8 @@ class HeldAs(object):
     TODO: In the case of pointers, we also need to know whether a specialised
     pointer type is in use (or just "*").
     """
+    __metaclass__ = ABCMeta
+
     BYTE = "BYTE"
     INTEGER = "INTEGER"
     FLOAT = "FLOAT"
@@ -82,22 +93,32 @@ class HeldAs(object):
     }
     _rev_map = None
 
-    def __init__(self, cxx_t, clang_kind, sip_t):
+    def __init__(self, cxx_t, clang_kind, manual_t=None):
         """
-        :param cxx_t:                       The text from the source code.
-        :param clang_kind:                  The clang kind.
-        :param sip_t:
+        :param cxx_t:                       The declaration text from the source code.
+        :param clang_kind:                  The clang kind or None.
+        :param manual_t:                    A manual override for the type.
         """
         self.cxx_t = cxx_t
+        if manual_t is None:
+            manual_t = cxx_t
         #
         # This may be a mapped type.
         #
-        self.is_mapped_type = ("<" in sip_t)
+        self.is_mapped_type = ("<" in manual_t)
         if self.is_mapped_type:
             self.sip_t = "sipFindType(cxx{name}S)"
         else:
-            self.sip_t = "sipType_" + sip_t.replace("::", "_")
+            self.sip_t = "sipType_" + manual_t.replace("::", "_")
         self.category = HeldAs.categorise(cxx_t, clang_kind)
+
+    @abstractmethod
+    def cxx_to_py_template(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def py_to_cxx_template(self):
+        raise NotImplementedError()
 
     @staticmethod
     def categorise(cxx_t, clang_kind):
@@ -111,7 +132,7 @@ class HeldAs(object):
         TODO: When we figure this out, get rid of the horrid heuristics.
 
         :param cxx_t:                       The text from the source code.
-        :param clang_kind:                  The clang kind.
+        :param clang_kind:                  The clang kind or None.
         :return: the storage type of the object.
         """
         if cxx_t.endswith(("Ptr", "*", "&")):
@@ -150,7 +171,7 @@ class HeldAs(object):
             return HeldAs.INTEGER
         return HeldAs.OBJECT
 
-    def declare_type_helpers(self, name, need_string=False):
+    def declare_type_helpers(self, name, error, need_string=False):
         """
         Make it easier to track changes in generated output.
 
@@ -173,7 +194,7 @@ class HeldAs(object):
         gen{name}T = {sip_t};
         if (gen{name}T == NULL) {
             PyErr_Format(PyExc_TypeError, "cannot find SIP type for '%s'", cxx{name}S);
-            sipErr = 1;
+            {error}
         }
     }
 """
@@ -186,83 +207,72 @@ class HeldAs(object):
 """
         code = code.replace("{sip_t}", self.sip_t)
         code = code.replace("{name}", name)
+        code = code.replace("{error}", error)
         code = code.replace("{cxx_t}", self.cxx_t)
         return code
 
-    def cxx_to_py(self, name, options, cxxsrc, needs_reference):
-        code = options[self.category]
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+        code = self.cxx_to_py_template()
         code = code.replace("{name}", name)
-        code = code.replace("{cxxsrc}", cxxsrc)
+        code = code.replace("{cxx_i}", cxx_i)
+        code = code.replace("{cxx_po}", cxx_po if cxx_po else cxx_i)
         code = code.replace("{transfer}", "sipTransferObj" if needs_reference else "NULL")
         return code
 
-    def py_to_cxx(self, name, options, to, needs_reference):
-        code = options[self.category]
+    def py_to_cxx(self, name, needs_reference, py_v):
+        code = self.py_to_cxx_template()
         code = code.replace("{name}", name)
-        code = code.replace("{py_to_cxx}", to)
+        code = code.replace("{py_v}", py_v)
         code = code.replace("{transfer}", "sipTransferObj" if needs_reference else "NULL")
         return code
 
 
-def variable_rewrite_extern(container, variable, sip, matcher):
-    """
-    SIP does not support "extern", so drop the keyword.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
-    """
-    assert sip["decl"].startswith("extern ")
-    sip["decl"] = sip["decl"][7:]
-
-
-def variable_rewrite_static(container, variable, sip, matcher):
-    """
-    SIP does not support "static", so handle static variables.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
-    """
-    assert sip["decl"].startswith("static ")
-    while container.kind == CursorKind.NAMESPACE:
-        container = container.semantic_parent
-    if container.kind == CursorKind.TRANSLATION_UNIT:
-        #
-        # SIP does not support %GetCode/%SetCode for file scope variables. But luckily, just dropping the prefix works
-        # assuming we don't actually need anything more complicated.
-        #
-        sip["decl"] = sip["decl"][7:]
-    else:
-        #
-        # Inside a class, "static" is fine. Do we need %GetCode/%SetCode?
-        #
-        if MAPPED_TYPE_RE.match(sip["decl"]):
-            variable_rewrite_mapped(container, variable, sip, matcher)
-
-
-def variable_rewrite_mapped(container, variable, sip, matcher):
-    """
-    Handle class-static variables.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
-    """
-    #
-    # SIP does not support "static", and simply dropping the "static" would change the linkage in the case of
-    # a class so we just delete the variable - but it seems to work for file scope (!!). TODO: can we use
-    # %GetCode/%SetCode for the class case? (SIP does not support %GetCode/%SetCode for file scope).
-    #
-    cxx_to_py_template = {
+class RewriteArrayHelper(HeldAs):
+    cxx_to_py_templates = {
         HeldAs.INTEGER:
-            """    Cxx{name}T cxx{name} = {cxxsrc};
+            """#if PY_MAJOR_VERSION >= 3
+                    {name} = PyLong_FromLong((long){cxx_i});
+#else
+                    {name} = PyInt_FromLong((long){cxx_i});
+#endif""",
+        HeldAs.FLOAT:
+            """                {name} = PyFloat_FromDouble((double){cxx_i});""",
+        HeldAs.POINTER:
+            """                {name} = sipConvertFromType({cxx_i}, gen{name}T, sipTransferObj);""",
+        HeldAs.OBJECT:
+            """                {name} = sipConvertFromType(&{cxx_i}, gen{name}T, sipTransferObj);""",
+    }
+
+    py_to_cxx_templates = {
+        HeldAs.INTEGER:
+            """             #if PY_MAJOR_VERSION >= 3
+                    (*cxx{name})[i] = (Cxx{name}T)PyLong_AsLong({name});
+#else
+                    (*cxx{name})[i] = (Cxx{name}T)PyInt_AsLong({name});
+#endif""",
+        HeldAs.FLOAT:
+            """                (*cxx{name})[i] = (Cxx{name}T)PyFloat_AsDouble({name});""",
+        HeldAs.POINTER:
+            """        int {name}State;
+        Cxx{name}T cxx{name} = NULL;
+        cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
+        HeldAs.OBJECT:
+            """        int {name}State;
+        Cxx{name}T *cxx{name} = NULL;
+        cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
+    }
+
+    def cxx_to_py_template(self):
+        return self.cxx_to_py_templates[self.category]
+
+    def py_to_cxx_template(self):
+        return self.py_to_cxx_templates[self.category]
+
+
+class RewriteMappedHelper(HeldAs):
+    cxx_to_py_templates = {
+        HeldAs.INTEGER:
+            """    Cxx{name}T cxx{name} = {cxx_i};
 #if PY_MAJOR_VERSION >= 3
     PyObject *{name} = PyLong_FromLong((long)cxx{name});
 #else
@@ -270,20 +280,20 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 #endif
 """,
         HeldAs.FLOAT:
-            """    Cxx{name}T cxx{name} = {cxxsrc};
+            """    Cxx{name}T cxx{name} = {cxx_i};
     PyObject *{name} = PyFloat_FromDouble((double)cxx{name});
 """,
         HeldAs.POINTER:
-            """    Cxx{name}T cxx{name} = {cxxsrc};
+            """    Cxx{name}T cxx{name} = {cxx_i};
     PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, {transfer});
 """,
         HeldAs.OBJECT:
-            """    Cxx{name}T *cxx{name} = &{cxxsrc};
+            """    Cxx{name}T *cxx{name} = &{cxx_i};
     PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, {transfer});
 """,
     }
 
-    py_to_cxx_template = {
+    py_to_cxx_templates = {
         HeldAs.INTEGER:
             """    Cxx{name}T cxx{name};
 #if PY_MAJOR_VERSION >= 3
@@ -307,11 +317,269 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 """,
     }
 
+    def cxx_to_py_template(self):
+        return self.cxx_to_py_templates[self.category]
+
+    def py_to_cxx_template(self):
+        return self.py_to_cxx_templates[self.category]
+
+
+def variable_rewrite_array_fixed(container, variable, sip, matcher):
+    """
+    Handle n-dimensional fixed size arrays.
+
+    :param container:
+    :param variable:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    #
+    # A template for a SIP_PYBUFFER.
+    #
+    _SIP_PYBUFFER_TEMPLATE = """
+{
+%GetCode
+    char *cxxvalue = (char *)&sipCpp->{name}[0];
+
+    // Create the Python buffer.
+    Py_ssize_t elementCount = {element_count};
+    sipPy = PyByteArray_FromStringAndSize(cxxvalue, elementCount);
+%End
+
+%SetCode
+    char *cxxvalue = (char *)&sipCpp->{name}[0];
+    Py_ssize_t elementCount = {element_count};
+    const char *name = "{name}";
+
+    if (!PyByteArray_Check(sipPy)) {
+        PyErr_Format(PyExc_TypeError, "expected buffer");
+        sipErr = 1;
+    }
+
+    // Convert the buffer to C++.
+    if (!sipErr) {
+        if (PyByteArray_GET_SIZE(sipPy) != elementCount) {
+            PyErr_Format(PyExc_ValueError, "'%s' must have length %ld", name, elementCount);
+            sipErr = 1;
+        } else {
+            memcpy(cxxvalue, PyByteArray_AsString(sipPy), elementCount);
+        }
+    }
+%End
+}"""
+
+    #
+    # A template for a SIP_PYLIST.
+    #
+    _SIP_PYLIST_TEMPLATE = """
+{
+%GetCode
+typedef {cxx_t} CxxvalueT;
+struct getcode
+{
+    PyObject *getList(int *sipErr, Py_ssize_t dims[], int numDims, int dim, CxxvalueT *cxxvalue[]) {
+        Py_ssize_t elementCount = dims[dim];
+        PyObject *list;
+
+        // Create the Python list.
+        if (!*sipErr) {
+            list = PyList_New(elementCount);
+            if (!list) {
+                PyErr_Format(PyExc_TypeError, "unable to create a list");
+                *sipErr = 1;
+            }
+        }
+
+        // Set the list elements.
+        if (!*sipErr) {
+            for (Py_ssize_t i = 0; i < elementCount; ++i) {
+                PyObject *value;
+                if (dim + 1 < numDims) {
+                    value = getList(sipErr, dims, numDims, dim + 1, &cxxvalue[i]);
+                } else {
+// TODO: use sipConvertToArray and sipConvertToTypedArray
+{cxx_to_py}
+                }
+                if (value == NULL) {
+                    PyErr_Format(PyExc_TypeError, "cannot insert value into list");
+                    Py_XDECREF(value);
+                    Py_DECREF(list);
+                    *sipErr = 1;
+                } else {
+                    PyList_SET_ITEM(list, i, value);
+                }
+            }
+        }
+        return list;
+    };
+} getcode;
+
+    Py_ssize_t dims[] = {{dims}};
+    auto numDims = sizeof(dims) / sizeof(dims[0]);
+    int sipErr = 0;
+    PyObject *list = getcode.getList(&sipErr, dims, numDims, 0, (CxxvalueT **)&sipCpp->{name}[0]);
+    sipPy = sipErr ? list : NULL;
+%End
+
+%SetCode
+typedef {cxx_t} CxxvalueT;
+struct setcode
+{
+    void setList(int *sipErr, Py_ssize_t dims[], int numDims, int dim, PyObject *list, CxxvalueT *cxxvalue[]) {
+        Py_ssize_t elementCount = dims[dim];
+        const char *name = "{name}";
+
+        if (!*sipErr) {
+            if (!PyList_Check(list)) {
+                PyErr_Format(PyExc_TypeError, "expected list");
+                *sipErr = 1;
+            }
+        }
+
+        // Convert the list to C++.
+        if (!*sipErr) {
+            if (PyList_GET_SIZE(list) != elementCount) {
+                PyErr_Format(PyExc_ValueError, "'%s' must have length %ld", name, elementCount);
+                *sipErr = 1;
+            } else {
+                for (Py_ssize_t i = 0; i < elementCount; ++i) {
+                    PyObject *value = PyList_GetItem(list, i);
+                    if (dim + 1 < numDims) {
+                        setList(sipErr, dims, numDims, dim + 1, value, &cxxvalue[i]);
+                    } else {
+{py_to_cxx}
+                    }
+                }
+            }
+        }
+    };
+} setcode;
+
+    Py_ssize_t dims[] = {{dims}};
+    auto numDims = sizeof(dims) / sizeof(dims[0]);
+    setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&sipCpp->{name}[0]);
+%End
+}"""
+
+    dims = []
+    next_type = variable.type
+    while True:
+        dims.append(next_type.element_count)
+        element_type = next_type.element_type.get_canonical()
+        if element_type.kind == TypeKind.CONSTANTARRAY:
+            next_type = element_type
+        else:
+            converter = RewriteArrayHelper(sip["decl"], element_type.kind)
+            if converter.category == HeldAs.BYTE:
+                decl = "SIP_PYBUFFER"
+                code = _SIP_PYBUFFER_TEMPLATE
+            else:
+                decl = "SIP_PYLIST"
+                code = _SIP_PYLIST_TEMPLATE
+                aliases_ = converter.declare_type_helpers("value", "*sipErr = 1;")
+                cxx_to_py = converter.cxx_to_py("value", True, "(*cxxvalue)[i]")
+                py_to_cxx = converter.py_to_cxx("value", True, "(*cxxvalue)[i]")
+                code = code.replace("{cxx_t}", element_type.spelling)
+                code = code.replace("{aliases}", aliases_)
+                code = code.replace("{cxx_to_py}", cxx_to_py)
+                code = code.replace("{py_to_cxx}", py_to_cxx)
+            break
+    #
+    # SIP cannot handle %GetCode/%SetCode for global variables.
+    #
+    if container.kind == CursorKind.TRANSLATION_UNIT:
+        if len(dims) == 1:
+            #
+            # Note that replacing [] with * only works for one dimension.
+            #
+            dims = "*" * len(dims)
+            sip["decl"] = re.sub("\[.*\]", dims, sip["decl"])
+        else:
+            return
+    else:
+        sip["decl"] = decl
+        code = code.replace("{element_count}", str(next_type.element_count))
+        code = code.replace("{name}", sip["name"])
+        dims = ["(Py_ssize_t){}".format(i) for i in dims]
+        code = code.replace("{dims}", ", ".join(dims))
+        sip["code"] = code
+
+
+def variable_rewrite_array_nonfixed(container, variable, sip, matcher):
+    dims = VARIABLE_ARRAY_RE.match(sip["decl"]).groups()
+    if len(dims) == 1:
+        sip["decl"] = sip["decl"].replace("[]", "*")
+
+
+def variable_rewrite_extern(container, variable, sip, matcher):
+    """
+    SIP does not support "extern", so drop the keyword.
+
+    :param container:
+    :param variable:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    sip["decl"] = sip["decl"][7:]
+    if MAPPED_TYPE_RE.match(sip["decl"]):
+        variable_rewrite_mapped(container, variable, sip, matcher)
+    elif FIXED_ARRAY_RE.match(sip["decl"]):
+        variable_rewrite_array_fixed(container, variable, sip, matcher)
+    elif VARIABLE_ARRAY_RE.match(sip["decl"]):
+        variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+
+
+def variable_rewrite_static(container, variable, sip, matcher):
+    """
+    SIP does not support "static", so handle static variables.
+
+    :param container:
+    :param variable:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    while container.kind == CursorKind.NAMESPACE:
+        container = container.semantic_parent
+    if container.kind == CursorKind.TRANSLATION_UNIT:
+        #
+        # SIP does not support %GetCode/%SetCode for file scope variables. But luckily, just dropping the prefix works
+        # assuming we don't actually need anything more complicated.
+        #
+        sip["decl"] = sip["decl"][7:]
+        if FIXED_ARRAY_RE.match(sip["decl"]):
+            variable_rewrite_array_fixed(container, variable, sip, matcher)
+        elif VARIABLE_ARRAY_RE.match(sip["decl"]):
+            variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+    else:
+        #
+        # Inside a class, "static" is fine. Do we need %GetCode/%SetCode?
+        #
+        if MAPPED_TYPE_RE.match(sip["decl"]):
+            variable_rewrite_mapped(container, variable, sip, matcher)
+        elif FIXED_ARRAY_RE.match(sip["decl"]):
+            variable_rewrite_array_fixed(container, variable, sip, matcher)
+        elif VARIABLE_ARRAY_RE.match(sip["decl"]):
+            variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+
+
+def variable_rewrite_mapped(container, variable, sip, matcher):
+    """
+    Handle class-static variables.
+
+    :param container:
+    :param variable:
+    :param sip:
+    :param matcher:
+    :return:
+    """
     #
     # Create a Python <-> C++ conversion helper.
     #
-    converter = HeldAs(variable.type.spelling, variable.type.kind, variable.type.spelling)
-    aliases = converter.declare_type_helpers("value")
+    converter = RewriteMappedHelper(variable.type.spelling, variable.type.kind)
+    aliases = converter.declare_type_helpers("value", "sipErr = 1;")
     code = """
 {
 %GetCode
@@ -336,7 +604,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
         cxx = _parents(container) + "::" + "{name}"
     else:
         cxx = "sipCpp->{name}"
-    code += converter.cxx_to_py("value", cxx_to_py_template, "{cxx}", has_parent)
+    code += converter.cxx_to_py("value", has_parent, "{cxx}")
     if has_parent:
         code += """    sipKeepReference(sipPySelf, -1, value);
 """
@@ -351,7 +619,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
         return -1;
     }
 """
-    code += converter.py_to_cxx("value", py_to_cxx_template, "{cxx}", has_parent)
+    code += converter.py_to_cxx("value", has_parent, "{cxx}")
     if is_complex:
         code += """    if (!sipErr) {
         {cxx} = *cxxvalue;
@@ -385,4 +653,12 @@ def variable_rules():
         # Emit code for templated variables.
         #
         [".*", ".*", MAPPED_TYPE_RE.pattern, variable_rewrite_mapped],
+        #
+        # Emit code for fixed arrays.
+        #
+        [".*", ".*", FIXED_ARRAY_RE.pattern, variable_rewrite_array_fixed],
+        #
+        # Emit code for variable arrays.
+        #
+        [".*", ".*", VARIABLE_ARRAY_RE.pattern, variable_rewrite_array_nonfixed],
     ]

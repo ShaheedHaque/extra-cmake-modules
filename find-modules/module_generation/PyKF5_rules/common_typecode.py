@@ -47,7 +47,8 @@
 SIP binding custom type-related code for PyKF5.
 """
 
-from PyQt_template_typecode import HeldAs, typecode_cfttc_list
+from builtin_rules import HeldAs
+from PyQt_template_typecode import typecode_cfttc_list
 
 
 _akonadi_qobject_ctscc = """
@@ -890,7 +891,7 @@ def code():
     "code": typecode_cfttc_list,
     "value": {
         "type": "Akonadi::Entity::Id",
-        "HeldAs": HeldAs.INTEGRAL,
+        "HeldAs": HeldAs.INTEGER,
     },
 },
 "QVector<Akonadi::Entity::Id>": { #QVector<Akonadi::Entity::Id>
@@ -3186,7 +3187,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
     "code": typecode_cfttc_list,
     "value": {
         "type": "QEvent::Type",
-        "HeldAs": HeldAs.INTEGRAL,
+        "HeldAs": HeldAs.INTEGER,
     },
 },
 # ./kdeui/kcursor.sip
@@ -3269,7 +3270,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
     "code": typecode_cfttc_list,
     "value": {
         "type": "KStandardAction::StandardAction",
-        "HeldAs": HeldAs.INTEGRAL,
+        "HeldAs": HeldAs.INTEGER,
     },
 },
 # ./kdeui/kicon.sip
@@ -3318,7 +3319,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
     "code": typecode_cfttc_list,
     "value": {
         "type": "WId",
-        "HeldAs": HeldAs.INTEGRAL,
+        "HeldAs": HeldAs.INTEGER,
     },
 },
 }
