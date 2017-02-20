@@ -819,7 +819,7 @@ class SipGenerator(object):
                 pass
             else:
                 text = self._read_source(child.extent)
-                if self.skippable_attribute(typedef, child, text, SipGenerator.TYPEDEF_SKIPPABLE_ATTR, sip):
+                if self.skippable_attribute(typedef, child, text, sip):
                     if not sip["name"]:
                         return "", module_code
                 else:
