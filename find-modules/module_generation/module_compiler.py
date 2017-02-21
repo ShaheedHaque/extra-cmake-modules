@@ -84,7 +84,7 @@ class ModuleCompiler(object):
         self.includes = includes
         self.imports = imports
         self.tmp = os.path.join(output, "tmp")
-        self.packages = os.path.join(output, "python")
+        self.output_so = os.path.join(output, "python")
         #
         # We are going to process a whole set of modules. We therefore assume
         # we will need to fixup recursive %Imports and create a shippable
@@ -115,13 +115,13 @@ class ModuleCompiler(object):
         #
         # Set up the project output directory.
         #
-        for dir in [self.tmp, self.packages, self.output_sips]:
+        for dir in [self.tmp, self.output_so, self.output_sips]:
             try:
                 os.makedirs(os.path.join(dir, self.package))
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
-        with open(os.path.join(self.packages, self.package, "__init__.py"), "w") as f:
+        with open(os.path.join(self.output_so, self.package, "__init__.py"), "w") as f:
             pass
         #
         # If there is a set of features, copy it.
@@ -149,7 +149,7 @@ class ModuleCompiler(object):
                 if not(selector.search(sip_file) and not omitter.search(sip_file)):
                     continue
                 per_process_args.append((sip_file, ))
-        std_args = (self.input_sips, self.includes, self.imports, self.libraries, self.package, self.packages,
+        std_args = (self.input_sips, self.includes, self.imports, self.libraries, self.package, self.output_so,
                     self.output_sips, self.tmp, self.sipconfig, self.pyqt_sip_flags, features, self.verbose)
         if jobs == 0:
             #
@@ -188,7 +188,7 @@ def copy_file(input_dir, filename, output_dir):
     shutil.copy(input, output)
 
 
-def process_one(sip_file, input_sips, includes, imports, libraries, package, packages, output_sips, tmp_dir,
+def process_one(sip_file, input_sips, includes, imports, libraries, package, output_so, output_sips, tmp_dir,
                 self_sipconfig, pyqt_sip_flags, features, verbose):
     """
     Run a SIP file.
@@ -199,7 +199,7 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, pac
     :param imports:             Config
     :param libraries:           Config
     :param package:             Config
-    :param packages:            Config
+    :param output_so:           Config
     :param output_sips:         Config
     :param tmp_dir:             Config
     :param self_sipconfig:      Config
@@ -239,10 +239,10 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, pac
         #
         module_path = module_name.replace(".", os.path.sep)
         tmp_dir = os.path.join(tmp_dir, module_path)
-        packages = os.path.join(packages, module_path)
+        output_so = os.path.join(output_so, os.path.dirname(module_path))
         assert module_name.startswith(package + "."),_("Expected {} to be part of {}").format(module_name, package)
         output_sips = os.path.join(output_sips, package)
-        for dir in [tmp_dir, packages, output_sips]:
+        for dir in [tmp_dir, output_so, output_sips]:
             try:
                 os.makedirs(dir)
             except OSError as e:
@@ -307,8 +307,8 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, pac
         _run_command(verbose, ["make", "-f", os.path.basename(make_file)], cwd=tmp_dir)
         cpython_module = os.path.basename(module_path) + ".so"
         logger.info(_("Publishing {}").format(module_name))
-        copy_file(tmp_dir, cpython_module, packages)
-        with open(os.path.join(packages, "__init__.py"), "w") as f:
+        copy_file(tmp_dir, cpython_module, output_so)
+        with open(os.path.join(output_so, "__init__.py"), "w") as f:
             pass
     except Exception as e:
         logger.error("{} while processing {}".format(e, sip_file))
