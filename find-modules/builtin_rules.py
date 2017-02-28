@@ -324,6 +324,63 @@ class RewriteMappedHelper(HeldAs):
         return self.py_to_cxx_templates[self.category]
 
 
+def container_rewrite_exception(container, sip, matcher):
+    """
+    Convert a class which is an exception into a %Exception.
+
+    :param container:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    parents = _parents(container.semantic_parent)
+    sip["name"] = parents + "::" + sip["name"]
+    sip_name = sip["name"].replace("::", "_")
+    py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
+    base_exception = sip["base_specifiers"][0]
+    sip["decl"] = "%Exception {}({}) /PyName={}/".format(sip["name"], base_exception, py_name)
+    sip["base_specifiers"] = []
+    sip["body"] = """
+%RaiseCode
+    const char *detail = sipExceptionRef.what();
+
+    SIP_BLOCK_THREADS
+    PyErr_SetString(sipException_{}, detail);
+    SIP_UNBLOCK_THREADS
+%End
+""".format(sip_name)
+
+
+def container_rewrite_std_exception(container, sip, matcher):
+    """
+    Synthesise an %Exception for std::<exception>.
+
+    :param container:
+    :param sip:
+    :param matcher:
+    :return:
+    """
+    std_exception = sip["base_specifiers"][0]
+    container_rewrite_exception(container, sip, matcher)
+    sip_name = std_exception.replace("::", "_")
+    py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
+    sip["module_code"][std_exception] = """%Exception {}(SIP_Exception) /PyName={}/
+{{
+%TypeHeaderCode
+#include <exception>
+%End
+
+%RaiseCode
+    const char *detail = sipExceptionRef.what();
+
+    SIP_BLOCK_THREADS
+    PyErr_SetString(sipException_{}, detail);
+    SIP_UNBLOCK_THREADS
+%End
+}};
+""".format(std_exception, py_name, sip_name)
+
+
 def variable_rewrite_array_fixed(container, variable, sip, matcher):
     """
     Handle n-dimensional fixed size arrays.
@@ -637,6 +694,19 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
     code = code.replace("{cxx}", cxx)
     code = code.replace("{name}", sip["name"])
     sip["code"] = code
+
+
+def container_rules():
+    return [
+        #
+        # Handle std:: exceptions.
+        #
+        [".*", ".*Exception", ".*", ".*", "std::.*", container_rewrite_std_exception],
+        #
+        # Other exceptions.
+        #
+        [".*", ".*", ".*", ".*", ".*Exception", container_rewrite_exception],
+    ]
 
 
 def variable_rules():

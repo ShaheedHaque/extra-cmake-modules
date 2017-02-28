@@ -395,6 +395,15 @@ class ModuleGenerator(object):
                 decl += "{}\n".format(include)
             decl += "%End\n"
             #
+            # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
+            # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
+            # %Exceptions).
+            #
+            for mc in sorted(mapped_types):
+                decl += "\n\n"
+                decl += mapped_types[mc]
+                decl += "\n\n"
+            #
             # Add all peer .sip files.
             #
             for sip_file in sip_files:
@@ -414,15 +423,6 @@ class ModuleGenerator(object):
             body += sip["decl"] + sip["code"]
             with open(full_output, "w") as f:
                 f.write(header(output_file, h_dir, h_dir, self.package))
-                #
-                # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
-                # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
-                # %Exceptions).
-                #
-                for mc in sorted(mapped_types):
-                    f.write("\n\n")
-                    f.write(mapped_types[mc])
-                    f.write("\n\n")
                 f.write(body)
         return attempts, failures
 

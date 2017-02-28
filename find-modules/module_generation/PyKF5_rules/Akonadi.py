@@ -22,7 +22,12 @@ SIP binding customisation for PyKF5.Akonadi. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
+import builtin_rules
 import rules_engine
+
+
+def _parameter_restore_default(container, function, paramter, sip, matcher):
+    sip["init"] = "Q_NULLPTR"
 
 
 def typedef_discard(container, typedef, sip, matcher):
@@ -34,7 +39,8 @@ def _unexposed_discard(container, unexposed, sip, matcher):
 
 
 def _variable_array_to_star(container, variable, sip, matcher):
-    sip["decl"] = sip["decl"].replace("[]", "*")
+    builtin_rules.variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+    builtin_rules.variable_rewrite_extern(container, variable, sip, matcher)
 
 
 def container_rules():
@@ -51,7 +57,7 @@ def typedef_rules():
         #
         # SIP thinks there are duplicate signatures.
         #
-        [".*", "QVariantMap", ".*", ".*", typedef_discard],
+        [".*", "QVariantMap", ".*", ".*", rules_engine.typedef_discard],
     ]
 
 
@@ -60,9 +66,9 @@ def unexposed_rules():
         #
         # Discard ....
         #
-        ["Akonadi", ".*", ".*Item::setPayloadImpl.*", _unexposed_discard],
-        ["Akonadi", ".*", ".*std::enable_if.*", _unexposed_discard],
-        ["exception.h", ".*", ".*AKONADI_EXCEPTION_MAKE_TRIVIAL_INSTANCE.*", _unexposed_discard],
+        ["Akonadi", ".*", ".*Item::setPayloadImpl.*", rules_engine.unexposed_discard],
+        ["Akonadi", ".*", ".*std::enable_if.*", rules_engine.unexposed_discard],
+        ["exception.h", ".*", ".*AKONADI_EXCEPTION_MAKE_TRIVIAL_INSTANCE.*", rules_engine.unexposed_discard],
     ]
 
 

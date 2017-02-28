@@ -1244,7 +1244,8 @@ class RuleSet(object):
         #
         # Built-in rules go first.
         #
-        self.add_rules(variable_rules=builtin_rules.variable_rules)
+        self.add_rules(
+            container_rules=builtin_rules.container_rules, variable_rules=builtin_rules.variable_rules)
         #
         # User supplied rules.
         #
@@ -1413,6 +1414,10 @@ def typedef_discard(container, typedef, sip, matcher):
 
 
 def variable_discard(container, variable, sip, matcher):
+    sip["name"] = ""
+
+
+def unexposed_discard(container, unexposed, sip, matcher):
     sip["name"] = ""
 
 
