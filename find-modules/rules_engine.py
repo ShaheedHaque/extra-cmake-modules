@@ -334,6 +334,11 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
     the forward declaration for any container (class, struct, union) to be
     customised, for example to add SIP compiler annotations.
 
+    For example, it is not appropriate to annotate each forward declaration with
+    /External/ as this is only needed for types which are defined in a different
+    module, so the SIP generator omits them. (Local forward declarations are not
+    needed). So, rules can be added here to emit /External/ as needed.
+
     Each entry in the raw rule database must be a list with members as follows:
 
         0. A regular expression which matches the fully-qualified name of the
@@ -804,10 +809,15 @@ class AbstractCompiledCodeDb(object):
             return False
         self.names.append(rule_batch)
         for k, v in raw_rules().items():
+            self._check_rule(rule_batch, k, v)
             if k in self.compiled_rules:
                 logger.debug(_("Updating raw rule {}").format(k))
             self.compiled_rules[k] = v
         return True
+
+    def _check_rule(self, rule_batch, k, v):
+        if "code" not in v:
+            raise RuntimeError(_("Bad raw rule {}: {}: {}").format(rule_batch, k, v.keys()))
 
     @abstractmethod
     def apply(self, function, sip):
@@ -921,6 +931,11 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             for l in v.keys():
                 self.compiled_rules[k][l]["usage"] = 0
                 self.compiled_rules[k][l]["ruleset"] = ruleset
+
+    def _check_rule(self, rule_batch, k, v):
+        for method, vv in v.items():
+            if "code" not in vv:
+                raise RuntimeError(_("Bad raw rule {}: {}: {}").format(rule_batch, k, vv.keys()))
 
     def _get(self, item, name):
         #
