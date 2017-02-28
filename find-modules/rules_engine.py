@@ -189,26 +189,15 @@ class AbstractCompiledRuleDb(object):
                             using a function is that a function has a name which can be used for
                             diagnostics. May be None.
         """
-        if raw_rules is None or raw_rules() is None:
+        rule_batch = AbstractCompiledRuleDb.batch_name(raw_rules, inspect.stack()[4])
+        if not rule_batch:
             return
-        file_ = inspect.getfile(raw_rules)
-        if file_ in [__file__, __file__[:-1]]:
-            #
-            # We must have come through the backwards compatibility in __init__.
-            #
-            # TODO: Remove when Steve and Shaheed are agreed/ready.
-            #
-            file_ = inspect.stack()[4][1]
-            name_ = str(inspect.stack()[4][2])
-        else:
-            name_ = raw_rules.__name__
-        file_ = os.path.basename(file_)
         tmp = []
         for i, raw_rule in enumerate(raw_rules()):
             #
             # Derive a useful name for diagnostic purposes.
             #
-            rule_name = "{}:{}[{}]".format(file_, name_, i)
+            rule_name = "{}[{}]".format(rule_batch, i)
             #
             # Backwards compatibility. Older rule databases will be missing entries for (fn_result, decl) and
             # (prefix, suffix) for TypedefRuleDb and FunctionRuleDb respectively.
@@ -222,6 +211,33 @@ class AbstractCompiledRuleDb(object):
             z = zip(raw_rule[:-1], self.parameter_names)
             tmp.append(Rule(rule_name, raw_rule[-1], z))
         self.compiled_rules = tmp + self.compiled_rules
+
+    @staticmethod
+    def batch_name(raw_rules, caller):
+        """
+        Derive a useful name for a batch of rules.
+
+        :param raw_rules:   A function which returns an ordered list of raw rules.  The point of
+                            using a function is that a function has a name which can be used for
+                            diagnostics. May be None.
+        :param caller:      Backwards compatibility support.
+        :return:
+        """
+        if raw_rules is None or raw_rules() is None:
+            return ""
+        rule_file = inspect.getfile(raw_rules)
+        if rule_file in [__file__, __file__[:-1]]:
+            #
+            # We must have come through the backwards compatibility in __init__.
+            #
+            # TODO: Remove when Steve and Shaheed are agreed/ready.
+            #
+            rule_file = caller[1]
+            rule_id = str(caller[2])
+        else:
+            rule_id = raw_rules.__name__
+        rule_file = os.path.basename(rule_file)
+        return "{}:{}".format(rule_file, rule_id)
 
     @abstractmethod
     def apply(self, *args):
@@ -783,28 +799,15 @@ class AbstractCompiledCodeDb(object):
                             function is that a function has a name which can be used for
                             diagnostics. May be None.
         """
-        if raw_rules is None or raw_rules() is None:
-            return
-        file_ = inspect.getfile(raw_rules)
-        if file_ in [__file__, __file__[:-1]]:
-            #
-            # We must have come through the backwards compatibility in __init__.
-            #
-            # TODO: Remove when Steve and Shaheed are agreed/ready.
-            #
-            file_ = inspect.stack()[4][1]
-            name_ = str(inspect.stack()[4][2])
-        else:
-            name_ = raw_rules.__name__
-        file_ = os.path.basename(file_)
-        #
-        # Derive a useful name for diagnostic purposes.
-        #
-        self.names.append("{}:{}".format(file_, name_))
+        rule_batch = AbstractCompiledRuleDb.batch_name(raw_rules, inspect.stack()[4])
+        if not rule_batch:
+            return False
+        self.names.append(rule_batch)
         for k, v in raw_rules().items():
             if k in self.compiled_rules:
                 logger.debug(_("Updating raw rule {}").format(k))
             self.compiled_rules[k] = v
+        return True
 
     @abstractmethod
     def apply(self, function, sip):
@@ -908,9 +911,8 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         super(MethodCodeDb, self).__init__(raw_rules)
 
     def add_rules(self, raw_rules):
-        if raw_rules is None or raw_rules() is None:
+        if not super(MethodCodeDb, self).add_rules(raw_rules):
             return
-        super(MethodCodeDb, self).add_rules(raw_rules)
         #
         # Add a usage count and other diagnostic support for each item in the database.
         #
@@ -1044,9 +1046,8 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         super(TypeCodeDb, self).__init__(raw_rules)
 
     def add_rules(self, raw_rules):
-        if raw_rules is None or raw_rules() is None:
+        if not super(TypeCodeDb, self).add_rules(raw_rules):
             return
-        super(TypeCodeDb, self).add_rules(raw_rules)
         #
         # Add a usage count and other diagnostic support for each item in the database.
         #
@@ -1145,9 +1146,8 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         super(ModuleCodeDb, self).__init__(raw_rules)
 
     def add_rules(self, raw_rules):
-        if raw_rules is None or raw_rules() is None:
+        if not super(ModuleCodeDb, self).add_rules(raw_rules):
             return
-        super(ModuleCodeDb, self).add_rules(raw_rules)
         #
         # Add a usage count and other diagnostic support for each item in the database.
         #
