@@ -1170,10 +1170,17 @@ def main(argv=None):
         rules = rules_engine.rules(args.project_rules)
         g = SipGenerator(rules, args.flags.lstrip().split(";"), args.verbose)
         body, module_code, includes = g.create_sip(args.source, args.include_filename)
-        for typecode in sorted(module_code):
-            body += "\n\n" + module_code[typecode] + "\n\n"
-        with open(args.output, "w") as outputFile:
-            outputFile.write(body)
+        with open(args.output, "w") as f:
+            #
+            # The module_code dictionary ensures there can be no duplicates, even if multiple sip files might have
+            # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
+            # %Exceptions).
+            #
+            for mc in sorted(module_code):
+                f.write("\n\n")
+                f.write(module_code[mc])
+                f.write("\n\n")
+            f.write(body)
         #
         # Dump a summary of the rule usage.
         #

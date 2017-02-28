@@ -349,7 +349,6 @@ class ModuleGenerator(object):
                 h_dir = h_dir.replace(funny, "_")
             module = h_dir.replace(os.path.sep, ".")
             output_file = os.path.join(h_dir, os.path.basename(h_dir) + MODULE_SIP)
-            decl = header(output_file, h_dir, h_dir, self.package)
             #
             # Write the header and the body.
             #
@@ -360,7 +359,7 @@ class ModuleGenerator(object):
                 if e.errno != errno.EEXIST:
                     raise
             logger.info(_("Creating {}").format(full_output))
-            decl += "%Module(name={}.{})\n".format(self.package, module)
+            decl = "%Module(name={}.{})\n".format(self.package, module)
             decl += """
 %ModuleHeaderCode
 #pragma GCC visibility push(default)
@@ -408,16 +407,23 @@ class ModuleGenerator(object):
                 "name": module,
                 "decl": decl
             }
-            compiled_rules.modulecode(os.path.basename(full_output), sip)
-            decl = sip["decl"] + sip["code"]
+            body = ""
+            modifying_rule = compiled_rules.modulecode(os.path.basename(full_output), sip)
+            if modifying_rule:
+                body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
+            body += sip["decl"] + sip["code"]
             with open(full_output, "w") as f:
-                f.write(decl)
+                f.write(header(output_file, h_dir, h_dir, self.package))
                 #
-                # By emitting the mapped_types dictionary here, we ensure there can be no duplicates, even if multiple
-                # sip files might have contributed the same item.
+                # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
+                # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
+                # %Exceptions).
                 #
-                for mapped_type in sorted(mapped_types):
-                    f.write("\n\n" + mapped_types[mapped_type] + "\n\n")
+                for mc in sorted(mapped_types):
+                    f.write("\n\n")
+                    f.write(mapped_types[mc])
+                    f.write("\n\n")
+                f.write(body)
         return attempts, failures
 
     def _map_include_to_import(self, include):
