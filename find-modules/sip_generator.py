@@ -316,7 +316,11 @@ class SipGenerator(object):
                         typedef = "struct {}\n".format(member.type.spelling)
                     elif child.kind == CursorKind.UNION_DECL:
                         original = "union {}\n".format(child.displayname or "__union{}".format(child.extent.start.line))
-                        typedef = "union {}\n".format(member.type.spelling)
+                        #
+                        # Render a union as a struct. From the point of view of the accessors created for the bindings,
+                        # this should behave as expected!
+                        #
+                        typedef = "/* union */ struct {}\n".format(member.type.spelling)
                     body = body.replace(original, typedef, 1)
                 else:
                     decl, tmp = self._typedef_get(container, member, level + 1)
@@ -383,7 +387,7 @@ class SipGenerator(object):
         elif container.kind == CursorKind.UNION_DECL:
             if not sip["name"]:
                 sip["name"] = "__union{}".format(container.extent.start.line)
-            container_type = "union {}".format(sip["name"])
+            container_type = "/* union */ struct {}".format(sip["name"])
         else:
             raise AssertionError(
                 _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
@@ -1058,7 +1062,14 @@ class SipGenerator(object):
             #
             words = re.split("[ (:)]+", decl)
             assert words[0] in ["enum", "struct", "union"]
-            decl = words[0] + " __" + words[0] + words[-3]
+            #
+            # Render a union as a struct. From the point of view of the accessors created for the bindings,
+            # this should behave as expected!
+            #
+            if words[0] == "union":
+                decl = "/* union */ struct __struct" + words[-3]
+            else:
+                decl = words[0] + " __" + words[0] + words[-3]
         sip["decl"] = decl
         #
         # Before the rules have run, add/remove any prefix.
