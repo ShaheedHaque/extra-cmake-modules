@@ -329,7 +329,7 @@ class SipGenerator(object):
                 #
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
                 #
-                base_specifiers.append(member.displayname.replace("class ", ""))
+                base_specifiers.append(member.type.get_canonical().spelling)
             elif member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
                 template_type_parameters.append(member.displayname)
             elif member.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
@@ -613,7 +613,7 @@ class SipGenerator(object):
         if function.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
             sip["fn_result"] = ""
         else:
-            sip["fn_result"] = function.result_type.spelling
+            sip["fn_result"] = function.result_type.get_canonical().spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
         modifying_rule = self.rules.function_rules().apply(container, function, sip)
@@ -875,7 +875,7 @@ class SipGenerator(object):
                 #
                 # Sigh. For results which are pointers, we dont have a way of detecting the need for the "*".
                 #
-                result_type = child.type.spelling
+                result_type = child.type.get_canonical().spelling
             elif child.kind == CursorKind.ENUM_DECL:
                 #
                 # Typedefs for enums are not suported by SIP, we deal wih them elsewhere.
@@ -932,7 +932,7 @@ class SipGenerator(object):
         elif typedef.underlying_typedef_type.kind == TypeKind.RECORD:
             sip["decl"] = result_type
         else:
-            sip["decl"] = typedef.underlying_typedef_type.spelling
+            sip["decl"] = typedef.underlying_typedef_type.get_canonical().spelling
             #
             # Working out if a typedef is for a function pointer seems hard. The recourse right now is the following
             # heuristic...
@@ -1055,21 +1055,22 @@ class SipGenerator(object):
         #
         # Flesh out the SIP context for the rules engine.
         #
-        decl = variable.type.spelling
+        decl = variable.type.get_canonical().spelling
         if variable.type.kind == TypeKind.ELABORATED and "anonymous" in decl:
             #
-            # The spelling will be of the form 'union (anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5)'
+            # The spelling will be of the form 'N::n::(anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5)'
             #
-            words = re.split("[ (:)]+", decl)
-            assert words[0] in ["enum", "struct", "union"]
+            words = decl.split("(", 1)[1][:-1]
+            words = re.split("[ :]", words)
+            assert words[1] in ["enum", "struct", "union"]
             #
             # Render a union as a struct. From the point of view of the accessors created for the bindings,
             # this should behave as expected!
             #
-            if words[0] == "union":
-                decl = "/* union */ struct __struct" + words[-3]
+            if words[1] == "union":
+                decl = "/* union */ struct __struct" + words[-2]
             else:
-                decl = words[0] + " __" + words[0] + words[-3]
+                decl = words[1] + " __" + words[1] + words[-2]
         sip["decl"] = decl
         #
         # Before the rules have run, add/remove any prefix.
@@ -1109,6 +1110,13 @@ class SipGenerator(object):
         :param variable:                    The variable object.
         :param sip:                         The variable's sip. The decl will be updated with any prefix keywords.
         """
+        #
+        # HACK...we seem to get "char const[5]" instead of "const char[5]".
+        #
+        if re.search(r" const\b", sip["decl"]):
+            sip["decl"] = "const " + sip["decl"].replace(" const", "")
+        if re.search(r"\w\[", sip["decl"]):
+            sip["decl"] = sip["decl"].replace("[", " [").replace("] [", "][")
         prefix = ""
         if variable.storage_class == StorageClass.STATIC:
             prefix += "static "

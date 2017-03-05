@@ -635,7 +635,8 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
     #
     # Create a Python <-> C++ conversion helper.
     #
-    converter = RewriteMappedHelper(variable.type.spelling, variable.type.kind)
+    variable_type = variable.type.get_canonical()
+    converter = RewriteMappedHelper(variable_type.spelling, variable_type.kind)
     aliases = converter.declare_type_helpers("value", "sipErr = 1;")
     code = """
 {
