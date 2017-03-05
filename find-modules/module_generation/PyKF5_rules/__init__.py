@@ -211,6 +211,10 @@ def function_rules():
         #
         [".*", "qobject_cast", ".*", ".*", ".*", rules_engine.function_discard],
         [".*", "qobject_interface_iid", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # QDebug is not exposed.
+        #
+        [".*", "operator<<", ".*", "QDebug.*", ".*", rules_engine.function_discard],
     ]
 
 
@@ -303,9 +307,13 @@ class RuleSet(rules_engine.RuleSet):
             methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
         self.add_rules(
             container_rules=Akonadi.container_rules,
+            forward_declaration_rules=Akonadi.forward_declaration_rules,
+            function_rules=Akonadi.function_rules,
+            parameter_rules=Akonadi.parameter_rules,
             typedef_rules=Akonadi.typedef_rules,
-            unexposed_rules=Akonadi.unexposed_rules,
-            variable_rules=Akonadi.variable_rules)
+            variable_rules=Akonadi.variable_rules,
+            typecode=Akonadi.typecode,
+            modulecode=Akonadi.modulecode)
         self.add_rules(
             function_rules=KAuth.function_rules,
             modulecode=KAuth.modulecode)

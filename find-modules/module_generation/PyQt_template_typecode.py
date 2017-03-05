@@ -688,7 +688,7 @@ class SetExpander(AbstractExpander):
             return 0;
         }
 
-        while (value = PyIter_Next(i)) {
+        while ((value = PyIter_Next(i)) != NULL) {
 """
         code += value_h.check_python_type("value", "Py_DECREF(i);\n                ")
         code += """        }
@@ -701,13 +701,13 @@ class SetExpander(AbstractExpander):
     if (!PySet_Check(sipPy)) {
         Py_DECREF(i);
         PyErr_Format(PyExc_TypeError, "expected set");
-        *sipIsErr = 1
+        *sipIsErr = 1;
         return 0;
     }
 
     // Convert the set to C++.
     {qt_type}<CxxvalueT> *set = new {qt_type}<CxxvalueT>();
-    while (value = PyIter_Next(i)) {
+    while ((value = PyIter_Next(i)) != NULL) {
 """
         code += value_h.py_to_cxx("value", True, "value")
         code += """
