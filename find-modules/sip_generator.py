@@ -92,8 +92,18 @@ def clang_diagnostic_to_logging_diagnostic(lvl):
         logging.ERROR,
         logging.CRITICAL)[lvl]
 
+
 def diagnostic_word(lvl):
     return ("", "info", "warning", "error", "fatality")[lvl]
+
+
+def trace_generated_for(cursor, fn, extra):
+    trace = "// Generated for {} of {} (by {}:{}): {}".format(SipGenerator.describe(cursor),
+                                                              os.path.basename(cursor.extent.start.file.name),
+                                                              os.path.basename(inspect.getfile(fn)), fn.__name__,
+                                                              extra)
+    return trace
+
 
 class SipGenerator(object):
     def __init__(self, project_rules, compile_flags, verbose=False, dump_includes=False, dump_privates=False):

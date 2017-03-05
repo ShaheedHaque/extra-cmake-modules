@@ -28,19 +28,17 @@
 SIP binding custom type-related code for PyQt-template classes. The main
 content is:
 
-    - TypeCodeDb-compatible entries directly usable un RuleSets (e.g.
+    - TypeCodeDb-compatible entries directly usable in RuleSets (e.g.
       typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set)
 
     - The AbstractExpander class which is a model of how template expansion
       can be performed as needed.
 
 This is supported by other public methods and classes which can be used as
-examples and/or helper code. Notable among these is the declare_aliases()
-function.
+examples and/or helper code.
 """
 
 from abc import *
-import inspect
 import logging
 import gettext
 import os
@@ -48,7 +46,7 @@ import os
 from clang.cindex import CursorKind, TypeKind
 
 from builtin_rules import HeldAs
-from sip_generator import SipGenerator
+from sip_generator import trace_generated_for
 
 gettext.install(os.path.basename(__file__))
 logger = logging.getLogger(__name__)
@@ -96,6 +94,9 @@ class GenerateMappedHelper(HeldAs):
         cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
 """,
     }
+
+    def __init__(self, entry, clang_kind):
+        super(GenerateMappedHelper, self).__init__(entry["type"], clang_kind, entry["base_type"])
 
     def cxx_to_py_template(self):
         return self.cxx_to_py_templates[self.category]
@@ -177,16 +178,13 @@ class AbstractExpander(object):
         raise NotImplemented(_("Missing subclass"))
 
     @abstractmethod
-    def _text(self, cursor, entry):
+    def decl(self, qt_type, entry):
         """
         Expand a text-template using the passed parameters.
 
-        :param cursor:          The CursorKind for whom the expansion is being performed. This is typically a type
-                                object, such as "QMap" or "QHash".
+        :param qt_type:         The name of the Qt template, such as "QMap" or "QHash".
         :param entry:           Dictionary describing the C++ template. Expected keys:
 
-                                    name            Name of the C++ template, "QMap".
-                                    mapped_type     Complete C++ template declaration, "QMap<int, String>".
                                     variable1..N    Dictionaries, keyed by the needed @see variables().
 
                                 The variable1..N dictionaries have keys determined by the subclass. The defaults used
@@ -282,7 +280,8 @@ class AbstractExpander(object):
         #
         children = [c for c in children if c.kind not in [CursorKind.NAMESPACE_REF, CursorKind.UNEXPOSED_ATTR]]
         parent = children[0]
-        assert parent.kind == CursorKind.TEMPLATE_REF, _("Parent {} with kind {}").format(parent.spelling, parent.kind)
+        assert parent.kind in [CursorKind.TEMPLATE_REF, CursorKind.TYPE_REF], \
+            _("Parent {} with kind {}").format(parent.spelling, parent.kind)
         #
         # We only use the information if it matches the cases we understand (i.e. a non-trivial AST is implied).
         #
@@ -319,30 +318,20 @@ class AbstractExpander(object):
             p["type"] = self.actual_type(manual_types[i], decls[i], types[i])
             p["base_type"] = self.base_type(manual_base_types[i], p["type"], types[i])
             kind = types[i].type.get_canonical().kind if types[i] else None
-            p["held_as"] = GenerateMappedHelper(p["type"], kind, p["base_type"])
+            p["held_as"] = GenerateMappedHelper(p, kind)
             entry[parameter] = p
             parameters.append(p["type"])
         parameters = ", ".join(parameters)
         if parameters.endswith(">"):
             parameters += " "
-        entry["name"] = parent.spelling
-        entry["mapped_type"] = "{}<{}>".format(parent.spelling, parameters)
         #
         # Run the handler...
         #
-        fn = self._text
-        fn_file = os.path.basename(inspect.getfile(fn))
-        from copy import deepcopy
-        tmp = {k: v for (k, v) in deepcopy(entry.items()) if k != "code"}
-        for parameter in expected_parameters:
-            tmp[parameter]["held_as"] = tmp[parameter]["held_as"].category
-        trace = "// Generated for {} of {} (by {}:{}): {}".format(SipGenerator.describe(cursor),
-                                                                    os.path.basename(cursor.extent.start.file.name),
-                                                                    fn_file, fn.__name__,
-                                                                    tmp)
-        fn(cursor, entry)
-        code = "%MappedType " + entry["mapped_type"] + "\n{\n" + trace + entry["code"] + "};\n"
-        sip["module_code"][entry["mapped_type"]] = code
+        mapped_type = "{}<{}>".format(parent.spelling, parameters)
+        trace = trace_generated_for(cursor, self.decl, {p: entry[p]["held_as"].category for p in expected_parameters})
+        code = self.decl(parent.spelling, entry)
+        code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
+        sip["module_code"][mapped_type] = code
 
 
 class DictExpander(AbstractExpander):
@@ -353,17 +342,15 @@ class DictExpander(AbstractExpander):
     def variables(self):
         return ["key", "value"]
 
-    def _text(self, typedef, entry):
+    def decl(self, qt_type, entry):
         """
         Generic support for C++ types which map onto a Python dict, such as QMap<k, v> and
         QHash<k, v>. Either template parameter can be of any integral (int, long, enum) type
         or non-integral type, for example, QMap<int, QString>.
 
-        :param typedef:         The CursorKind, such as "QMap" or "QHash".
+        :param qt_type:         The name of the Qt template, e.g. "QMap".
         :param entry:           Dictionary describing the C++ template. Expected keys:
 
-                                    name            Name of the C++ template, "QMap".
-                                    mapped_type     Complete C++ template declaration, "QMap<int, String>".
                                     key             Description of key.
                                     value           Description of value.
 
@@ -378,7 +365,7 @@ class DictExpander(AbstractExpander):
         value_category = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
-#include <{cxx_type}>
+#include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
@@ -393,8 +380,8 @@ class DictExpander(AbstractExpander):
     }
 
     // Set the dictionary elements.
-    {cxx_type}<CxxkeyT, CxxvalueT>::const_iterator i = sipCpp->constBegin();
-    {cxx_type}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
+    {qt_type}<CxxkeyT, CxxvalueT>::const_iterator i = sipCpp->constBegin();
+    {qt_type}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
         code += key_category.cxx_to_py("key", True, "i.key()")
@@ -455,7 +442,7 @@ class DictExpander(AbstractExpander):
     }
 
     // Convert the dict to C++.
-    {cxx_type}<CxxkeyT, CxxvalueT> *dict = new {cxx_type}<CxxkeyT, CxxvalueT>();
+    {qt_type}<CxxkeyT, CxxvalueT> *dict = new {qt_type}<CxxkeyT, CxxvalueT>();
     while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
         code += key_category.py_to_cxx("key", True, "key")
@@ -487,12 +474,12 @@ class DictExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{cxx_type}", entry["name"])
+        code = code.replace("{qt_type}", qt_type)
         key_t = entry["key"]["type"]
         code = code.replace("{key_t}", key_t)
         value_t = entry["value"]["type"]
         code = code.replace("{value_t}", value_t)
-        entry["code"] = code
+        return code
 
 
 class ListExpander(AbstractExpander):
@@ -503,17 +490,15 @@ class ListExpander(AbstractExpander):
     def variables(self):
         return ["value"]
 
-    def _text(self, typedef, entry):
+    def decl(self, qt_type, entry):
         """
         Generic support for C++ types which map onto a Python list, such as QList<v> and
         QVector<v>. The template parameter can be of any integral (int, long, enum) type
         or non-integral type, for example, QList<int> or QList<QString>.
 
-        :param typedef:         The type, such as "QList" or "QVector".
+        :param qt_type:         The name of the Qt template, e.g. "QList".
         :param entry:           Dictionary describing the C++ template. Expected keys:
 
-                                    name            Name of the C++ template, "QList".
-                                    mapped_type     Complete C++ template declaration, "QList<int>".
                                     value           Description of value.
 
                                 The value description has the following keys:
@@ -526,7 +511,7 @@ class ListExpander(AbstractExpander):
         value_category = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
-#include <{cxx_type}>
+#include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
@@ -585,7 +570,7 @@ class ListExpander(AbstractExpander):
     }
 
     // Convert the list to C++.
-    {cxx_type}<CxxvalueT> *list = new {cxx_type}<CxxvalueT>();
+    {qt_type}<CxxvalueT> *list = new {qt_type}<CxxvalueT>();
     for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
         value = PyList_GET_ITEM(sipPy, i);
 """
@@ -611,10 +596,10 @@ class ListExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{cxx_type}", entry["name"])
+        code = code.replace("{qt_type}", qt_type)
         value_t = entry["value"]["type"]
         code = code.replace("{value_t}", value_t)
-        entry["code"] = code
+        return code
 
 
 class SetExpander(AbstractExpander):
@@ -625,17 +610,15 @@ class SetExpander(AbstractExpander):
     def variables(self):
         return ["value"]
 
-    def _text(self, typedef, entry):
+    def decl(self, qt_type, entry):
         """
         Generic support for QSet<v>. The template parameter can be of any
         integral (int, long, enum) type or non-integral type, for example,
         QSet<int> or QSet<QString>.
 
-        :param typedef:         The type, such as "QSet".
+        :param qt_type:         The name of the Qt template, e.g. "QSet".
         :param entry:           Dictionary describing the C++ template. Expected keys:
 
-                                    name            Name of the C++ template, "QSet".
-                                    mapped_type     Complete C++ template declaration, "QSet<int>".
                                     value           Description of value.
 
                                 The value description has the following keys:
@@ -648,11 +631,11 @@ class SetExpander(AbstractExpander):
         value_category = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
-#include <{cxx_type}>
+#include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
-        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
+        code += value_category.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python set.
     PyObject *set = PySet_New(NULL);
@@ -662,8 +645,8 @@ class SetExpander(AbstractExpander):
     }
 
     // Set the set elements.
-    {cxx_type}<CxxvalueT>::const_iterator i = sipCpp->constBegin();
-    {cxx_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
+    {qt_type}<CxxvalueT>::const_iterator i = sipCpp->constBegin();
+    {qt_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
         code += value_category.cxx_to_py("value", True, "sipCpp->value(i)", "*i")
@@ -717,7 +700,7 @@ class SetExpander(AbstractExpander):
     }
 
     // Convert the set to C++.
-    {cxx_type}<CxxvalueT> *set = new {cxx_type}<CxxvalueT>();
+    {qt_type}<CxxvalueT> *set = new {qt_type}<CxxvalueT>();
     while (value = PyIter_Next(i)) {
 """
         code += value_category.py_to_cxx("value", True, "value")
@@ -744,10 +727,10 @@ class SetExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{cxx_type}", entry["name"])
+        code = code.replace("{qt_type}", qt_type)
         value_t = entry["value"]["type"]
         code = code.replace("{value_t}", value_t)
-        entry["code"] = code
+        return code
 
 
 def typecode_cfttc_dict(container, typedef, sip, matcher):
