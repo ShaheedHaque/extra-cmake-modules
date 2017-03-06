@@ -488,6 +488,8 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
                                     ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
         sip.setdefault("code", "")
         sip.setdefault("module_code", {})
+        sip.setdefault("cxx_decl", "")
+        sip.setdefault("cxx_fn_result", "")
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, sip, matcher)
