@@ -97,11 +97,21 @@ def diagnostic_word(lvl):
     return ("", "info", "warning", "error", "fatality")[lvl]
 
 
-def trace_generated_for(cursor, fn, extra):
-    trace = "// Generated for {} of {} (by {}:{}): {}".format(SipGenerator.describe(cursor),
-                                                              os.path.basename(cursor.extent.start.file.name),
+def trace_discarded_by(cursor, rule, text=None):
+    trace = "// Discarded {} (by {})\n".format(SipGenerator.describe(cursor, text), rule)
+    return trace
+
+
+def trace_generated_for(cursor, fn, extra, text=None):
+    trace = "// Generated for {}, {} (by {}:{}): {}\n".format(os.path.basename(cursor.extent.start.file.name),
+                                                              SipGenerator.describe(cursor, text),
                                                               os.path.basename(inspect.getfile(fn)), fn.__name__,
                                                               extra)
+    return trace
+
+
+def trace_modified_by(cursor, rule, text=None):
+    trace = "// Modified {} (by {}):\n".format(SipGenerator.describe(cursor, text), rule)
     return trace
 
 
@@ -418,14 +428,14 @@ class SipGenerator(object):
                 modifying_rule = self.rules.forward_declaration_rules().apply(container, sip)
                 if sip["name"]:
                     if modifying_rule:
-                        body += "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
+                        body += trace_modified_by(container, modifying_rule)
                     if "External" in sip["annotations"]:
                         body += pad + sip["decl"]
                         body += " /External/;\n"
                     else:
-                        body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), "default forward declaration handling")
+                        body = pad + trace_discarded_by(container, "default forward declaration handling")
                 else:
-                    body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
+                    body = pad + trace_discarded_by(container, modifying_rule)
                 return body, module_code
             else:
                 #
@@ -440,7 +450,7 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
+                decl += pad + trace_modified_by(container, modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
             # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
@@ -449,7 +459,7 @@ class SipGenerator(object):
             #
             modifying_rule = self.rules.typecode(container, sip)
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(container), modifying_rule)
+                decl += pad + trace_modified_by(container, modifying_rule)
             decl += pad + sip["decl"]
             if sip["base_specifiers"]:
                 decl += ": " + ", ".join(sip["base_specifiers"])
@@ -466,14 +476,13 @@ class SipGenerator(object):
             #
             if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
                 body += pad + "private:\n"
-                body += pad + "    // Generated for {} (by {})\n".format(SipGenerator.describe(container),
-                                                                         "non-copyable type handling")
+                body += pad + "    " + trace_generated_for(container, self._container_get, "non-copyable type handling")
                 body += pad + "    {}(const {} &);\n".format(sip["name"], container.type.get_canonical().spelling)
             body += pad + "};\n"
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
         else:
-            body = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(container), modifying_rule)
+            body = pad + trace_discarded_by(container, modifying_rule)
         return body, module_code
 
     def _get_access_specifier(self, member, level):
@@ -583,7 +592,7 @@ class SipGenerator(object):
                 }
                 modifying_rule = self.rules.parameter_rules().apply(container, function, child, child_sip)
                 if modifying_rule:
-                    parameter_modifying_rules.append("// Modified {} (by {}):\n".format(SipGenerator.describe(child), modifying_rule))
+                    parameter_modifying_rules.append(trace_modified_by(child, modifying_rule))
                 decl = child_sip["decl"]
                 if child_sip["annotations"]:
                     decl += " /" + ",".join(child_sip["annotations"]) + "/"
@@ -631,7 +640,7 @@ class SipGenerator(object):
         if sip["name"]:
             decl1 = ""
             if modifying_rule:
-                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
+                decl1 += pad + trace_modified_by(function, modifying_rule)
             for modifying_rule in parameter_modifying_rules:
                 decl1 += pad + modifying_rule
             decl = ""
@@ -641,7 +650,7 @@ class SipGenerator(object):
             #
             modifying_rule = self.rules.methodcode(function, sip)
             if modifying_rule:
-                decl1 += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(function), modifying_rule)
+                decl1 += pad + trace_modified_by(function, modifying_rule)
             decl += sip["name"] + "(" + ", ".join(sip["parameters"]) + ")"
             if sip["fn_result"]:
                 if sip["fn_result"][-1] in "*&":
@@ -672,7 +681,7 @@ class SipGenerator(object):
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
         else:
-            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(function), modifying_rule)
+            decl = pad + trace_discarded_by(function, modifying_rule)
         return decl, module_code
 
     def _template_template_param_get(self, container):
@@ -969,7 +978,7 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
+                decl += pad + trace_modified_by(typedef, modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
             # %BIGetSegCountCode, %BIGetCharBufferCode, %BIReleaseBufferCode, %ConvertToSubClassCode,
@@ -978,7 +987,7 @@ class SipGenerator(object):
             #
             modifying_rule = self.rules.typecode(typedef, sip)
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(typedef), modifying_rule)
+                decl += pad + trace_modified_by(typedef, modifying_rule)
             if sip["fn_result"]:
                 decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
@@ -994,7 +1003,7 @@ class SipGenerator(object):
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
         else:
-            decl = pad + "// Discarded {}\n".format(SipGenerator.describe(typedef))
+            decl = pad + trace_discarded_by(typedef, modifying_rule)
         return decl, module_code
 
     def _unexposed_get(self, container, unexposed, text, level):
@@ -1022,14 +1031,14 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(unexposed, text), modifying_rule)
+                decl += pad + trace_modified_by(unexposed, modifying_rule, text)
             decl += pad + sip["decl"] + "\n"
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
         else:
             if not modifying_rule:
                 modifying_rule = "default unexposed handling"
-            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(unexposed, text), modifying_rule)
+            decl = pad + trace_discarded_by(unexposed, modifying_rule, text)
         return decl, module_code
 
     def _var_get(self, container, variable, level):
@@ -1091,7 +1100,7 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + "// Modified {} (by {}):\n".format(SipGenerator.describe(variable), modifying_rule)
+                decl += pad + trace_modified_by(variable, modifying_rule)
             decl += pad + sip["decl"]
             if decl[-1] not in "*&":
                 decl += " "
@@ -1102,13 +1111,13 @@ class SipGenerator(object):
             # SIP does not support protected variables, so we ignore them.
             #
             if variable.access_specifier == AccessSpecifier.PROTECTED:
-                decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), "protected handling")
+                decl = pad + trace_discarded_by(variable, "protected handling")
             else:
                 decl = decl + sip["code"] + ";\n"
                 if sip["module_code"]:
                     module_code.update(sip["module_code"])
         else:
-            decl = pad + "// Discarded {} (by {})\n".format(SipGenerator.describe(variable), modifying_rule)
+            decl = pad + trace_discarded_by(variable, modifying_rule)
         return decl, module_code
 
     def _var_get_keywords(self, container, variable, sip):

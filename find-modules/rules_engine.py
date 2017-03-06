@@ -42,7 +42,7 @@ import textwrap
 import traceback
 from copy import deepcopy
 
-from clang.cindex import CursorKind
+from clang.cindex import Cursor, CursorKind
 
 import builtin_rules
 
@@ -69,6 +69,21 @@ def _parents(container):
     else:
         parents = os.path.basename(container.translation_unit.spelling)
     return parents
+
+
+def trace_generated_for(cursor, fn, modifying_rule):
+    if isinstance(cursor, Cursor):
+        cursor = _parents(cursor) + ":" + cursor.spelling
+    trace = "// Generated for '{}' (by {},{}:{}):\n".format(cursor, modifying_rule,
+                                                            os.path.basename(inspect.getfile(fn)), fn.__name__)
+    return trace
+
+
+def trace_inserted_for(cursor, modifying_rule):
+    if isinstance(cursor, Cursor):
+        cursor = _parents(cursor) + ":" + cursor.spelling
+    trace = "// Inserted for '{}' (by {}):\n".format(cursor, modifying_rule)
+    return trace
 
 
 _mapped_type_re = re.compile("^%(ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
@@ -975,11 +990,10 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             before = deepcopy(sip)
             if callable(entry["code"]):
                 fn = entry["code"]
-                fn_file = os.path.basename(inspect.getfile(fn))
-                trace = "// Generated for '{}:{}' (by {},{}:{}):\n".format(_parents(function), function.spelling, self.names[entry["ruleset"]], fn_file, fn.__name__)
+                trace = trace_generated_for(function, fn, self.names[entry["ruleset"]])
                 fn(function, sip, entry)
             else:
-                trace = "// Inserted for '{}:{}' (by {}):\n".format(_parents(function), function.spelling, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(function, self.names[entry["ruleset"]])
                 sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
@@ -1097,11 +1111,10 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             before = deepcopy(sip)
             if callable(entry["code"]):
                 fn = entry["code"]
-                fn_file = os.path.basename(inspect.getfile(fn))
-                trace = "// Generated for '{}' (by {},{}:{}):\n".format(container.spelling, self.names[entry["ruleset"]], fn_file, fn.__name__)
+                trace = trace_generated_for(container, fn, self.names[entry["ruleset"]])
                 fn(container, sip, entry)
             else:
-                trace = "// Inserted for '{}' (by {}):\n".format(container.spelling, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(container, self.names[entry["ruleset"]])
                 sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
@@ -1195,11 +1208,10 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
             before = deepcopy(sip)
             if callable(entry["code"]):
                 fn = entry["code"]
-                fn_file = os.path.basename(inspect.getfile(fn))
-                trace = "// Generated for '{}' (by {},{}:{}):\n".format(filename, self.names[entry["ruleset"]], fn_file, fn.__name__)
+                trace = trace_generated_for(filename, fn, self.names[entry["ruleset"]])
                 fn(filename, sip, entry)
             else:
-                trace = "// Inserted for '{}' (by {}):\n".format(filename, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(filename, self.names[entry["ruleset"]])
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
             #
