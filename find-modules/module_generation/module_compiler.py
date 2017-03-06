@@ -285,6 +285,8 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, out
         if features:
             cmd += ["-x", feature]
         cmd += pyqt_sip_flags + ["-I" + i for i in imports + [input_sips]] + [source]
+        for cpp in glob.iglob(os.path.join(tmp_dir, "*.cpp")):
+            os.unlink(cpp)
         _run_command(verbose, cmd)
         #
         # Create the Makefile.
@@ -301,10 +303,18 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, out
         makefile.extra_libs = libraries
         makefile.generate()
         #
+        # It is much faster to compile once only, so combine all the .cpp files into one.
+        #
+        unified = "unified" + os.path.basename(module_path)
+        with open(os.path.join(tmp_dir, unified + ".cpp_"), "w") as f:
+            for cpp in glob.iglob(os.path.join(tmp_dir, "*.cpp")):
+                f.write('#include "{}"\n'.format(os.path.basename(cpp)))
+            os.rename(f.name, os.path.join(tmp_dir, unified + ".cpp"))
+        #
         # Compile and publish the module.
         # TODO: The hardcoded ".so" is not portable.
         #
-        _run_command(verbose, ["make", "-f", os.path.basename(make_file)], cwd=tmp_dir)
+        _run_command(verbose, ["make", "-f", os.path.basename(make_file), "OFILES=" + unified + ".o"], cwd=tmp_dir)
         cpython_module = os.path.basename(module_path) + ".so"
         logger.info(_("Publishing {}").format(module_name))
         copy_file(tmp_dir, cpython_module, output_so)
