@@ -361,16 +361,16 @@ class DictExpander(AbstractExpander):
                                                     pointer.
                                     held_as         Is the item integral, pointer or object?
         """
-        key_category = entry["key"]["held_as"]
-        value_category = entry["value"]["held_as"]
+        key_h = entry["key"]["held_as"]
+        value_h = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
-        code += key_category.declare_type_helpers("key", "return 0;")
-        code += value_category.declare_type_helpers("value", "return 0;")
+        code += key_h.declare_type_helpers("key", "return 0;")
+        code += value_h.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python dictionary.
     PyObject *dict = PyDict_New();
@@ -384,8 +384,8 @@ class DictExpander(AbstractExpander):
     {qt_type}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += key_category.cxx_to_py("key", True, "i.key()")
-        code += value_category.cxx_to_py("value", True, "i.value()")
+        code += key_h.cxx_to_py("key", True, "i.key()")
+        code += value_h.cxx_to_py("value", True, "i.value()")
         #
         # Error handling assumptions:
         #
@@ -396,11 +396,11 @@ class DictExpander(AbstractExpander):
         if (key == NULL || value == NULL || PyDict_SetItem(dict, key, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert key/value into dict");
 """
-        code += key_category.decrement_python_reference("key") + value_category.decrement_python_reference("value")
-        if key_category.category == HeldAs.OBJECT:
+        code += key_h.decrement_python_reference("key") + value_h.decrement_python_reference("value")
+        if key_h.category == HeldAs.OBJECT:
             code += """            delete key;
 """
-        if value_category.category == HeldAs.OBJECT:
+        if value_h.category == HeldAs.OBJECT:
             code += """            delete value;
 """
         code += """            Py_DECREF(dict);
@@ -414,8 +414,8 @@ class DictExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += key_category.declare_type_helpers("key", "return 0;", need_string=True)
-        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
+        code += key_h.declare_type_helpers("key", "return 0;", need_string=key_h.category != HeldAs.INTEGER)
+        code += value_h.declare_type_helpers("value", "return 0;", need_string=value_h.category != HeldAs.INTEGER)
         code += """    PyObject *key;
     PyObject *value;
     Py_ssize_t i = 0;
@@ -428,8 +428,8 @@ class DictExpander(AbstractExpander):
 
         while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
-        code += key_category.check_python_type("key")
-        code += value_category.check_python_type("value")
+        code += key_h.check_python_type("key")
+        code += value_h.check_python_type("value")
         code += """        }
         return 1;
     } else if (*sipIsErr) {
@@ -445,30 +445,34 @@ class DictExpander(AbstractExpander):
     {qt_type}<CxxkeyT, CxxvalueT> *dict = new {qt_type}<CxxkeyT, CxxvalueT>();
     while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
-        code += key_category.py_to_cxx("key", True, "key")
-        code += value_category.py_to_cxx("value", True, "value")
+        code += key_h.py_to_cxx("key", True, "key")
+        code += value_h.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
-            if (cxxkey == NULL) {
+"""
+        if key_h.category != HeldAs.INTEGER:
+            code += """            if (cxxkey == NULL) {
                 PyErr_Format(PyExc_TypeError, "a dict key has type '%s' but '%s' is expected",
                              Py_TYPE(key)->tp_name, cxxkeyS);
             }
-            if (cxxvalue == NULL) {
+"""
+        if value_h.category != HeldAs.INTEGER:
+            code += """            if (cxxvalue == NULL) {
                 PyErr_Format(PyExc_TypeError, "a dict value has type '%s' but '%s' is expected",
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += key_category.release_sip_helper("key")
-        code += value_category.release_sip_helper("value")
+        code += key_h.release_sip_helper("key")
+        code += value_h.release_sip_helper("value")
         code += """            delete dict;
             return 0;
         }
         dict->insert("""
-        code += key_category.insertable_cxx_value("key") + ", " + value_category.insertable_cxx_value("value")
+        code += key_h.insertable_cxx_value("key") + ", " + value_h.insertable_cxx_value("value")
         code += """);
 """
-        code += key_category.release_sip_helper("key")
-        code += value_category.release_sip_helper("value")
+        code += key_h.release_sip_helper("key")
+        code += value_h.release_sip_helper("value")
         code += """    }
     *sipCppPtr = dict;
     return sipGetState(sipTransferObj);
@@ -508,14 +512,14 @@ class ListExpander(AbstractExpander):
                                                     pointer.
                                     held_as         Is the item integral, pointer or object?
         """
-        value_category = entry["value"]["held_as"]
+        value_h = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
-        code += value_category.declare_type_helpers("value", "return 0;")
+        code += value_h.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python list.
     PyObject *list = PyList_New(sipCpp->size());
@@ -528,12 +532,12 @@ class ListExpander(AbstractExpander):
     Py_ssize_t i = 0;
     for (i = 0; i < sipCpp->size(); ++i) {
 """
-        code += value_category.cxx_to_py("value", True, "sipCpp->value(i)", "sipCpp->at(i)")
+        code += value_h.cxx_to_py("value", True, "sipCpp->value(i)", "sipCpp->at(i)")
         code += """
         if (value == NULL) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into list");
 """
-        code += value_category.decrement_python_reference("value")
+        code += value_h.decrement_python_reference("value")
         code += """            Py_DECREF(list);
             return 0;
         } else {
@@ -544,7 +548,7 @@ class ListExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += value_category.declare_type_helpers("value", "return 0;", need_string=True)
+        code += value_h.declare_type_helpers("value", "return 0;", need_string=value_h.category != HeldAs.INTEGER)
         code += """    PyObject *value;
     Py_ssize_t i = 0;
 
@@ -557,7 +561,7 @@ class ListExpander(AbstractExpander):
         for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
             value = PyList_GET_ITEM(sipPy, i);
 """
-        code += value_category.check_python_type("value",)
+        code += value_h.check_python_type("value",)
         code += """        }
         return 1;
     } else if (*sipIsErr) {
@@ -574,23 +578,25 @@ class ListExpander(AbstractExpander):
     for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
         value = PyList_GET_ITEM(sipPy, i);
 """
-        code += value_category.py_to_cxx("value", True, "value")
+        code += value_h.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
-            if (cxxvalue == NULL) {
+"""
+        if value_h.category != HeldAs.INTEGER:
+            code += """            if (cxxvalue == NULL) {
                 PyErr_Format(PyExc_TypeError, "list value %ld has type '%s' but '%s' is expected", i,
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += value_category.release_sip_helper("value")
+        code += value_h.release_sip_helper("value")
         code += """            delete list;
             return 0;
         }
         list->append("""
-        code += value_category.insertable_cxx_value("value")
+        code += value_h.insertable_cxx_value("value")
         code += """);
 """
-        code += value_category.release_sip_helper("value")
+        code += value_h.release_sip_helper("value")
         code += """    }
     *sipCppPtr = list;
     return sipGetState(sipTransferObj);
@@ -628,14 +634,14 @@ class SetExpander(AbstractExpander):
                                                     pointer.
                                     held_as         Is the item integral, pointer or object?
         """
-        value_category = entry["value"]["held_as"]
+        value_h = entry["value"]["held_as"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
 %End
 %ConvertFromTypeCode
 """
-        code += value_category.declare_type_helpers("value", "return 0;")
+        code += value_h.declare_type_helpers("value", "return 0;")
         code += """
     // Create the Python set.
     PyObject *set = PySet_New(NULL);
@@ -649,12 +655,12 @@ class SetExpander(AbstractExpander):
     {qt_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += value_category.cxx_to_py("value", True, "sipCpp->value(i)", "*i")
+        code += value_h.cxx_to_py("value", True, "sipCpp->value(i)", "*i")
         code += """
         if (value == NULL || PySet_Add(set, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into set");
 """
-        code += value_category.decrement_python_reference("value")
+        code += value_h.decrement_python_reference("value")
         code += """            Py_DECREF(set);
             return 0;
         }
@@ -664,7 +670,7 @@ class SetExpander(AbstractExpander):
 %End
 %ConvertToTypeCode
 """
-        code += value_category.declare_type_helpers("value", "*sipIsErr = 1;", need_string=True)
+        code += value_h.declare_type_helpers("value", "*sipIsErr = 1;", need_string=value_h.category != HeldAs.INTEGER)
         code += """    PyObject *value;
     PyObject *i = PyObject_GetIter(sipPy);
     if (i == NULL) {
@@ -684,7 +690,7 @@ class SetExpander(AbstractExpander):
 
         while (value = PyIter_Next(i)) {
 """
-        code += value_category.check_python_type("value", "Py_DECREF(i);\n                ")
+        code += value_h.check_python_type("value", "Py_DECREF(i);\n                ")
         code += """        }
         Py_DECREF(i);
         return 1;
@@ -703,24 +709,26 @@ class SetExpander(AbstractExpander):
     {qt_type}<CxxvalueT> *set = new {qt_type}<CxxvalueT>();
     while (value = PyIter_Next(i)) {
 """
-        code += value_category.py_to_cxx("value", True, "value")
+        code += value_h.py_to_cxx("value", True, "value")
         code += """
         if (*sipIsErr) {
-            if (cxxvalue == NULL) {
+"""
+        if value_h.category != HeldAs.INTEGER:
+            code += """            if (cxxvalue == NULL) {
                 PyErr_Format(PyExc_TypeError, "a set value has type '%s' but '%s' is expected",
                              Py_TYPE(value)->tp_name, cxxvalueS);
             }
 """
-        code += value_category.release_sip_helper("value")
+        code += value_h.release_sip_helper("value")
         code += """            delete set;
             Py_DECREF(i);
             return 0;
         }
         set->insert("""
-        code += value_category.insertable_cxx_value("value")
+        code += value_h.insertable_cxx_value("value")
         code += """);
 """
-        code += value_category.release_sip_helper("value")
+        code += value_h.release_sip_helper("value")
         code += """    }
     Py_DECREF(i);
     *sipCppPtr = set;
