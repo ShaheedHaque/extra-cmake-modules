@@ -308,13 +308,13 @@ class SipGenerator(object):
                 #
                 if member.is_pure_virtual_method():
                     sip["annotations"].add("Abstract")
-                is_copier = is_copy_constructor(member)
-                had_copy_constructor = had_copy_constructor or is_copier
-                if member.access_specifier != AccessSpecifier.PRIVATE or is_copier or is_default_constructor(member):
-                    decl, tmp = self._fn_get(container, member, level + 1)
-                    module_code.update(tmp)
-                elif self.dump_privates:
-                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
+                had_copy_constructor = had_copy_constructor or is_copy_constructor(member)
+                #
+                # SIP needs to see private functions at least for the case described in
+                # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html.
+                #
+                decl, tmp = self._fn_get(container, member, level + 1)
+                module_code.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:

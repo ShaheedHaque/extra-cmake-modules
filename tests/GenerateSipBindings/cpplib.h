@@ -364,6 +364,7 @@ public:
   typedef QMap<int, LocalEnum> ModuleCodeTypedef;
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
+  virtual void publicInherited() { };
 };
 
 /**
@@ -397,3 +398,14 @@ public:
  * extern support.
  */
 extern const char externVar;
+
+class Inheritance: public ObscureSyntax
+{
+public:
+  void bar() {};
+private:
+  /**
+   * Hide an otherwise-public method from a class with virtual methods. (Never mind Liskov!)
+   */
+  void publicInherited() { };
+};

@@ -60,7 +60,9 @@ import KIOCore
 import KI18n
 import KJobWidgets
 import KLDAP
+import KNotifyConfig
 import KService
+import KUnitConversion
 import KWidgetsAddons
 import KXmlGui
 import Syndication
@@ -363,11 +365,16 @@ class RuleSet(rules_engine.RuleSet):
             variable_rules=KLDAP.variable_rules,
             typedef_rules=KLDAP.typedef_rules)
         self.add_rules(
+            forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
+        self.add_rules(
             container_rules=KService.container_rules,
             function_rules=KService.function_rules,
             typedef_rules=KService.typedef_rules,
             typecode = KService.typecode)
         self.add_rules(
+            function_rules=KUnitConversion.function_rules)
+        self.add_rules(
+            forward_declaration_rules=KWidgetsAddons.forward_declaration_rules,
             function_rules=KWidgetsAddons.function_rules,
             parameter_rules=KWidgetsAddons.parameter_rules,
             modulecode=KWidgetsAddons.modulecode,

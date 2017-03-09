@@ -69,6 +69,10 @@ def function_rules():
         # kuser.h has inline operators.
         #
         [".*", "operator!=", ".*", ".*", "const KUser(Group){0,1} &other", rules_engine.function_discard],
+        #
+        # Need typedef for argument, plus custom logic.
+        #
+        ["KPluginFactory", "registerPlugin", ".*", ".*", ".*", rules_engine.function_discard],
     ]
 
 

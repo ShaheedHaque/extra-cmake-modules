@@ -49,8 +49,7 @@ def _function_fixup_template_params(container, function, sip, matcher):
 
 
 def _discard_non_const_suffixes(container, function, sip, matcher):
-    if "const" not in sip["suffix"]:
-        rules_engine.function_discard(container, function, sip, matcher)
+    rules_engine.function_discard(container, function, sip, matcher)
 
 
 def parameter_add_brackets(container, function, parameter, sip, matcher):
@@ -158,8 +157,8 @@ def container_rules():
 
 def function_rules():
     return [
-        ["KCoreConfigSkeleton|KConfig.*|KDesktopFile", "groupImpl|group|config|actionGroup", ".*", ".*", ".*", _discard_non_const_suffixes],
-        ["KConfigGroup", "KConfigGroup", ".*", ".*", "KConfigBase.*", _discard_non_const_suffixes],
+        ["KCoreConfigSkeleton|KConfig.*|KDesktopFile|KSharedConfig", "groupImpl|group|config|actionGroup", ".*", ".*", ".*", ".*", "(?! const).*", _discard_non_const_suffixes],
+        ["KConfigGroup", "KConfigGroup", ".*", ".*", "KConfigBase.*", ".*", "(?! const)", _discard_non_const_suffixes],
         ["KConfigSkeletonGenericItem", "value", ".*", ".*", ".*", "", "", rules_engine.function_discard],
         ["KConfigSkeletonGenericItem", "setValue|setDefaultValue", ".*", ".*", ".*", _function_fixup_template_params],
         #
