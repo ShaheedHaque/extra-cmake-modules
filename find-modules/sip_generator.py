@@ -577,13 +577,16 @@ class SipGenerator(object):
                 #
                 if the_type.kind == TypeKind.POINTER:
                     #
-                    # Except that we want to leave function pointers alone here. See elsewhere...
+                    # Except that function pointers need special consideration. See elsewhere too...
                     #
-                    if type_spelling.find("(*)") == -1:
-                        type_spelling = the_type.get_pointee().spelling + "* "
-
-                decl = "{} {}".format(type_spelling, parameter)
-                decl = decl.replace("* ", "*").replace("& ", "&")
+                    fn_ptr = type_spelling.find("(*)")
+                    if fn_ptr == -1:
+                        decl = "{}* {}".format(the_type.get_pointee().spelling, parameter)
+                    else:
+                        decl = "{}(*{}){}".format(type_spelling[:fn_ptr], parameter, type_spelling[fn_ptr + 3:])
+                else:
+                    decl = "{} {}".format(type_spelling, parameter)
+                    decl = decl.replace("* ", "*").replace("& ", "&")
                 child_sip = {
                     "name": parameter,
                     "decl": decl,
