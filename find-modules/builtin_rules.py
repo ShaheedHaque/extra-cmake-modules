@@ -567,6 +567,12 @@ def variable_rewrite_array_nonfixed(container, variable, sip, matcher):
     dims = VARIABLE_ARRAY_RE.match(sip["decl"]).groups()
     if len(dims) == 1:
         sip["decl"] = sip["decl"].replace("[]", "*")
+    #
+    # Even though we render this as a "foo *", it started life as a "foo []". So if there is a const, the array
+    # itself was a const...
+    #
+    if "const " in sip["decl"]:
+        sip["annotations"].add("NoSetter")
 
 
 def variable_rewrite_extern(container, variable, sip, matcher):

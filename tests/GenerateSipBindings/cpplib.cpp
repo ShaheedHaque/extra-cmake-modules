@@ -263,3 +263,5 @@ void Concrete::virtualInterface()
 int Variables::classStatic = 9876;
 
 QMap<int, int> Variables::templatedClassStatic = QMap<int, int>();
+
+const char Variables::A_CONSTANT[] = "A_CONSTANT";

@@ -392,6 +392,10 @@ public:
    * Templated variable. TODO: this does not work because SIP seems to omit the sipPySelf argument name.
    */
   // QMap<int, int> templatedVar;
+  /**
+   * A read-only array variable.
+   */
+  static const char A_CONSTANT[];
 };
 
 /**
