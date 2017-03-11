@@ -62,6 +62,7 @@ import KJobWidgets
 import KLDAP
 import KNotifyConfig
 import KService
+import KStyle
 import KUnitConversion
 import KWidgetsAddons
 import KXmlGui
@@ -345,6 +346,7 @@ class RuleSet(rules_engine.RuleSet):
             container_rules=KConfigGui.container_rules,
             modulecode=KConfigGui.modulecode)
         self.add_rules(
+            function_rules=KConfigWidgets.function_rules,
             parameter_rules=KConfigWidgets.parameter_rules,
             modulecode=KConfigWidgets.modulecode)
         self.add_rules(
@@ -379,6 +381,8 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=KService.function_rules,
             typedef_rules=KService.typedef_rules,
             typecode = KService.typecode)
+        self.add_rules(
+            function_rules=KStyle.function_rules)
         self.add_rules(
             function_rules=KUnitConversion.function_rules)
         self.add_rules(

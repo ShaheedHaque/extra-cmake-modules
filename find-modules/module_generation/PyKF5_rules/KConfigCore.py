@@ -48,6 +48,14 @@ def _function_fixup_template_params(container, function, sip, matcher):
     sip["parameters"] = ["const T &v"]
 
 
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    flags = "QFlags<KConfigBase::WriteConfigFlag> flags = KConfigBase::Normal"
+    sip["parameters"] = ["const QByteArray & group", flags]
+    sip["code"] = """    void deleteGroup(const QString &group, {});
+    void deleteGroup(const char *group, {});
+""".format(flags, flags)
+
+
 def _discard_non_const_suffixes(container, function, sip, matcher):
     rules_engine.function_discard(container, function, sip, matcher)
 
@@ -166,6 +174,10 @@ def function_rules():
         #
         ["KConfigBackend", ".*", ".*", ".*", ".*KEntryMap.*", rules_engine.function_discard],
         ["KConfigBackend", "create", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["KConfigGroup", "deleteGroup", ".*", ".*", "", _function_rewrite_using_decl],
     ]
 
 

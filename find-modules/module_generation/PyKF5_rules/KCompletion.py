@@ -29,13 +29,17 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    sip["parameters"] = ["int index", "const QStringList &texts"]
+
+
 def parameter_rewrite_template(container, function, parameter, sip, matcher):
     if sip["name"] == "i":
         sip["decl"] = "Key i"
     elif sip["name"] == "t":
         sip["decl"] = "const T &t"
     else:
-        assert False, _("Unexpected parameter {}").format(sip["name"])
+        assert False, "Unexpected parameter {}".format(sip["name"])
 
 
 def container_rules():
@@ -53,6 +57,10 @@ def function_rules():
     return [
         ["KCompletionBase", "keyBindingMap|getKeyBindings|setKeyBindingMap", ".*", ".*", ".*", rules_engine.function_discard],
         ["KCompletionMatches", "KCompletionMatches", ".*", ".*", ".*KCompletionMatchesWrapper.*", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["KHistoryComboBox", "insertItems", ".*", ".*", "", _function_rewrite_using_decl],
     ]
 
 

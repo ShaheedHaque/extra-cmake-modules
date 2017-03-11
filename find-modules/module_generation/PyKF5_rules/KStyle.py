@@ -17,25 +17,14 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KConfigWidgets. This modules describes:
+SIP binding customisation for PyKF5.KStyle. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
 
-
-import rules_engine
-
-
 def _function_rewrite_using_decl(container, function, sip, matcher):
-    sip["parameters"] = ["QAction* action"]
-    sip["code"] = """    //void triggered(int index);
-    void triggered(const QString &text);
-"""
-
-
-def _delete_duplicate_content(filename, sip, entry):
-    if sip["name"] == "ktip.h":
-        sip["decl"] = ""
+    sip["parameters"] = ["QApplication *app"]
+    sip["prefix"] = "virtual "
 
 
 def function_rules():
@@ -43,22 +32,6 @@ def function_rules():
         #
         # Rewrite using declaration.
         #
-        ["KCodecAction", "triggered", ".*", ".*", "", _function_rewrite_using_decl],
+        ["KStyle", "polish", ".*", ".*", "", _function_rewrite_using_decl],
     ]
 
-
-def parameter_rules():
-    return [
-        #
-        # Override the default "parent" rule.
-        #
-        ["KStandardAction", ".*", "parent", ".*", ".*", rules_engine.noop]
-    ]
-
-
-def modulecode():
-    return {
-        "ktipdialog.h": {
-            "code": _delete_duplicate_content
-        },
-    }

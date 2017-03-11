@@ -28,6 +28,11 @@ from sip_generator import trace_generated_for
 import PyQt_template_typecode
 
 
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    sip["parameters"] = ["const QModelIndex &current", "const QModelIndex &previous"]
+    sip["prefix"] = "virtual "
+
+
 def _parameter_restore_default(container, function, parameter, sip, matcher):
     sip["init"] = "Q_NULLPTR"
 
@@ -281,6 +286,10 @@ def function_rules():
         # boost templates.
         #
         ["Akonadi::Item", "setPayloadBaseV2|addPayloadBaseVariant|addToLegacyMappingImpl", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["Akonadi::(Collection|Entity(List|Tree)|Item)View", "currentChanged", ".*", ".*", "", _function_rewrite_using_decl],
     ]
 
 

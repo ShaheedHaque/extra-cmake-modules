@@ -231,6 +231,11 @@ class SipGenerator(object):
         :param level:               Recursion level controls indentation.
         :return:                    A string.
         """
+        def in_class(item):
+            parent = item.semantic_parent
+            while parent and parent.kind != CursorKind.CLASS_DECL:
+                parent = parent.semantic_parent
+            return True if parent else False
 
         def is_copy_constructor(member):
             if member.kind != CursorKind.CONSTRUCTOR:
@@ -293,9 +298,11 @@ class SipGenerator(object):
                 #   - VARIABLE_KINDS to see any const variables (no-copy constructor support).
                 #   - CursorKind.CXX_BASE_SPECIFIER just to preserve any inheritance (is this actually needed?).
                 #   - CursorKind.CXX_ACCESS_SPEC_DECL so that changes in visibility are seen.
+                #   - CursorKind.USING_DECLARATION for any functions being access-tweaked.
                 #
                 if member.kind in FN_KINDS + VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL,
-                                                               CursorKind.CXX_BASE_SPECIFIER]:
+                                                               CursorKind.CXX_BASE_SPECIFIER,
+                                                               CursorKind.USING_DECLARATION]:
                     pass
                 else:
                     if self.dump_privates:
@@ -366,16 +373,22 @@ class SipGenerator(object):
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
                 decl, tmp = self._container_get(member, level + 1, h_file, include_filename)
                 module_code.update(tmp)
-            elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE,
+            elif member.kind in TEMPLATE_KINDS + [CursorKind.USING_DIRECTIVE,
                                                   CursorKind.CXX_FINAL_ATTR]:
                 #
                 # Ignore:
                 #
                 #   TEMPLATE_KINDS: Template type parameter.
-                #   CursorKind.USING_DECLARATION, CursorKind.USING_DIRECTIVE: Using? Pah!
+                #   CursorKind.USING_DIRECTIVE: Using? Pah!
                 #   CursorKind.CXX_FINAL_ATTR: Again, not much to be done with this.
                 #
                 pass
+            elif member.kind == CursorKind.USING_DECLARATION and in_class(member):
+                #
+                # If we are not in a class, a USING_DECLARATION cannot be modifying access levels.
+                #
+                decl, tmp = self._using_get(container, member, level + 1)
+                module_code.update(tmp)
             else:
                 text = self._read_source(member.extent)
                 if self.skippable_attribute(container, member, text, sip):
@@ -654,38 +667,50 @@ class SipGenerator(object):
             modifying_rule = self.rules.methodcode(function, sip)
             if modifying_rule:
                 decl1 += pad + trace_modified_by(function, modifying_rule)
-            decl += sip["name"] + "(" + ", ".join(sip["parameters"]) + ")"
-            if sip["fn_result"]:
-                if sip["fn_result"][-1] in "*&":
-                    decl = sip["fn_result"] + decl
-                else:
-                    decl = sip["fn_result"] + " " + decl
-            decl = pad + sip["prefix"] + decl + sip["suffix"]
-            if sip["annotations"]:
-                decl += " /" + ",".join(sip["annotations"]) + "/"
-            if sip["template_parameters"]:
-                decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
-            if sip["cxx_decl"] or sip["cxx_fn_result"]:
-                if not isinstance(sip["cxx_decl"], str):
-                    sip["cxx_decl"] = ", ".join(sip["cxx_decl"])
-                decl += "\n    " + pad + "["
-                #
-                # SIP does not want the result for constructors.
-                #
-                if function.kind != CursorKind.CONSTRUCTOR:
-                    if sip["cxx_fn_result"][-1] in "*&":
-                        decl += sip["cxx_fn_result"]
-                    else:
-                        decl += sip["cxx_fn_result"] + " "
-                decl += "(" + sip["cxx_decl"] + ")]"
-            decl += ";\n"
-            decl += sip["code"]
+            decl += self._function_render(function, sip, pad)
             decl = decl1 + decl
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
         else:
             decl = pad + trace_discarded_by(function, modifying_rule)
         return decl, module_code
+
+    def _function_render(self, function, sip, pad):
+        """
+        Render a function as output text.
+
+        :param function:
+        :param sip:
+        :param pad:
+        :return:
+        """
+        decl = sip["name"] + "(" + ", ".join(sip["parameters"]) + ")"
+        if sip["fn_result"]:
+            if sip["fn_result"][-1] in "*&":
+                decl = sip["fn_result"] + decl
+            else:
+                decl = sip["fn_result"] + " " + decl
+        decl = pad + sip["prefix"] + decl + sip["suffix"]
+        if sip["annotations"]:
+            decl += " /" + ",".join(sip["annotations"]) + "/"
+        if sip["template_parameters"]:
+            decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
+        if sip["cxx_decl"] or sip["cxx_fn_result"]:
+            if not isinstance(sip["cxx_decl"], str):
+                sip["cxx_decl"] = ", ".join(sip["cxx_decl"])
+            decl += "\n    " + pad + "["
+            #
+            # SIP does not want the result for constructors.
+            #
+            if function.kind != CursorKind.CONSTRUCTOR:
+                if sip["cxx_fn_result"][-1] in "*&":
+                    decl += sip["cxx_fn_result"]
+                else:
+                    decl += sip["cxx_fn_result"] + " "
+            decl += "(" + sip["cxx_decl"] + ")]"
+        decl += ";\n"
+        decl += sip["code"]
+        return decl
 
     def _template_template_param_get(self, container):
         """
@@ -1044,6 +1069,55 @@ class SipGenerator(object):
             decl = pad + trace_discarded_by(unexposed, modifying_rule, text)
         return decl, module_code
 
+    def _using_get(self, container, using, level):
+        """
+        SIP does not support using declarations, so rule-writers will generally
+        have to intervene.
+        """
+        sip = {
+            "name": using.spelling,
+            "annotations": set(),
+        }
+        module_code = {}
+        #
+        # Is this for a function or a variable?
+        #
+        is_function = False
+        using_class = None
+        for child in using.get_children():
+            if child.kind == CursorKind.OVERLOADED_DECL_REF:
+                is_function = True
+            elif child.kind == CursorKind.TYPE_REF:
+                using_class = child.spelling.split()[-1]
+        if is_function:
+            sip["template_parameters"] = []
+            sip["fn_result"] = "void"
+            sip["parameters"] = []
+            sip["prefix"], sip["suffix"] = "", ""
+            modifying_rule = self.rules.function_rules().apply(container, using, sip)
+        else:
+            sip["decl"] = ""
+            modifying_rule = self.rules.variable_rules().apply(container, using, sip)
+        #
+        # Make it clear that we intervened.
+        #
+        if not modifying_rule:
+            modifying_rule = "default using handling"
+        pad = " " * (level * 4)
+        if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + trace_modified_by(using, modifying_rule, using_class + "::" + using.spelling)
+            if is_function:
+                decl += self._function_render(using, sip, pad)
+            else:
+                decl += self._var_render(using, sip, pad)
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
+        else:
+            decl = pad + trace_discarded_by(using, modifying_rule, using_class + "::" + using.spelling)
+        return decl, module_code
+
     def _var_get(self, container, variable, level):
         """
         Generate the translation for a variable.
@@ -1053,7 +1127,6 @@ class SipGenerator(object):
         :param level:               Recursion level controls indentation.
         :return:                    A string.
         """
-
         sip = {
             "name": variable.spelling,
             "annotations": set(),
@@ -1104,24 +1177,36 @@ class SipGenerator(object):
             decl = ""
             if modifying_rule:
                 decl += pad + trace_modified_by(variable, modifying_rule)
-            decl += pad + sip["decl"]
-            if decl[-1] not in "*&":
-                decl += " "
-            decl += sip["name"]
-            if sip["annotations"]:
-                decl += " /" + ",".join(sip["annotations"]) + "/"
+            decl += self._var_render(variable, sip, pad)
             #
             # SIP does not support protected variables, so we ignore them.
             #
             if variable.access_specifier == AccessSpecifier.PROTECTED:
                 decl = pad + trace_discarded_by(variable, "protected handling")
-            else:
-                decl = decl + sip["code"] + ";\n"
-                if sip["module_code"]:
-                    module_code.update(sip["module_code"])
+                return decl, {}
+            if sip["module_code"]:
+                module_code.update(sip["module_code"])
         else:
             decl = pad + trace_discarded_by(variable, modifying_rule)
         return decl, module_code
+
+    def _var_render(self, variable, sip, pad):
+        """
+        Render a variable as output text.
+
+        :param variable:
+        :param sip:
+        :param pad:
+        :return:
+        """
+        decl = pad + sip["decl"]
+        if decl[-1] not in "*&":
+            decl += " "
+        decl += sip["name"]
+        if sip["annotations"]:
+            decl += " /" + ",".join(sip["annotations"]) + "/"
+        decl = decl + sip["code"] + ";\n"
+        return decl
 
     def _var_get_keywords(self, container, variable, sip):
         """

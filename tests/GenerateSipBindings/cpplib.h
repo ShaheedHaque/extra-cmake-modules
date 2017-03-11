@@ -365,6 +365,7 @@ public:
   QMap<int, TemplateDerivative> *moduleCodeFunction(QMap<int, TemplateDerivative> *parameter) { return NULL; };
   void moduleCodeParameter(QMap<int, TemplateDerivative> *parameter) { };
   virtual void publicInherited() { };
+  void publicInherited2() { };
 };
 
 /**
@@ -412,4 +413,5 @@ private:
    * Hide an otherwise-public method from a class with virtual methods. (Never mind Liskov!)
    */
   void publicInherited() { };
+  using ObscureSyntax::publicInherited2;
 };
