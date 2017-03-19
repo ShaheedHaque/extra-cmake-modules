@@ -35,9 +35,10 @@ SIP binding customisation for PyKF5. This modules describes:
 
 from __future__ import print_function
 import os
+import string
 import sys
 
-from clang.cindex import AccessSpecifier
+from clang.cindex import AccessSpecifier, CursorKind
 
 import rules_engine
 from builtin_rules import parse_template
@@ -68,7 +69,10 @@ import KUnitConversion
 import KWidgetsAddons
 import KXmlGui
 import Syndication
+import PyQt_template_typecode
 from PyQt_template_typecode import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
+from sip_generator import trace_generated_for
+from builtin_rules import HeldAs, RewriteMappedHelper, fqn
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -92,6 +96,94 @@ def _function_discard_non_const(container, function, sip, matcher):
 def _function_discard_protected(container, function, sip, matcher):
     if function.access_specifier == AccessSpecifier.PROTECTED:
         rules_engine.function_discard(container, function, sip, matcher)
+
+
+def fn_result_is_qt_template(container, function, sip, matcher):
+    def in_class(item):
+        parent = item.semantic_parent
+        while parent and parent.kind != CursorKind.CLASS_DECL:
+            parent = parent.semantic_parent
+        return True if parent else False
+
+    #
+    # Deal with function result.
+    #
+    template_type, template_args = parse_template(sip["fn_result"])
+    sip["cxx_fn_result"] = sip["fn_result"]
+    result_h = RewriteMappedHelper(sip["fn_result"], None)
+    if result_h.category == HeldAs.OBJECT:
+        sip["fn_result"] += " *"
+    #
+    # Now the function parameters.
+    #
+    sip["cxx_decl"] = sip["parameters"]
+    clang_kinds = [c.type.get_canonical() for c in function.get_children() if c.kind == CursorKind.PARM_DECL]
+    parameters_h = []
+    sip_parameters = []
+    sip_stars = []
+    for i, p in enumerate(sip["parameters"]):
+        #
+        # Get to type by remving any default value then stripping the name.
+        #
+        type_text = p.split("=", 1)[0]
+        type_text = type_text.rstrip(string.letters + " ")
+        parameter_h = RewriteMappedHelper(type_text, clang_kinds[i].kind)
+        sip_parameters.append("a{}".format(i))
+        if parameter_h.category == HeldAs.OBJECT:
+            sip_stars.append("*a{}".format(i))
+        else:
+            sip_stars.append("a{}".format(i))
+        parameters_h.append(parameter_h)
+    trace = trace_generated_for(function, fn_result_is_qt_template,
+                                {"result": result_h.category, "parameters": [p.category for p in parameters_h]})
+    fn = function.spelling
+    if "static " in sip["prefix"] or not in_class(function):
+        fn = fqn(container, fn)
+    elif not fn.startswith("operator"):
+        if function.access_specifier == AccessSpecifier.PROTECTED:
+            fn = "sipCpp->sipProtect_" + fn
+        else:
+            fn = "sipCpp->" + fn
+    code = """%MethodCode\n{}
+            typedef {} CxxvalueT;
+            CxxvalueT cxxvalue;
+
+            Py_BEGIN_ALLOW_THREADS
+            cxxvalue = {}({});
+            Py_END_ALLOW_THREADS
+""".format(trace, sip["cxx_fn_result"], fn, ", ".join(sip_stars))
+    if template_type == "QSharedPointer":
+        code += """            // This will leak but there seems to be no way to detach the object.
+            sipRes = (new CxxvalueT(cxxvalue))->data();
+%End
+"""
+    elif template_type == "QExplicitlySharedDataPointer":
+        code += """            sipRes = &cxxvalue;
+%End
+"""
+    elif result_h.category == HeldAs.OBJECT:
+        code += """            sipRes = &cxxvalue;
+%End
+"""
+    else:
+        code += """            sipRes = cxxvalue;
+%End
+"""
+    if "virtual" in sip["prefix"]:
+        code += """%VirtualCatcherCode\n{}
+        PyObject *result = PyObject_CallFunctionObjArgs(sipMethod, {}NULL);
+        if (result == NULL) {{
+            sipIsErr = 1;
+
+            // TBD: Free all the pyobjects.
+        }} else {{
+            // Convert the result to the C++ type. TBD: Figure out type encodings?
+            sipParseResult(&sipIsErr, sipMethod, result, "i", &sipRes);
+            Py_DECREF(result);
+        }}
+%End
+""".format(trace, "".join([p + ", " for p in sip_parameters]))
+    sip["code"] = code
 
 
 def _parameter_in(container, function, parameter, sip, matcher):
@@ -186,6 +278,7 @@ def function_rules():
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
         [".*", ".*", ".*", ".*", ".*QPair.*", rules_engine.function_discard],
         [".*", ".*", ".*", ".*QPair.*", ".*", rules_engine.function_discard],
+        [".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
         #
         # This class has inline implementations in the header file.
         #

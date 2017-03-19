@@ -168,7 +168,7 @@ class HeldAs(object):
         :param clang_kind:                  The clang kind or None.
         :return: the storage type of the object.
         """
-        if cxx_t.endswith(("Ptr", "*", "&")):
+        if cxx_t.endswith(("Ptr", "*")):
             return HeldAs.POINTER
         if cxx_t.startswith(("QSharedPointer", "QExplicitlySharedDataPointer")):
             return HeldAs.POINTER
@@ -190,6 +190,8 @@ class HeldAs(object):
             try:
                 return HeldAs._rev_map[clang_kind]
             except KeyError:
+                if clang_kind == TypeKind.LVALUEREFERENCE:
+                    return HeldAs.OBJECT
                 #
                 # We we already know it did not seem to be a pointer, so check for a templated object:
                 #
@@ -198,8 +200,9 @@ class HeldAs(object):
                 #
                 if "<" in cxx_t and clang_kind in [TypeKind.ELABORATED, TypeKind.UNEXPOSED]:
                     return HeldAs.OBJECT
-                else:
-                    raise AssertionError(_("Unexpected {} for {}").format(clang_kind, cxx_t))
+                raise AssertionError(_("Unexpected {} for {}").format(clang_kind, cxx_t))
+        if "<" in cxx_t:
+            return HeldAs.OBJECT
         if "int" in cxx_t or "long" in cxx_t or cxx_t == "bool":
             return HeldAs.INTEGER
         return HeldAs.OBJECT
