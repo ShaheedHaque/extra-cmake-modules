@@ -40,6 +40,7 @@ import sys
 from clang.cindex import AccessSpecifier
 
 import rules_engine
+from builtin_rules import parse_template
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common_methodcode
 import common_modulecode
@@ -220,7 +221,6 @@ def function_rules():
 
 
 def parameter_rules():
-
     return [
         #
         # Annotate with Transfer or TransferThis when we see a parent object.

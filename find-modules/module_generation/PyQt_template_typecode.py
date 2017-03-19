@@ -45,7 +45,7 @@ import os
 
 from clang.cindex import CursorKind, TypeKind
 
-from builtin_rules import HeldAs
+from builtin_rules import HeldAs, parse_template
 from sip_generator import trace_generated_for
 
 gettext.install(os.path.basename(__file__))
@@ -292,20 +292,7 @@ class AbstractExpander(object):
         #
         # Secondly, extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
         #
-        decls = []
-        bracket_level = 0
-        text = sip["decl"][len(parent.spelling) + 1:-1]
-        left = 0
-        for right, token in enumerate(text):
-            if bracket_level <= 0 and token is ",":
-                decls.append(text[left:right].strip())
-                left = right + 1
-            elif token is "<":
-                bracket_level += 1
-            elif token is ">":
-                bracket_level -= 1
-        decls.append(text[left:].strip())
-        assert len(decls) == len(expected_parameters), _("Cannot extract decls from {}").format(sip["decl"])
+        original_type, original_args = parse_template(sip["decl"], len(expected_parameters))
         #
         # Compose the parent type, and the dicts for the parameters and a default declaration.
         #
@@ -315,19 +302,19 @@ class AbstractExpander(object):
         parameters = []
         for i, parameter in enumerate(expected_parameters):
             p = {}
-            p["type"] = self.actual_type(manual_types[i], decls[i], types[i])
+            p["type"] = self.actual_type(manual_types[i], original_args[i], types[i])
             p["base_type"] = self.base_type(manual_base_types[i], p["type"], types[i])
             kind = types[i].type.get_canonical().kind if types[i] else None
             p["held_as"] = GenerateMappedHelper(p, kind)
             entry[parameter] = p
             parameters.append(p["type"])
-        parameters = ", ".join(parameters)
-        if parameters.endswith(">"):
-            parameters += " "
+        original_args = ", ".join(parameters)
         #
-        # Run the handler...
+        # Run the template handler...
         #
-        mapped_type = "{}<{}>".format(parent.spelling, parameters)
+        if original_args.endswith(">"):
+            original_args += " "
+        mapped_type = "{}<{}>".format(original_type, original_args)
         trace = trace_generated_for(cursor, self.decl, {p: entry[p]["held_as"].category for p in expected_parameters})
         code = self.decl(parent.spelling, entry)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"

@@ -70,6 +70,32 @@ def fqn(container, child):
     return result + "::" + child
 
 
+def parse_template(template, expected=None):
+    """
+    Extract template name and arguments even in cases like 'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
+
+    :return: (name, [args])
+    """
+    name, args = template.split("<", 1)
+    name = name.split()[-1]
+    text = args.rsplit(">", 1)[0]
+    args = []
+    bracket_level = 0
+    left = 0
+    for right, token in enumerate(text):
+        if bracket_level <= 0 and token is ",":
+            args.append(text[left:right].strip())
+            left = right + 1
+        elif token is "<":
+            bracket_level += 1
+        elif token is ">":
+            bracket_level -= 1
+    args.append(text[left:].strip())
+    if expected is not None:
+        assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
+    return name, args
+
+
 class HeldAs(object):
     """
     Items are held either as integral values, pointer values or objects. The
