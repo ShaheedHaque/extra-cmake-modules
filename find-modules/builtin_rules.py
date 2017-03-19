@@ -53,14 +53,21 @@ VARIABLE_ARRAY_RE = re.compile(".*(\[\])+")
 MAPPED_TYPE_RE = re.compile(".*<.*")
 
 
-def _parents(container):
-    parents = []
+def fqn(container, child):
+    """
+    A handy helper to return the full-qualified name for something.
+
+    :param container:                   Parent container.
+    :param child:                       The item whose FQN we seek.
+    :return: string name.
+    """
+    result = []
     parent = container
     while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-        parents.append(parent.spelling)
+        result.append(parent.spelling)
         parent = parent.semantic_parent
-    parents = "::".join(reversed(parents))
-    return parents
+    result = "::".join(reversed(result))
+    return result + "::" + child
 
 
 class HeldAs(object):
@@ -333,8 +340,7 @@ def container_rewrite_exception(container, sip, matcher):
     :param matcher:
     :return:
     """
-    parents = _parents(container.semantic_parent)
-    sip["name"] = parents + "::" + sip["name"]
+    sip["name"] = fqn(container.semantic_parent, sip["name"])
     sip_name = sip["name"].replace("::", "_")
     py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
     base_exception = sip["base_specifiers"][0]
@@ -665,7 +671,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
     }
 """
     if is_static:
-        cxx = _parents(container) + "::" + "{name}"
+        cxx = fqn(container, "{name}")
     else:
         cxx = "sipCpp->{name}"
     code += converter.cxx_to_py("value", has_parent, "{cxx}")
