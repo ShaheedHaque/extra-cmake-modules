@@ -62,6 +62,7 @@ import KIOCore
 import KI18n
 import KJobWidgets
 import KLDAP
+import KMime
 import KNotifyConfig
 import KService
 import KStyle
@@ -467,6 +468,9 @@ class RuleSet(rules_engine.RuleSet):
             parameter_rules=KLDAP.parameter_rules,
             variable_rules=KLDAP.variable_rules,
             typedef_rules=KLDAP.typedef_rules)
+        self.add_rules(
+            parameter_rules=KMime.parameter_rules,
+            modulecode=KMime.modulecode)
         self.add_rules(
             forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
         self.add_rules(
