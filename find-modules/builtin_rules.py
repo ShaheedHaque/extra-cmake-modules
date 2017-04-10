@@ -40,6 +40,8 @@ import logging
 import re
 
 from clang.cindex import CursorKind, TypeKind
+from sip_generator import trace_generated_for
+
 
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
@@ -432,6 +434,7 @@ def variable_rewrite_array_fixed(container, variable, sip, matcher):
     _SIP_PYBUFFER_TEMPLATE = """
 {
 %GetCode
+{trace}
     char *cxxvalue = (char *)&sipCpp->{name}[0];
 
     // Create the Python buffer.
@@ -440,6 +443,7 @@ def variable_rewrite_array_fixed(container, variable, sip, matcher):
 %End
 
 %SetCode
+{trace}
     char *cxxvalue = (char *)&sipCpp->{name}[0];
     Py_ssize_t elementCount = {element_count};
     const char *name = "{name}";
@@ -467,6 +471,7 @@ def variable_rewrite_array_fixed(container, variable, sip, matcher):
     _SIP_PYLIST_TEMPLATE = """
 {
 %GetCode
+{trace}
 typedef {cxx_t} CxxvalueT;
 struct getcode
 {
@@ -515,6 +520,7 @@ struct getcode
 %End
 
 %SetCode
+{trace}
 typedef {cxx_t} CxxvalueT;
 struct setcode
 {
@@ -576,6 +582,8 @@ struct setcode
                 code = code.replace("{aliases}", aliases_)
                 code = code.replace("{cxx_to_py}", cxx_to_py)
                 code = code.replace("{py_to_cxx}", py_to_cxx)
+            trace = trace_generated_for(variable, variable_rewrite_array_fixed, {})
+            code = code.replace("{trace}", trace)
             break
     #
     # SIP cannot handle %GetCode/%SetCode for global variables.
@@ -682,6 +690,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
     code = """
 {
 %GetCode
+{trace}
     int sipErr = 0;
 """
     code += aliases
@@ -711,6 +720,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 %End
 
 %SetCode
+{trace}
 """
     code += aliases
     if converter.is_mapped_type:
@@ -735,6 +745,8 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 }"""
     code = code.replace("{cxx}", cxx)
     code = code.replace("{name}", sip["name"])
+    trace = trace_generated_for(variable, variable_rewrite_mapped, {})
+    code = code.replace("{trace}", trace)
     sip["code"] = code
 
 
