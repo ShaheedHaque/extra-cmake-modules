@@ -45,6 +45,7 @@ import os
 
 from clang.cindex import CursorKind, TypeKind
 
+import builtin_rules
 from builtin_rules import HeldAs, parse_template
 from sip_generator import trace_generated_for
 
@@ -589,6 +590,154 @@ class ListExpander(AbstractExpander):
         return code
 
 
+class QPairExpander(AbstractExpander):
+
+    def __init__(self):
+        super(QPairExpander, self).__init__()
+
+    def variables(self):
+        return ["first", "second"]
+
+    def decl(self, qt_type, entry):
+        """
+        Generic support for QPair types which are mapped onto a Python tuple. Either
+        template parameter can be of any integral (int, long, enum) type or
+        non-integral type, for example, QPair<int, QString>.
+
+        :param qt_type:         The name of the Qt template, e.g. "QPair".
+        :param entry:           Dictionary describing the C++ template. Expected firsts:
+
+                                    first           Description of first part of pair.
+                                    second          Description of second part of pair.
+
+                                The first and second descriptions have the following firsts:
+
+                                    type            The type of the item.
+                                    base_type       The base type of the item, different from type in the case of a
+                                                    pointer.
+                                    held_as         Is the item integral, pointer or object?
+        """
+        first_h = entry["first"]["held_as"]
+        second_h = entry["second"]["held_as"]
+        code = """
+%TypeHeaderCode
+#include <{qt_type}>
+%End
+%ConvertFromTypeCode
+"""
+        code += first_h.declare_type_helpers("first", "return 0;")
+        code += second_h.declare_type_helpers("second", "return 0;")
+        code += """
+    // Create the tuple
+    PyObject *tuple = NULL;
+    {
+"""
+        code += first_h.cxx_to_py("first", True, "sipCpp->first")
+        code += second_h.cxx_to_py("second", True, "sipCpp->second")
+        code += """        tuple = (first && second) ? PyTuple_Pack(2, first, second) : NULL;
+"""
+        #
+        # Error handling assumptions:
+        #
+        #   - a failed "new" throws (or, not compliant, return NULL).
+        #   - the good path should be as fast as possible, error recovery can be slow.
+        #
+        code += """
+        if (first == NULL || second == NULL || tuple == NULL) {
+            PyErr_Format(PyExc_TypeError, "cannot combine first/second as tuple");
+"""
+        code += first_h.decrement_python_reference("first") + second_h.decrement_python_reference("second")
+        if first_h.category == HeldAs.OBJECT:
+            code += """            delete first;
+"""
+        if second_h.category == HeldAs.OBJECT:
+            code += """            delete second;
+"""
+        code += """            Py_XDECREF(tuple);
+            return 0;
+        }
+        Py_DECREF(first);
+        Py_DECREF(second);
+    }
+    return tuple;
+%End
+%ConvertToTypeCode
+"""
+        code += first_h.declare_type_helpers("first", "return 0;", need_string=first_h.category != HeldAs.INTEGER)
+        code += second_h.declare_type_helpers("second", "return 0;", need_string=second_h.category != HeldAs.INTEGER)
+        code += """    PyObject *first;
+    PyObject *second;
+    Py_ssize_t i = 0;
+
+    // Silently check the sequence if that is all that is required.
+    if (sipIsErr == NULL) {
+        return (PySequence_Check(sipPy)
+#if PY_MAJOR_VERSION < 3
+                && !PyString_Check(sipPy)
+#endif
+                && !PyUnicode_Check(sipPy));
+        i = PySequence_Size(sipPy);
+        if (i != 2) {
+            // A negative length should only be an internal error so let the original exception stand.
+            if (i >= 0) {
+                PyErr_Format(PyExc_TypeError, "sequence has %zd elements but 2 elements are expected", i);
+            }
+"""
+        code += first_h.check_python_type("first")
+        code += second_h.check_python_type("second")
+        code += """        }
+        return 1;
+    } else if (*sipIsErr) {
+        return 0;
+    }
+
+    // Convert the sequence to C++.
+    {qt_type}<CxxfirstT, CxxsecondT> *pair = new {qt_type}<CxxfirstT, CxxsecondT>();
+    {
+"""
+        code += first_h.py_to_cxx("first", True, "PySequence_ITEM(sipPy, 0)")
+        code += second_h.py_to_cxx("second", True, "PySequence_ITEM(sipPy, 1)")
+        code += """
+        if (*sipIsErr) {
+"""
+        if first_h.category != HeldAs.INTEGER:
+            code += """            if (cxxfirst == NULL) {
+                PyErr_Format(PyExc_TypeError, "tuple first has type '%s' but '%s' is expected",
+                             Py_TYPE(first)->tp_name, cxxfirstS);
+            }
+"""
+        if second_h.category != HeldAs.INTEGER:
+            code += """            if (cxxsecond == NULL) {
+                PyErr_Format(PyExc_TypeError, "tuple second has type '%s' but '%s' is expected",
+                             Py_TYPE(second)->tp_name, cxxsecondS);
+            }
+"""
+        code += first_h.release_sip_helper("first")
+        code += second_h.release_sip_helper("second")
+        code += """            delete pair;
+            return 0;
+        }
+        pair->first = """
+        code += first_h.insertable_cxx_value("first") + """;
+        pair->second = """
+        code += second_h.insertable_cxx_value("second")
+        code += """;
+"""
+        code += first_h.release_sip_helper("first")
+        code += second_h.release_sip_helper("second")
+        code += """    }
+    *sipCppPtr = pair;
+    return sipGetState(sipTransferObj);
+%End
+"""
+        code = code.replace("{qt_type}", qt_type)
+        first_t = entry["first"]["type"]
+        code = code.replace("{first_t}", first_t)
+        second_t = entry["second"]["type"]
+        code = code.replace("{second_t}", second_t)
+        return code
+
+
 class SetExpander(AbstractExpander):
 
     def __init__(self):
@@ -746,4 +895,13 @@ def typecode_cfttc_set(container, typedef, sip, matcher):
     into Python sets.
     """
     template = SetExpander()
+    template.expand(typedef, sip)
+
+
+def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
+    """
+    A TypeCodeDb-compatible function used to create %MappedType expansions for QPair with one template argument
+    into Python sets.
+    """
+    template = QPairExpander()
     template.expand(typedef, sip)

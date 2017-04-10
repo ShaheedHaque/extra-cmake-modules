@@ -736,7 +736,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
         cxx = fqn(container, "{name}")
     else:
         cxx = "sipCpp->{name}"
-    code += converter.cxx_to_py("value", has_parent, "{cxx}")
+    code += converter.cxx_to_py("value", False, "{cxx}")
     if has_parent:
         code += """    sipKeepReference(sipPySelf, -1, value);
 """

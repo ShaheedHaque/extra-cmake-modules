@@ -187,6 +187,33 @@ def fn_result_is_qt_template(container, function, sip, matcher):
     sip["code"] = code
 
 
+def _parameter_qpair_mt(container, function, parameter, sip, matcher):
+    template_type, template_args = parse_template(sip["decl"], 2)
+    first = {
+        "type": actual_type(template_args[0]),
+        "base_type": base_type(template_args[0]),
+    }
+    first["held_as"] = PyQt_template_typecode.GenerateMappedHelper(first, None)
+    second = {
+        "type": actual_type(template_args[1]),
+        "base_type": base_type(template_args[1]),
+    }
+    second["held_as"] = PyQt_template_typecode.GenerateMappedHelper(second, None)
+    template = PyQt_template_typecode.QPairExpander()
+    template_args = ", ".join(template_args)
+    #
+    # Run the template handler...
+    #
+    if template_args.endswith(">"):
+        template_args += " "
+    mapped_type = "{}<{}>".format(template_type, template_args)
+    trace = trace_generated_for(parameter, _parameter_qpair_mt,
+                                {"first": first["held_as"].category, "second": second["held_as"].category})
+    code = template.decl(template_type, {"first": first, "second": second})
+    code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
+    sip["module_code"][mapped_type] = code
+
+
 def _parameter_in(container, function, parameter, sip, matcher):
     sip["annotations"].add("In")
 
@@ -272,13 +299,10 @@ def function_rules():
         #
         [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
         #
-        # TODO: Temporarily remove any functions which require templates. SIP seems to support, e.g. QPairs,
-        # but we have not made them work yet.
+        # TODO: Temporarily remove any functions which require templates.
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", ".*", ".*QPair.*", rules_engine.function_discard],
-        [".*", ".*", ".*", ".*QPair.*", ".*", rules_engine.function_discard],
         [".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
         #
         # This class has inline implementations in the header file.
@@ -329,6 +353,10 @@ def parameter_rules():
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
         ["KMultiTabBarButton", ".*Event", ".*", ".*", ".*", _parameter_strip_class_enum],
         ["KRockerGesture", "KRockerGesture", ".*", ".*", ".*", _parameter_strip_class_enum],
+        #
+        # Create %MappedTypes.
+        #
+        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", _parameter_qpair_mt],
     ]
 
 
