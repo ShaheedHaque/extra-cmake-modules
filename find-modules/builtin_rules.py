@@ -98,6 +98,30 @@ def parse_template(template, expected=None):
     return name, args
 
 
+def actual_type(parameter_text):
+    """
+    :param parameter_text:              The text from the source code.
+    :return: the type of the parameter.
+    """
+    return parameter_text
+
+
+def base_type(parameter_text):
+    """
+    :param parameter_text:              The text from the source code.
+    :return: the base_type of the parameter, e.g. without a pointer suffix.
+    """
+    if parameter_text.endswith("Ptr"):
+        parameter_text = parameter_text[:-3]
+        if parameter_text.endswith("::"):
+            parameter_text = parameter_text[:-2]
+    elif parameter_text.endswith(("*", "&")):
+        parameter_text = parameter_text[:-1].strip()
+    if parameter_text.startswith("const "):
+        parameter_text = parameter_text[6:]
+    return parameter_text
+
+
 class HeldAs(object):
     """
     Items are held either as integral values, pointer values or objects. The

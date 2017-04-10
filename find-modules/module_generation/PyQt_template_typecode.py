@@ -217,7 +217,7 @@ class AbstractExpander(object):
             if parameter_text.endswith(("*", "&")):
                 tmp += " " + parameter_text[-1]
             return tmp
-        return parameter_text
+        return builtin_rules.actual_type(parameter_text)
 
     def base_type(self, manual_override, parameter_text, parameter_cursor):
         """
@@ -235,13 +235,7 @@ class AbstractExpander(object):
             return manual_override
         if parameter_cursor:
             return parameter_cursor.type.get_canonical().spelling
-        if parameter_text.endswith("Ptr"):
-            parameter_text = parameter_text[:-3]
-            if parameter_text.endswith("::"):
-                parameter_text = parameter_text[:-2]
-        elif parameter_text.endswith(("*", "&")):
-            parameter_text = parameter_text[:-1].strip()
-        return parameter_text
+        return builtin_rules.base_type(parameter_text)
 
     def expand(self, cursor, sip):
         """

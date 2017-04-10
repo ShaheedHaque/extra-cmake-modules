@@ -41,7 +41,7 @@ import sys
 from clang.cindex import AccessSpecifier, CursorKind
 
 import rules_engine
-from builtin_rules import parse_template
+from builtin_rules import parse_template, actual_type, base_type
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common_methodcode
 import common_modulecode
