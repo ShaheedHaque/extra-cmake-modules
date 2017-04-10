@@ -194,9 +194,7 @@ class HeldAs(object):
         :param clang_kind:                  The clang kind or None.
         :return: the storage type of the object.
         """
-        if cxx_t.endswith(("Ptr", "*")):
-            return HeldAs.POINTER
-        if cxx_t.startswith(("QSharedPointer", "QExplicitlySharedDataPointer")):
+        if cxx_t.endswith("*"):
             return HeldAs.POINTER
         #
         # The clang type should be authoritative.

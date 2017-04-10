@@ -158,10 +158,6 @@ def fn_result_is_qt_template(container, function, sip, matcher):
             sipRes = (new CxxvalueT(cxxvalue))->data();
 %End
 """
-    elif template_type == "QExplicitlySharedDataPointer":
-        code += """            sipRes = &cxxvalue;
-%End
-"""
     elif result_h.category == HeldAs.OBJECT:
         code += """            sipRes = &cxxvalue;
 %End

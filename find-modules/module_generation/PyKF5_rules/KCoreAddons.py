@@ -73,6 +73,10 @@ def function_rules():
         # Need typedef for argument, plus custom logic.
         #
         ["KPluginFactory", "registerPlugin", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # SIP: unsupported signal argument type, unsupported function argument type (QPair)
+        #
+        ["KJob|KJobTrackerInterface|KStatusBarJobTracker|KUiServerJobTracker|KWidgetJobTracker", "description", ".*", ".*", ".*", rules_engine.function_discard],
     ]
 
 

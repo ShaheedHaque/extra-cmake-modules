@@ -67,11 +67,11 @@ class GenerateMappedHelper(HeldAs):
 """,
         HeldAs.POINTER:
             """        Cxx{name}T cxx{name} = {cxx_po};
-        PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, sipTransferObj);
+        PyObject *{name} = sipConvertFromType((void *)cxx{name}, gen{name}T, sipTransferObj);
 """,
         HeldAs.OBJECT:
             """        Cxx{name}T *cxx{name} = new Cxx{name}T({cxx_po});
-        PyObject *{name} = sipConvertFromNewType(cxx{name}, gen{name}T, sipTransferObj);
+        PyObject *{name} = sipConvertFromNewType((void *)cxx{name}, gen{name}T, sipTransferObj);
 """,
     }
 
@@ -141,7 +141,7 @@ class GenerateMappedHelper(HeldAs):
             HeldAs.INTEGER:
                 "",
             HeldAs.POINTER:
-                """        sipReleaseType(cxx{name}, gen{name}T, {name}State);
+                """        sipReleaseType((void *)cxx{name}, gen{name}T, {name}State);
 """,
         }
         options[HeldAs.OBJECT] = options[HeldAs.POINTER]
