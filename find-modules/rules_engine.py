@@ -1216,6 +1216,15 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
                 trace = trace_inserted_for(filename, self.names[entry["ruleset"]])
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
+                #
+                # Module-level support.
+                #
+                tmp = sip.get("mapped_types", None)
+                if tmp:
+                    sip["mapped_types"] = entry.get("mapped_types", tmp)
+                tmp = sip.get("peers", None)
+                if tmp:
+                    sip["peers"] = entry.get("peers", tmp)
             #
             # Fetch/format the code.
             #

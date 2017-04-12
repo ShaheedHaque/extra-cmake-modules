@@ -395,35 +395,43 @@ class ModuleGenerator(object):
                 decl += "{}\n".format(include)
             decl += "%End\n"
             #
-            # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
-            # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
-            # %Exceptions).
-            #
-            for mc in sorted(mapped_types):
-                decl += "\n\n"
-                decl += mapped_types[mc]
-                decl += "\n\n"
-            #
             # Add all peer .sip files.
             #
+            peers = ""
             for sip_file in sip_files:
-                decl += "%Include(name={})\n".format(sip_file)
+                peers += "%Include(name={})\n".format(sip_file)
             #
             # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
             # module-level directives?
             #
             sip = {
                 "name": module,
-                "decl": decl
+                "decl": decl,
+                "mapped_types": mapped_types,
+                "peers": peers,
             }
             body = ""
             modifying_rule = compiled_rules.modulecode(os.path.basename(full_output), sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
-            body += sip["decl"] + sip["code"]
             with open(full_output, "w") as f:
                 f.write(header(output_file, h_dir, h_dir, self.package))
                 f.write(body)
+                f.write(sip["decl"])
+                #
+                # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
+                # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
+                # %Exceptions).
+                #
+                # Also, since SIP cannot cope with the same %MappedType in different modules, the rules can be
+                # used to eliminate the duplicates.
+                #
+                f.write("\n")
+                for mt in sorted(mapped_types):
+                    f.write(mapped_types[mt])
+                f.write("\n")
+                f.write(sip["peers"])
+                f.write(sip["code"])
         return attempts, failures
 
     def _map_include_to_import(self, include):
