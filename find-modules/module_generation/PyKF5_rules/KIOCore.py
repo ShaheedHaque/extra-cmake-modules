@@ -41,18 +41,33 @@ def fn_remove_inlined(container, function, sip, matcher):
 
 
 def module_fix_imports(filename, sip, matcher):
+    #
+    # Fixup the recursion.
+    #
     lines = []
     for l in sip["decl"].split("\n"):
         if "name=KIOCore/KIOCoremod.sip" in l:
             #
             # These modules refer to each other.
             #
-            lines.append("%If (!KIOCore_KIO_KIOmod)")
-            lines.append(l)
-            lines.append("%End")
+            lines.append("// " + l)
             continue
         lines.append(l)
     sip["decl"] = "\n".join(lines)
+
+
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    duplicated = "QList<QPair<QString, unsigned short> >"
+    tmp = sip["mapped_types"][duplicated]
+    #
+    # Putting knowledge here of any %Import'ers who happen not to have
+    # duplicates is horrid, but much less painful than the alternative.
+    #
+    tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
+    sip["mapped_types"][duplicated] = tmp
 
 
 def container_rules():
@@ -88,7 +103,7 @@ def typedef_rules():
 def modulecode():
     return {
         "KIOCoremod.sip": {
-            "code": module_fix_imports,
+            "code": module_fix_mapped_types,
         },
         "KIOmod.sip": {
             "code": module_fix_imports,
@@ -98,75 +113,6 @@ def modulecode():
 
 def typecode():
     return {
-        # ./kio/kacl.sip
-        "kacl.h::ACLUserPermissionsList": {  # ACLUserPermissionsList
-            "code":
-                """
-                %ConvertFromTypeCode
-                    if (!sipCpp)
-                        return PyList_New(0);
-
-                    // Create the list
-                    PyObject *pylist;
-                    if ((pylist = PyList_New(0)) == NULL)
-                        return NULL;
-
-                    QList<QPair<QString, unsigned short> > *cpplist = (QList<QPair<QString, unsigned short> > *)sipCpp;
-                    PyObject *inst = NULL;
-
-                    // Get it.
-                    QList<QPair<QString, unsigned short> >::Iterator it;
-                    for( it = cpplist->begin(); it != cpplist->end(); ++it )
-                    {
-                        QString s = (*it).first;
-                        ushort  u = (*it).second;
-                        PyObject *pys = sipBuildResult (NULL, "N", new QString (s), sipType_QString);
-                        if ((pys == NULL) || ((inst = Py_BuildValue ("Ni", pys, u)) == NULL)
-                            || PyList_Append (pylist, inst) < 0)
-                        {
-                            Py_XDECREF (inst);
-                            Py_XDECREF (pys);
-                            Py_DECREF (pylist);
-                            return NULL;
-                        }
-                    }
-
-                    return pylist;
-                %End
-                %ConvertToTypeCode
-                    if (sipIsErr == NULL)
-                        return PyList_Check(sipPy);
-
-                    QList<QPair<QString, unsigned short> > *cpplist = new QList<QPair<QString, unsigned short> >;
-
-                    QString p1;
-                    int iserr = 0;
-
-                    for (int i = 0; i < PyList_Size (sipPy); i++)
-                    {
-                        PyObject *elem = PyList_GET_ITEM (sipPy, i);
-                        PyObject *pyp1 = PyTuple_GET_ITEM (elem, 0);
-                        p1 = *(QString *)sipForceConvertToType(pyp1, sipType_QString, NULL, 0, NULL, &iserr);
-                        if (iserr)
-                        {
-                            *sipIsErr = 1;
-                            delete cpplist;
-                            return 0;
-                        }
-                #if PY_MAJOR_VERSION >= 3
-                        ushort p2 = (ushort)(PyLong_AsLong (PyTuple_GET_ITEM (elem, 1)));
-                #else
-                        ushort p2 = (ushort)(PyInt_AS_LONG (PyTuple_GET_ITEM (elem, 1)));
-                #endif
-                        cpplist->append (QPair<QString, unsigned short> (p1, p2));
-                    }
-
-                    *sipCppPtr = cpplist;
-
-                    return 1;
-                %End
-                """
-        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED KIO::TCPSlaveBase": {  # TCPSlaveBase : KIO::SlaveBase
             "code":

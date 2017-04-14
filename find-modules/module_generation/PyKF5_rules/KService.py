@@ -29,6 +29,19 @@ def _discard_QSharedData(container, sip, matcher):
     sip["base_specifiers"].remove("QSharedData")
 
 
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    sip["parameters"] = ["const QString &name"]
+    sip["fn_result"] = "QVariant"
+    sip["suffix"] = " const"
+
+
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["mapped_types"]["QList<QExplicitlySharedDataPointer<KSycocaEntry> >"]
+
+
 def container_rules():
     return [
         ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", _discard_QSharedData],
@@ -51,15 +64,25 @@ def function_rules():
         # No KSycocaFactory or KSycocaFactoryList.
         #
         ["KSycoca", "addFactory|factories", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # There is no KServiceOffer.
+        #
+        ["KMimeTypeTrader", "filterMimeTypeOffers", ".*", ".*", ".*KServiceOffer.*", rules_engine.function_discard],
+        ["KServiceTypeTrader", "weightedOffers", ".*", ".*KServiceOffer.*", ".*", rules_engine.function_discard],
+        ["KService", "_k_accessServiceTypes", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["KService", "property", ".*", ".*", "", _function_rewrite_using_decl],
     ]
 
 
 def typedef_rules():
     return [
         #
-        # Duplicate.
+        # There is no KServiceOffer.
         #
-        ["kmimetypetrader.h", "KServiceOfferList", ".*", ".*", rules_engine.typedef_discard],
+        ["k(mime|service)typetrader.h", "KServiceOfferList", ".*", ".*", rules_engine.typedef_discard],
     ]
 
 
@@ -80,75 +103,12 @@ def typecode():
                 %End
                 """
         },
-        "KServiceGroup::List": {  # KServiceGroup::List
-            "code":
-                """
-                %ConvertFromTypeCode
-                    // Create the list.
-                    PyObject *l;
+    }
 
-                    if ((l = PyList_New(sipCpp->size())) == NULL)
-                        return NULL;
 
-                    // Set the list elements.
-                    for (int i = 0; i < sipCpp->size(); ++i)
-                    {
-                        KServiceGroup::SPtr *t = new KServiceGroup::SPtr (sipCpp->at(i));
-                        PyObject *tobj;
-
-                        if ((tobj = sipConvertFromNewInstance(t->data(), sipClass_KServiceGroup, sipTransferObj)) == NULL)
-                        {
-                            Py_DECREF(l);
-                            delete t;
-
-                            return NULL;
-                        }
-
-                        PyList_SET_ITEM(l, i, tobj);
-                    }
-
-                    return l;
-                %End
-                %ConvertToTypeCode
-                    // Check the type if that is all that is required.
-                    if (sipIsErr == NULL)
-                    {
-                        if (!PyList_Check(sipPy))
-                            return 0;
-
-                        for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-                            if (!sipCanConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KServiceGroup, SIP_NOT_NONE))
-                                return 0;
-
-                        return 1;
-                    }
-
-                    QList<KServiceGroup::SPtr> *ql = new QList<KServiceGroup::SPtr>;
-
-                    for (int i = 0; i < PyList_GET_SIZE(sipPy); ++i)
-                    {
-                        int state;
-                        KServiceGroup *t = reinterpret_cast<KServiceGroup *>(sipConvertToInstance(PyList_GET_ITEM(sipPy, i), sipClass_KServiceGroup, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr));
-
-                        if (*sipIsErr)
-                        {
-                            sipReleaseInstance(t, sipClass_KServiceGroup, state);
-
-                            delete ql;
-                            return 0;
-                        }
-
-                        KServiceGroup::SPtr *tptr = new KServiceGroup::SPtr (t);
-
-                        ql->append(*tptr);
-
-                        sipReleaseInstance(t, sipClass_KServiceGroup, state);
-                    }
-
-                    *sipCppPtr = ql;
-
-                    return sipGetState(sipTransferObj);
-                %End
-                """
+def modulecode():
+    return {
+        "KServicemod.sip": {
+            "code": module_fix_mapped_types,
         },
     }

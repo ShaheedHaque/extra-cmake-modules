@@ -17,39 +17,15 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KJobWidgets. This modules describes:
+SIP binding customisation for PyKF5.MessageCore. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
 
-import common_typecode
+import rules_engine
 
 
-def module_fix_mapped_types(filename, sip, entry):
-    #
-    # Missing dependency.
-    #
-    sip["code"] = """
-%Import(name=QtWidgets/QtWidgetsmod.sip)
-"""
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    del sip["mapped_types"]["QPair<QString, QString>"]
-
-
-def modulecode():
-    return {
-        "KJobWidgetsmod.sip": {
-            "code": module_fix_mapped_types,
-        },
-    }
-
-
-def typecode():
-    return {
-        # DISABLED until I figure out an approach for CTSCC.
-        "DISABLED kabstractwidgetjobtracker.h::KAbstractWidgetJobTracker": {
-            "code": common_typecode._kdeui_qobject_ctscc
-        },
-    }
+def typedef_rules():
+    return [
+       ["KMime::Types", "AddressList", ".*", ".*", rules_engine.typedef_discard],
+    ]

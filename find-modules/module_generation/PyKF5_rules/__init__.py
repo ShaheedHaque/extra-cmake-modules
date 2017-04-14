@@ -57,6 +57,7 @@ import KConfigGui
 import KConfigWidgets
 import KCrash
 import KF5KDEGames
+import KGeoMap
 import kio
 import KIOCore
 import KI18n
@@ -64,11 +65,13 @@ import KJobWidgets
 import KLDAP
 import KMime
 import KNotifyConfig
+import KNotifications
 import KService
 import KStyle
 import KUnitConversion
 import KWidgetsAddons
 import KXmlGui
+import MessageCore
 import Syndication
 import PyQt_template_typecode
 from PyQt_template_typecode import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
@@ -382,7 +385,6 @@ def typedef_rules():
         # There are two version of Display in kstartupinfo.h and kxmessages.h.
         #
         ["kstartupinfo.h|kxmessages.h", "Display", ".*", ".*", _typedef_discard],
-        ["kmimetypetrader.h", "KServiceOfferList", ".*", ".*", _typedef_discard],
         #
         # Redundant typedef.
         #
@@ -473,6 +475,8 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=KF5KDEGames.function_rules,
             modulecode=KF5KDEGames.modulecode)
         self.add_rules(
+            modulecode=KGeoMap.modulecode)
+        self.add_rules(
             container_rules=KIOCore.container_rules,
             function_rules=KIOCore.function_rules,
             typedef_rules=KIOCore.typedef_rules,
@@ -497,10 +501,13 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
         self.add_rules(
+            modulecode=KNotifications.modulecode)
+        self.add_rules(
             container_rules=KService.container_rules,
             function_rules=KService.function_rules,
             typedef_rules=KService.typedef_rules,
-            typecode = KService.typecode)
+            typecode = KService.typecode,
+            modulecode=KService.modulecode)
         self.add_rules(
             function_rules=KStyle.function_rules)
         self.add_rules(
@@ -514,6 +521,8 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             modulecode=KXmlGui.modulecode,
             methodcode=KXmlGui.methodcode)
+        self.add_rules(
+            typedef_rules=MessageCore.typedef_rules)
         self.add_rules(
             function_rules=Syndication.function_rules,
             typedef_rules=Syndication.typedef_rules,
