@@ -26,6 +26,11 @@ import rules_engine
 import common_typecode
 
 
+def _delete_duplicate_content(filename, sip, entry):
+    if sip["name"] not in ["KMimeTypeChooser", "KMultiTabBar", "KPageWidgetModel", "KSelector"]:
+        sip["decl"] = ""
+
+
 def parameter_rewrite_template(container, function, parameter, sip, matcher):
     sip["decl"] = "DragObjectFactory factory"
 
@@ -59,6 +64,18 @@ def modulecode():
                 """
                 %Import(name=KConfigCore/KConfigCoremod.sip)
                 """
+        },
+        "kmimetypechooser.h": {
+            "code": _delete_duplicate_content
+        },
+        "kmultitabbar.h": {
+            "code": _delete_duplicate_content
+        },
+        "kpagewidgetmodel.h": {
+            "code": _delete_duplicate_content
+        },
+        "kselector.h": {
+            "code": _delete_duplicate_content
         },
     }
 

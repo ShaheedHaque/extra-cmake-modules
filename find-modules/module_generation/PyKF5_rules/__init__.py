@@ -314,7 +314,6 @@ def function_rules():
         #
         ["KFileItem", "operator QVariant", ".*", ".*", ".*", rules_engine.function_discard],
         ["KService", "operator KPluginName", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMultiTabBar", "button|tab", ".*", ".*", ".*", _function_discard_class],
         ["KCalCore::Duration", "operator bool|operator!", ".*", ".*", "", rules_engine.function_discard],
         ["KPageDialog", "pageWidget|buttonBox", ".*", ".*", "", _function_discard_non_const],
         [".*", ".*", ".*", ".*", ".*Private.*", _function_discard_protected],
@@ -347,7 +346,6 @@ def parameter_rules():
         # TODO: Temporarily trim any parameters which start "enum".
         #
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
-        ["KMultiTabBarButton", ".*Event", ".*", ".*", ".*", _parameter_strip_class_enum],
         ["KRockerGesture", "KRockerGesture", ".*", ".*", ".*", _parameter_strip_class_enum],
         #
         # Create %MappedTypes.
