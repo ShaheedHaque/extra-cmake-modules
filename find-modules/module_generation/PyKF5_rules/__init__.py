@@ -468,6 +468,7 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             parameter_rules=KCrash.parameter_rules)
         self.add_rules(
+            forward_declaration_rules=KF5KDEGames.forward_declaration_rules,
             container_rules=KF5KDEGames.container_rules,
             function_rules=KF5KDEGames.function_rules,
             modulecode=KF5KDEGames.modulecode)
@@ -515,5 +516,6 @@ class RuleSet(rules_engine.RuleSet):
             methodcode=KXmlGui.methodcode)
         self.add_rules(
             function_rules=Syndication.function_rules,
-            typedef_rules=Syndication.typedef_rules)
+            typedef_rules=Syndication.typedef_rules,
+            modulecode=Syndication.modulecode)
 

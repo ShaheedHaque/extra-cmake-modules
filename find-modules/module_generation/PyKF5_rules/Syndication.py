@@ -65,3 +65,21 @@ def typedef_rules():
     return [
         ["Syndication.*", ".*Ptr", ".*", "QSharedPointer<Syndication::.*>", typedef_duplicate_discard],
     ]
+
+
+def modulecode():
+    return {
+        "Syndicationmod.sip": {
+            "code":
+                """
+                class KIO::Job /External/;
+                class KJob /External/;
+                class QDomDocument /External/;
+                class QDomElement /External/;
+                class Syndication::Atom::EntryDocument /External/;
+                class Syndication::Atom::FeedDocument /External/;
+                class Syndication::RDF::Document /External/;
+                class Syndication::RSS2::Document /External/;
+                """
+        },
+    }

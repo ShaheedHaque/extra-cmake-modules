@@ -42,6 +42,16 @@ def _function_discard_class(container, function, sip, matcher):
     sip["fn_result"] = sip["fn_result"].replace("class ", "")
 
 
+def _function_fully_qualify_parm(container, function, sip, matcher):
+    sip["parameters"][0] = sip["parameters"][0].replace("FieldInfo", "KScoreDialog::FieldInfo")
+
+
+def forward_declaration_rules():
+    return [
+        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rules_engine.mark_forward_declaration_external],
+    ]
+
+
 def container_rules():
     return [
         ["KGamePropertyBase", "Flags", ".*", ".*", ".*", rules_engine.container_discard],
@@ -60,11 +70,20 @@ def function_rules():
         # Duplicate.
         #
         ["kgamerenderer.h", "qHash", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "GAMES_.*", ".*", "const QLoggingCategory &", ".*", rules_engine.function_discard],
+        ["KScoreDialog", "addScore", ".*", ".*", ".*FieldInfo.*", _function_fully_qualify_parm],
     ]
 
 
 def modulecode():
     return {
+        "highscoremod.sip": {
+            "code":
+                """
+                class KConfig /External/;
+                class KgDifficulty /External/;
+                """
+        },
         "KDEmod.sip": {
             "code": module_remove_redundant
         }
