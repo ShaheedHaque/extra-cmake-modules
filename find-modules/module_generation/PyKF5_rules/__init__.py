@@ -501,6 +501,7 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
         self.add_rules(
+            function_rules=KNotifications.function_rules,
             modulecode=KNotifications.modulecode)
         self.add_rules(
             container_rules=KService.container_rules,

@@ -22,12 +22,26 @@ SIP binding customisation for PyKF5.KNotifications. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    sip["parameters"] = ["QEvent *event"]
+    sip["fn_result"] = "bool"
+    sip["prefix"] = "virtual "
+
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     del sip["mapped_types"]["QPair<QString, QString>"]
+
+
+def function_rules():
+    return [
+        #
+        # Rewrite using declaration.
+        #
+        ["KNotification", "event", ".*", ".*", "", _function_rewrite_using_decl],
+    ]
 
 
 def modulecode():
