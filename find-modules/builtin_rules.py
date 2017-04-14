@@ -750,7 +750,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
         return -1;
     }
 """
-    code += converter.py_to_cxx("value", has_parent, "{cxx}")
+    code += converter.py_to_cxx("value", False, "{cxx}")
     if is_complex:
         code += """    if (!sipErr) {
         {cxx} = *cxxvalue;
