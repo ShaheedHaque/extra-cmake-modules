@@ -55,6 +55,7 @@ import KCompletion
 import KConfigCore
 import KConfigGui
 import KConfigWidgets
+import KContacts
 import KCrash
 import KF5KDEGames
 import KGeoMap
@@ -467,6 +468,9 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=KConfigWidgets.function_rules,
             parameter_rules=KConfigWidgets.parameter_rules,
             modulecode=KConfigWidgets.modulecode)
+        self.add_rules(
+            forward_declaration_rules=KContacts.forward_declaration_rules,
+            function_rules=KContacts.function_rules)
         self.add_rules(
             parameter_rules=KCrash.parameter_rules)
         self.add_rules(
