@@ -49,6 +49,7 @@ import common_typecode
 import Akonadi
 import KAuth
 import KBookmarks
+import KCalCore
 import KCoreAddons
 import KCodecs
 import KCompletion
@@ -443,6 +444,8 @@ class RuleSet(rules_engine.RuleSet):
             variable_rules=KBookmarks.variable_rules,
             modulecode=KBookmarks.modulecode,
             typecode=KBookmarks.typecode)
+        self.add_rules(
+            typedef_rules=KCalCore.typedef_rules)
         self.add_rules(
             container_rules=KCoreAddons.container_rules,
             function_rules=KCoreAddons.function_rules,
