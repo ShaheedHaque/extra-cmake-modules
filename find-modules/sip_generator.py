@@ -802,7 +802,7 @@ class SipGenerator(object):
             return result
 
         def _get_param_value(text, parameter):
-            if text in ["", "0", "nullptr"]:
+            if text in ["", "0", "nullptr", "Q_NULLPTR"]:
                 return text
             parameter_type = _get_param_type(parameter)
             if text == "{}":
