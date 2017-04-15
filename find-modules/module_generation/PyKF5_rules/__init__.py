@@ -74,6 +74,7 @@ import KUnitConversion
 import KWidgetsAddons
 import KXmlGui
 import MessageCore
+import Sonnet
 import Syndication
 import PyQt_template_typecode
 from PyQt_template_typecode import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
@@ -532,6 +533,9 @@ class RuleSet(rules_engine.RuleSet):
             methodcode=KXmlGui.methodcode)
         self.add_rules(
             typedef_rules=MessageCore.typedef_rules)
+        self.add_rules(
+            function_rules=Sonnet.function_rules,
+            modulecode = Sonnet.modulecode)
         self.add_rules(
             function_rules=Syndication.function_rules,
             typedef_rules=Syndication.typedef_rules,
