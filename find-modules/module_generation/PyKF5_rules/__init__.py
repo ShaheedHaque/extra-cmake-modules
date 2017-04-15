@@ -480,6 +480,7 @@ class RuleSet(rules_engine.RuleSet):
             forward_declaration_rules=KF5KDEGames.forward_declaration_rules,
             container_rules=KF5KDEGames.container_rules,
             function_rules=KF5KDEGames.function_rules,
+            parameter_rules=KF5KDEGames.parameter_rules,
             modulecode=KF5KDEGames.modulecode)
         self.add_rules(
             modulecode=KGeoMap.modulecode)

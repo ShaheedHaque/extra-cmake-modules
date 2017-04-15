@@ -46,8 +46,17 @@ def _function_fully_qualify_parm(container, function, sip, matcher):
     sip["parameters"][0] = sip["parameters"][0].replace("FieldInfo", "KScoreDialog::FieldInfo")
 
 
+def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
+    tmp = sip["init"].split('"')
+    sip["init"] = tmp[0] + tmp[2]
+
+
 def forward_declaration_rules():
     return [
+        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rules_engine.mark_forward_declaration_external],
+        ["kgame.h", "KRandomSequence", ".*", rules_engine.mark_forward_declaration_external],
+        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rules_engine.mark_forward_declaration_external],
+        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rules_engine.mark_forward_declaration_external],
         ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rules_engine.mark_forward_declaration_external],
     ]
 
@@ -65,13 +74,50 @@ def container_rules():
 
 def function_rules():
     return [
-        ["KGameCanvasAbstract|KGameCanvasAdapter", "topLevelCanvas", ".*", ".*", ".*", _function_discard_class],
         #
         # Duplicate.
         #
         ["kgamerenderer.h", "qHash", ".*", ".*", ".*", rules_engine.function_discard],
         [".*", "GAMES_.*", ".*", "const QLoggingCategory &", ".*", rules_engine.function_discard],
         ["KScoreDialog", "addScore", ".*", ".*", ".*FieldInfo.*", _function_fully_qualify_parm],
+        ["KGamePropertyBase", "typeinfo", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # TBD: support various templates.
+        #
+        ["KGamePropertyHandler", "dict", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMessageClient", "sendForward", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMessageServer", "sendMessage", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Delete non-const.
+        #
+        ["KGame", "(p|inactiveP)layerList", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        #
+        # Unsupported signal argument type.
+        #
+        ["KGame", "signal(ReplacePlayerIO|LoadError)", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGameIO", "signalPrepareTurn", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGameKeyIO", "signalKeyEvent", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGameMouseIO", "signalMouseEvent", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGameProcessIO", "signalIOAdded", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGamePropertyHandler", "signalSendMessage", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMessageClient", "(forward|serverMessage)Received", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMessageServer", "messageReceived", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+    ]
+
+
+def parameter_rules():
+    return [
+        #
+        # Temporarily rewrite quote to workaround SIP 4.18.1 bug.
+        # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038989.html
+        #
+        ["KGameTheme", "KGameTheme", "themeGroup", ".*", ".*", parameter_rewrite_quotes],
+        ["KGameThemeSelector", "KGameThemeSelector", "groupName|directory", ".*", ".*", parameter_rewrite_quotes],
+        ["KgThemeProvider", "KgThemeProvider", "configKey", ".*", ".*", parameter_rewrite_quotes],
+        #
+        #  Override the default "parent" rule.
+        #
+        ["KStandardGameAction", ".*", "parent", ".*", ".*", rules_engine.noop]
     ]
 
 
@@ -80,8 +126,13 @@ def modulecode():
         "highscoremod.sip": {
             "code":
                 """
-                class KConfig /External/;
                 class KgDifficulty /External/;
+                """
+        },
+        "libkdegamesprivatemod.sip": {
+            "code":
+                """
+                class QMatrix /External/;
                 """
         },
         "KDEmod.sip": {
