@@ -352,7 +352,6 @@ def parameter_rules():
         # TODO: Temporarily trim any parameters which start "enum".
         #
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
-        ["KRockerGesture", "KRockerGesture", ".*", ".*", ".*", _parameter_strip_class_enum],
         #
         # Create %MappedTypes.
         #
@@ -529,6 +528,8 @@ class RuleSet(rules_engine.RuleSet):
             modulecode=KWidgetsAddons.modulecode,
             typecode=KWidgetsAddons.typecode)
         self.add_rules(
+            function_rules=KXmlGui.function_rules,
+            parameter_rules=KXmlGui.parameter_rules,
             modulecode=KXmlGui.modulecode,
             methodcode=KXmlGui.methodcode)
         self.add_rules(

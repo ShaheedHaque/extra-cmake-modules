@@ -22,6 +22,24 @@ SIP binding customisation for PyKF5.KXmlGui. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
+import rules_engine
+
+
+def _parameter_remove_qualifier(container, function, parameter, sip, matcher):
+    sip["init"] = sip["init"].split(":")[-1]
+
+
+def function_rules():
+    return [
+        ["KMainWindow", "k_func", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+    ]
+
+
+def parameter_rules():
+    return [
+        ["KMainWindow", "KMainWindow", "f", ".*", ".*::.*", _parameter_remove_qualifier],
+    ]
+
 
 def modulecode():
     return {
