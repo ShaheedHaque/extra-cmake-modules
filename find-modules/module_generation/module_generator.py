@@ -739,8 +739,8 @@ def main(argv=None):
                         help=_("Comma-separated C++ header directories for includes"))
     parser.add_argument("--clang-paths", default=CLANG_PATHS,
                         help=_("Comma-separated clang++ executable and libclang names"))
-    parser.add_argument("--clang-flags", default=QT5_COMPILE_FLAGS,
-                        help=_("Comma-separated clang options to use"))
+    parser.add_argument("--compile-flags", default=QT5_COMPILE_FLAGS,
+                        help=_("Comma-separated C++ compiler options to use"))
     parser.add_argument("--imports", default=PYQT5_SIPS,
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
@@ -781,7 +781,7 @@ def main(argv=None):
                         exploded_includes.append(d)
         compile_flags = ["-I" + i for i in exploded_includes] + \
                             ["-isystem" + i for i in sys_includes] + \
-                            args.clang_flags.split(",")
+                            args.compile_flags.split(",")
         d = ModuleGenerator(args.package, args.project_rules, compile_flags, includes, args.imports, sources, args.sips)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:

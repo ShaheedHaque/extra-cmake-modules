@@ -47,7 +47,8 @@ from PyQt5.QtCore import PYQT_CONFIGURATION
 
 import rules_engine
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYQT5_SIPS, PYKF5_INCLUDES, PYKF5_SOURCES, PYKF5_LIBRARIES, PYKF5_RULES, PYKF5_PACKAGE_NAME
+from module_generator import PYQT5_SIPS, PYKF5_INCLUDES, QT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES,\
+    PYKF5_PACKAGE_NAME
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -65,7 +66,7 @@ FILE_SORT_KEY=str.lower
 
 
 class ModuleCompiler(object):
-    def __init__(self, package, output, project_rules, sips, includes, imports, libraries, verbose):
+    def __init__(self, package, output, project_rules, sips, includes, imports, libraries, compile_flags, verbose):
         """
         Constructor.
 
@@ -76,6 +77,7 @@ class ModuleCompiler(object):
         :param includes:            CXX includes directories to use.
         :param imports:             SIP module directories to use.
         :param libraries:           Globs of library files.
+        :param compile_flags:       The compile flags for the file.
         :param verbose:             Debug info.
         """
         self.package = package
@@ -96,6 +98,7 @@ class ModuleCompiler(object):
             lg = lg.strip()
             libs = [":" + os.path.basename(l) for l in glob.glob(lg)]
             self.libraries.extend(libs)
+        self.compile_flags = compile_flags
         self.verbose = verbose
         #
         # Get the SIP configuration information.
@@ -149,8 +152,9 @@ class ModuleCompiler(object):
                 if not(selector.search(sip_file) and not omitter.search(sip_file)):
                     continue
                 per_process_args.append((sip_file, ))
-        std_args = (self.input_sips, self.includes, self.imports, self.libraries, self.package, self.output_so,
-                    self.output_sips, self.tmp, self.sipconfig, self.pyqt_sip_flags, features, self.verbose)
+        std_args = (self.input_sips, self.includes, self.imports, self.libraries, self.compile_flags, self.package,
+                    self.output_so, self.output_sips, self.tmp, self.sipconfig, self.pyqt_sip_flags, features,
+                    self.verbose)
         if jobs == 0:
             #
             # Debug mode.
@@ -188,8 +192,8 @@ def copy_file(input_dir, filename, output_dir):
     shutil.copy(input, output)
 
 
-def process_one(sip_file, input_sips, includes, imports, libraries, package, output_so, output_sips, tmp_dir,
-                self_sipconfig, pyqt_sip_flags, features, verbose):
+def process_one(sip_file, input_sips, includes, imports, libraries, compile_flags, package, output_so, output_sips,
+                tmp_dir, self_sipconfig, pyqt_sip_flags, features, verbose):
     """
     Run a SIP file.
 
@@ -198,6 +202,7 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, out
     :param includes:            Config
     :param imports:             Config
     :param libraries:           Config
+    :param compile_flags:       The compile flags for the file.
     :param package:             Config
     :param output_so:           Config
     :param output_sips:         Config
@@ -296,6 +301,7 @@ def process_one(sip_file, input_sips, includes, imports, libraries, package, out
         includes = parsed_includes + includes
         self_sipconfig._macros["INCDIR"] = " ".join(includes)
         makefile = sipconfig.SIPModuleMakefile(self_sipconfig, build_file, makefile=make_file)
+        makefile.extra_cxxflags = compile_flags
         #
         # Link against the user-specified libraries. Typically, any one module won't need them all, but this
         # is better than having to specify them by hand.
@@ -367,6 +373,8 @@ def main(argv=None):
                         help=_("Comma-separated C++ header directories for includes"))
     parser.add_argument("--libraries", default=PYKF5_LIBRARIES,
                         help=_("Comma-separated globs of libraries for linking"))
+    parser.add_argument("--compile-flags", default=QT5_COMPILE_FLAGS,
+                        help=_("Comma-separated C++ compiler options to use"))
     parser.add_argument("--imports", default=PYQT5_SIPS,
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
@@ -401,7 +409,9 @@ def main(argv=None):
         rules = rules_engine.rules(args.project_rules)
         imports = args.imports.lstrip().split(",")
         libraries = args.libraries.lstrip().split(",")
-        d = ModuleCompiler(args.package, args.output, rules, sips, includes, imports, libraries, args.verbose)
+        compile_flags = args.compile_flags.split(",")
+        d = ModuleCompiler(args.package, args.output, rules, sips, includes, imports, libraries, compile_flags,
+                           args.verbose)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.
