@@ -76,7 +76,7 @@ def _kcoreconfigskeleton_add_item_xxx(function, sip, entry):
 
 
 def _kcoreconfigskeleton_item_xxx(function, sip, entry):
-    sip["cxx_decl"] = deepcopy(sip["parameters"])
+    sip["cxx_parameters"] = deepcopy(sip["parameters"])
     sip["cxx_fn_result"] = ""
     sip["code"] = """
 %MethodCode
@@ -89,7 +89,7 @@ def _kcoreconfigskeleton_item_xxx(function, sip, entry):
 
 
 def _kcoreconfigskeleton_item_enum(function, sip, entry):
-    sip["cxx_decl"] = deepcopy(sip["parameters"])
+    sip["cxx_parameters"] = deepcopy(sip["parameters"])
     sip["cxx_fn_result"] = ""
     sip["code"] = """
 %MethodCode

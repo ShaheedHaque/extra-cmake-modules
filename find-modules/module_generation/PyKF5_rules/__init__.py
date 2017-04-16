@@ -123,7 +123,7 @@ def fn_result_is_qt_template(container, function, sip, matcher):
     #
     # Now the function parameters.
     #
-    sip["cxx_decl"] = sip["parameters"]
+    sip["cxx_parameters"] = sip["parameters"]
     clang_kinds = [c.type.get_canonical() for c in function.get_children() if c.kind == CursorKind.PARM_DECL]
     parameters_h = []
     sip_parameters = []

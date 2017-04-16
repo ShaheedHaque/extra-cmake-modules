@@ -178,7 +178,7 @@ def code():
     "operator[]":
     {
         "parameters": "KUrl operator",
-        "cxx_decl": "[] (int)",
+        "cxx_parameters": "[] (int)",
         "code":
         """
         %MethodCode
@@ -198,7 +198,7 @@ def code():
     "operator[]":
     {
         "parameters": "KUrl::List operator",
-        "cxx_decl": "[] (SIP_PYSLICE)",
+        "cxx_parameters": "[] (SIP_PYSLICE)",
         "code":
         """
         %MethodCode
@@ -285,7 +285,7 @@ def code():
     "init":
     {
         "parameters": ["SIP_PYLIST argv", "const QByteArray& appname", "const QByteArray& catalog", "const KLocalizedString& programName", "const QByteArray& version", "const KLocalizedString& description = KLocalizedString()", "int stdargs = 3"],
-        "cxx_decl": ["int", "char**", "const QByteArray&", "const QByteArray&", "const KLocalizedString&", "const QByteArray&", "const KLocalizedString& = KLocalizedString()", "KCmdLineArgs::StdCmdLineArgs = 3"],
+        "cxx_parameters": ["int", "char**", "const QByteArray&", "const QByteArray&", "const KLocalizedString&", "const QByteArray&", "const KLocalizedString& = KLocalizedString()", "KCmdLineArgs::StdCmdLineArgs = 3"],
         "code":
         """
         %MethodCode
@@ -314,7 +314,7 @@ def code():
     "init":
     {
         "parameters": ["SIP_PYLIST argv", "const KAboutData* about", "int stdargs = 3"],
-        "cxx_decl": ["int", "char**", "const KAboutData*", "KCmdLineArgs::StdCmdLineArgs = 3"],
+        "cxx_parameters": ["int", "char**", "const KAboutData*", "KCmdLineArgs::StdCmdLineArgs = 3"],
         "code":
         """
         %MethodCode
@@ -551,7 +551,7 @@ def code():
     "[]":
     {
         "parameters": "KFileItem operator",
-        "cxx_decl": "[] (int)",
+        "cxx_parameters": "[] (int)",
         "code":
         """
         %MethodCode
@@ -569,7 +569,7 @@ def code():
     "[]":
     {
         "parameters": "KFileItemList operator",
-        "cxx_decl": "[] (SIP_PYSLICE)",
+        "cxx_parameters": "[] (SIP_PYSLICE)",
         "code":
         """
         %MethodCode
@@ -603,7 +603,7 @@ def code():
     "Predicate":
     {
         "parameters": "const Solid::DeviceInterface::Type ifaceType",
-        "cxx_decl": "const Solid::DeviceInterface::Type&",
+        "cxx_parameters": "const Solid::DeviceInterface::Type&",
         "cxx_fn_result": "void",
         "code":
         """
@@ -890,7 +890,7 @@ def code():
     "KApplication":
     {
         "parameters": ["Display* display", "SIP_PYLIST list", "const QByteArray& rAppName", "bool GUIenabled = 1"],
-        "cxx_decl": ["Display*", "int&", "char**", "const QByteArray&", "bool = 1"],
+        "cxx_parameters": ["Display*", "int&", "char**", "const QByteArray&", "bool = 1"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -926,7 +926,7 @@ def code():
     "NETRootInfo":
     {
         "parameters": ["Display* display", "Window supportWindow", "const char* wmName", "SIP_PYLIST properties", "int screen = -1", "bool doACtivate = 1"],
-        "cxx_decl": ["Display*", "Window", "const char*", "const unsigned long*", "int", "int = -1", "bool = 1"],
+        "cxx_parameters": ["Display*", "Window", "const char*", "const unsigned long*", "int", "int = -1", "bool = 1"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -952,7 +952,7 @@ def code():
     "NETRootInfo":
     {
         "parameters": ["Display* display", "SIP_PYLIST properties", "int screen = -1", "bool doActivate = 1"],
-        "cxx_decl": ["Display*", "const unsigned long*", "int", "int = -1", "bool = 1"],
+        "cxx_parameters": ["Display*", "const unsigned long*", "int", "int = -1", "bool = 1"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -982,7 +982,7 @@ def code():
     "NETWinInfo":
     {
         "parameters": ["Display* display", "Window window", "Window rootWindow", "SIP_PYLIST properties", "NET::Role role = NET::Client"],
-        "cxx_decl": ["Display*", "Window", "Window", "const unsigned long*", "int", "Role = Client"],
+        "cxx_parameters": ["Display*", "Window", "Window", "const unsigned long*", "int", "Role = Client"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -1014,7 +1014,7 @@ def code():
     "KFontChooser":
     {
         "parameters": ["QWidget* parent /TransferThis/ = 0", "const KFontChooser::DisplayFlags& flags = KFontChooser::DisplayFrame", "const QStringList& fontList = QStringList()", "int visibleListSize = 8", "Qt::CheckState* sizeIsRelativeState = 0"],
-        "cxx_decl": ["QWidget* = 0", "const KFontChooser::DisplayFlags& = KFontChooser::DisplayFrame", "const QStringList& = QStringList()", "int = 8", "Qt::CheckState* = 0"],
+        "cxx_parameters": ["QWidget* = 0", "const KFontChooser::DisplayFlags& = KFontChooser::DisplayFrame", "const QStringList& = QStringList()", "int = 8", "Qt::CheckState* = 0"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -1032,7 +1032,7 @@ def code():
     "KFontDialog":
     {
         "parameters": ["QWidget* parent /TransferThis/ = 0", "const KFontChooser::DisplayFlags& flags = KFontChooser::NoDisplayFlags", "const QStringList& fontlist = QStringList()", "Qt::CheckState* sizeIsRelativeState = 0"],
-        "cxx_decl": ["QWidget* = 0", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "const QStringList& = QStringList()", "Qt::CheckState* = 0"],
+        "cxx_parameters": ["QWidget* = 0", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "const QStringList& = QStringList()", "Qt::CheckState* = 0"],
         "cxx_fn_result": "void",
         "code":
         """
@@ -1047,7 +1047,7 @@ def code():
     {
         "parameters": ["QFont& theFont", "const KFontChooser::DisplayFlags& flags = KFontChooser::NoDisplayFlags", "QWidget* parent /Transfer/ = 0", "Qt::CheckState* sizeIsRelativeState = Qt::Unchecked"],
         "fn_result": "SIP_PYTUPLE",
-        "cxx_decl": ["QFont&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
+        "cxx_parameters": ["QFont&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
         "cxx_fn_result": "int",
         "code":
         """
@@ -1068,7 +1068,7 @@ def code():
     {
         "parameters": ["QFont& theFont", "KFontChooser::FontDiffFlags& diffFlags", "const KFontChooser::DisplayFlags& flags = KFontChooser::NoDisplayFlags", "QWidget* parent /Transfer/ = 0", "Qt::CheckState sizeIsRelativeState = Qt::Unchecked"],
         "fn_result": "SIP_PYTUPLE",
-        "cxx_decl": ["QFont&", "KFontChooser::FontDiffFlags&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
+        "cxx_parameters": ["QFont&", "KFontChooser::FontDiffFlags&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
         "cxx_fn_result": "int",
         "code":
         """
@@ -1090,7 +1090,7 @@ def code():
     {
         "parameters": ["QFont& theFont", "QString& theString", "const KFontChooser::DisplayFlags& flags = KFontChooser::NoDisplayFlags", "QWidget* parent /Transfer/ = 0", "Qt::CheckState sizeIsRelativeState = Qt::Unchecked"],
         "fn_result": "SIP_PYTUPLE",
-        "cxx_decl": ["QFont&", "QString&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
+        "cxx_parameters": ["QFont&", "QString&", "const KFontChooser::DisplayFlags& = KFontChooser::NoDisplayFlags", "QWidget* = 0", "Qt::CheckState* = 0"],
         "cxx_fn_result": "int",
         "code":
         """

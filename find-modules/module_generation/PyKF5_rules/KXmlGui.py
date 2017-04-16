@@ -73,7 +73,7 @@ def methodcode():
             "createContainer": {
                 "parameters": ["QWidget* parent /Transfer/", "int index", "const QDomElement& element"],
                 "fn_result": "SIP_PYTUPLE",
-                "cxx_decl": ["QWidget* parent", "int index", "const QDomElement& element", "QAction*& containerAction"],
+                "cxx_parameters": ["QWidget* parent", "int index", "const QDomElement& element", "QAction*& containerAction"],
                 "cxx_fn_result": "QWidget*",
                 "code":
                     """

@@ -695,9 +695,9 @@ class SipGenerator(object):
             decl += " /" + ",".join(sip["annotations"]) + "/"
         if sip["template_parameters"]:
             decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
-        if sip["cxx_decl"] or sip["cxx_fn_result"]:
-            if not isinstance(sip["cxx_decl"], str):
-                sip["cxx_decl"] = ", ".join(sip["cxx_decl"])
+        if sip["cxx_parameters"] or sip["cxx_fn_result"]:
+            if not isinstance(sip["cxx_parameters"], str):
+                sip["cxx_parameters"] = ", ".join(sip["cxx_parameters"])
             decl += "\n    " + pad + "["
             #
             # SIP does not want the result for constructors.
@@ -707,7 +707,7 @@ class SipGenerator(object):
                     decl += sip["cxx_fn_result"]
                 else:
                     decl += sip["cxx_fn_result"] + " "
-            decl += "(" + sip["cxx_decl"] + ")]"
+            decl += "(" + sip["cxx_parameters"] + ")]"
         decl += ";\n"
         decl += sip["code"]
         return decl

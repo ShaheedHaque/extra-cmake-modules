@@ -488,7 +488,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
                                     ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
         sip.setdefault("code", "")
         sip.setdefault("module_code", {})
-        sip.setdefault("cxx_decl", "")
+        sip.setdefault("cxx_parameters", "")
         sip.setdefault("cxx_fn_result", "")
         if matcher:
             before = deepcopy(sip)
@@ -903,10 +903,10 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
         "fn_result":    Optional string. If present, update the return type.
 
-        "cxx_decl", "cxx_fn_result"
+        "cxx_parameters", "cxx_fn_result"
                         Both optional. If either is present, the SIP method's
                         optional C++ declaration is added (if only one is
-                        present, "cxx_decl" is defaulted from "parameters" and
+                        present, "cxx_parameters" is defaulted from "parameters" and
                         "cxx_fn_result" is defaulted from "fn_result").
 
         "code":         Required. Either a string, with the %XXXCode content,
@@ -923,7 +923,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
 
             :param function:    The clang.cindex.Cursor for the function.
             :param sip:         A dict with keys as for function rules
-                                plus the "cxx_decl", "cxx_fn_result" and (string)
+                                plus the "cxx_parameters", "cxx_fn_result" and (string)
                                 "code" keys described above.
             :param entry:       The inner dictionary entry.
 
@@ -984,7 +984,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         # SIP supports the notion of a second C++ signature as well as the normal signature. By default, this
         # is not present.
         #
-        sip.setdefault("cxx_decl", "")
+        sip.setdefault("cxx_parameters", "")
         sip.setdefault("cxx_fn_result", "")
         sip.setdefault("code", "")
         sip.setdefault("module_code", {})
@@ -1001,11 +1001,11 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
                 sip["fn_result"] = entry.get("fn_result", sip["fn_result"])
                 #
-                # The user might provide one or other or both of cxx_decl and cxx_fn_result to signify a C++ signature. If
+                # The user might provide one or other or both of cxx_parameters and cxx_fn_result to signify a C++ signature. If
                 # needed, default a missing value from decl/fn_result.
                 #
-                if "cxx_decl" in entry or "cxx_fn_result" in entry:
-                    sip["cxx_decl"] = entry.get("cxx_decl", sip["parameters"])
+                if "cxx_parameters" in entry or "cxx_fn_result" in entry:
+                    sip["cxx_parameters"] = entry.get("cxx_parameters", sip["parameters"])
                     sip["cxx_fn_result"] = entry.get("cxx_fn_result", sip["cxx_fn_result"])
             #
             # Fetch/format the code.
