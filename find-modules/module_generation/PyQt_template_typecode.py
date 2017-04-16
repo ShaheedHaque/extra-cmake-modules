@@ -238,12 +238,13 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return builtin_rules.base_type(parameter_text)
 
-    def expand(self, cursor, sip):
+    def expand(self, fn, cursor, sip):
         """
         Expand a template using the passed parameters, and return the results via the sip.
 
-        :param cursor:          The CursorKind for whom the expansion is being performed. This is typically a typed
-                                object, such as "QMap" or "QHash".
+        :param fn:              The function for whom the expansion is being performed.
+        :param cursor:          The CursorKind for whom the expansion is being performed.
+                                This is typically a typed object, such as "QMap" or "QHash".
         :param sip:             The sip. Expected keys:
 
                                     decl            Optional. Name of the typedef.
@@ -310,7 +311,7 @@ class AbstractExpander(object):
         if original_args.endswith(">"):
             original_args += " "
         mapped_type = "{}<{}>".format(original_type, original_args)
-        trace = trace_generated_for(cursor, self.decl, {p: entry[p]["held_as"].category for p in expected_parameters})
+        trace = trace_generated_for(cursor, fn, {p: entry[p]["held_as"].category for p in expected_parameters})
         code = self.decl(parent.spelling, entry)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["module_code"][mapped_type] = code
@@ -877,7 +878,7 @@ def typecode_cfttc_dict(container, typedef, sip, matcher):
     into Python dicts.
     """
     template = DictExpander()
-    template.expand(typedef, sip)
+    template.expand(typecode_cfttc_dict, typedef, sip)
 
 
 def typecode_cfttc_list(container, typedef, sip, matcher):
@@ -886,7 +887,7 @@ def typecode_cfttc_list(container, typedef, sip, matcher):
     into Python lists.
     """
     template = ListExpander()
-    template.expand(typedef, sip)
+    template.expand(typecode_cfttc_list, typedef, sip)
 
 
 def typecode_cfttc_set(container, typedef, sip, matcher):
@@ -895,7 +896,7 @@ def typecode_cfttc_set(container, typedef, sip, matcher):
     into Python sets.
     """
     template = SetExpander()
-    template.expand(typedef, sip)
+    template.expand(typecode_cfttc_set, typedef, sip)
 
 
 def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
@@ -904,4 +905,4 @@ def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
     into Python sets.
     """
     template = QPairExpander()
-    template.expand(typedef, sip)
+    template.expand(typecode_cfttc_tuple_pair, typedef, sip)
