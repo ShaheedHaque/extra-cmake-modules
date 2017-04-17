@@ -166,36 +166,29 @@ class AbstractExpander(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self):
-        pass
+    def __init__(self, variables):
+        """
+        Constructor.
+
+        :param variables:       The [string] which characterise the template
+                                to be expanded.
+        """
+        self.variables = variables
 
     @abstractmethod
-    def variables(self):
-        """
-        Returns a list of the variables needed by this expansion.
-
-        :return: [string]
-        """
-        raise NotImplemented(_("Missing subclass"))
-
-    @abstractmethod
-    def decl(self, qt_type, entry):
+    def expand_generic(self, qt_type, entries):
         """
         Expand a text-template using the passed parameters.
 
         :param qt_type:         The name of the Qt template, such as "QMap" or "QHash".
-        :param entry:           Dictionary describing the C++ template. Expected keys:
+        :param entries:         Dictionary describing the C++ template. Expected keys:
 
-                                    variable1..N    Dictionaries, keyed by the needed @see variables().
+                                    variable1..N    Is the variable integral, pointer or object?
 
-                                The variable1..N dictionaries have keys determined by the subclass. The defaults used
-                                by this superclass are driven by the needs of the default helper functions
-                                (@see categorise, @see actual_type and @see base_type), and are presently:
-
-                                    type            The type of the item.
-                                    base_type       The base type of the item, different from type in the case of a
-                                                    pointer.
-                                    held_as         Is the item integral, pointer or object?
+                                The variable1..N are (subclasses of) HeldAs. The base
+                                class HeldAs is sufficient for the needs of the default
+                                helper functions (@see categorise, @see actual_type and
+                                @see base_type).
         """
         raise NotImplemented(_("Missing subclass"))
 
@@ -238,7 +231,7 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return builtin_rules.base_type(parameter_text)
 
-    def expand(self, fn, cursor, sip):
+    def expand_typedef(self, fn, cursor, sip):
         """
         Expand a template using the passed parameters, and return the results via the sip.
 
@@ -250,7 +243,7 @@ class AbstractExpander(object):
                                     decl            Optional. Name of the typedef.
                                     foo             dd
         """
-        expected_parameters = self.variables()
+        expected_parameters = self.variables
         #
         # We would like to be able to use clang type system to determine the HELD_AS etc, but the number of children of
         # the typedef is variable (i.e. the structure of an AST is not represented). Also, for example, int types are
@@ -294,16 +287,18 @@ class AbstractExpander(object):
         #
         manual_types = sip.get("types", [None] * len(expected_parameters))
         manual_base_types = sip.get("base_types", [None] * len(expected_parameters))
-        entry = {}
+        entries = {}
         parameters = []
         for i, parameter in enumerate(expected_parameters):
-            p = {}
-            p["type"] = self.actual_type(manual_types[i], original_args[i], types[i])
-            p["base_type"] = self.base_type(manual_base_types[i], p["type"], types[i])
+            actual_type = self.actual_type(manual_types[i], original_args[i], types[i])
+            base_type =  self.base_type(manual_base_types[i], actual_type, types[i])
+            p = {
+                "type": actual_type,
+                "base_type": base_type,
+            }
             kind = types[i].type.get_canonical().kind if types[i] else None
-            p["held_as"] = GenerateMappedHelper(p, kind)
-            entry[parameter] = p
-            parameters.append(p["type"])
+            entries[parameter] = GenerateMappedHelper(p, kind)
+            parameters.append(actual_type)
         original_args = ", ".join(parameters)
         #
         # Run the template handler...
@@ -311,8 +306,8 @@ class AbstractExpander(object):
         if original_args.endswith(">"):
             original_args += " "
         mapped_type = "{}<{}>".format(original_type, original_args)
-        trace = trace_generated_for(cursor, fn, {p: entry[p]["held_as"].category for p in expected_parameters})
-        code = self.decl(parent.spelling, entry)
+        trace = trace_generated_for(cursor, fn, {p: entries[p].category for p in expected_parameters})
+        code = self.expand_generic(parent.spelling, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["module_code"][mapped_type] = code
 
@@ -320,32 +315,22 @@ class AbstractExpander(object):
 class DictExpander(AbstractExpander):
 
     def __init__(self):
-        super(DictExpander, self).__init__()
+        super(DictExpander, self).__init__(["key", "value"])
 
-    def variables(self):
-        return ["key", "value"]
-
-    def decl(self, qt_type, entry):
+    def expand_generic(self, qt_type, entries):
         """
         Generic support for C++ types which map onto a Python dict, such as QMap<k, v> and
         QHash<k, v>. Either template parameter can be of any integral (int, long, enum) type
         or non-integral type, for example, QMap<int, QString>.
 
         :param qt_type:         The name of the Qt template, e.g. "QMap".
-        :param entry:           Dictionary describing the C++ template. Expected keys:
+        :param entries:         Dictionary describing the C++ template. Expected keys:
 
-                                    key             Description of key.
-                                    value           Description of value.
-
-                                The key and value descriptions have the following keys:
-
-                                    type            The type of the item.
-                                    base_type       The base type of the item, different from type in the case of a
-                                                    pointer.
-                                    held_as         Is the item integral, pointer or object?
+                                    key             Is the key integral, pointer or object?
+                                    value           Is the value integral, pointer or object?
         """
-        key_h = entry["key"]["held_as"]
-        value_h = entry["value"]["held_as"]
+        key_h = entries["key"]
+        value_h = entries["value"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
@@ -462,40 +447,28 @@ class DictExpander(AbstractExpander):
 %End
 """
         code = code.replace("{qt_type}", qt_type)
-        key_t = entry["key"]["type"]
-        code = code.replace("{key_t}", key_t)
-        value_t = entry["value"]["type"]
-        code = code.replace("{value_t}", value_t)
+        code = code.replace("{key_t}", key_h.cxx_t)
+        code = code.replace("{value_t}", value_h.cxx_t)
         return code
 
 
 class ListExpander(AbstractExpander):
 
     def __init__(self):
-        super(ListExpander, self).__init__()
+        super(ListExpander, self).__init__(["value"])
 
-    def variables(self):
-        return ["value"]
-
-    def decl(self, qt_type, entry):
+    def expand_generic(self, qt_type, entries):
         """
         Generic support for C++ types which map onto a Python list, such as QList<v> and
         QVector<v>. The template parameter can be of any integral (int, long, enum) type
         or non-integral type, for example, QList<int> or QList<QString>.
 
         :param qt_type:         The name of the Qt template, e.g. "QList".
-        :param entry:           Dictionary describing the C++ template. Expected keys:
+        :param entries:         Dictionary describing the C++ template. Expected keys:
 
-                                    value           Description of value.
-
-                                The value description has the following keys:
-
-                                    type            The type of the item.
-                                    base_type       The base type of the item, different from type in the case of a
-                                                    pointer.
-                                    held_as         Is the item integral, pointer or object?
+                                    value           Is the value integral, pointer or object?
         """
-        value_h = entry["value"]["held_as"]
+        value_h = entries["value"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
@@ -586,40 +559,29 @@ class ListExpander(AbstractExpander):
 %End
 """
         code = code.replace("{qt_type}", qt_type)
-        value_t = entry["value"]["type"]
-        code = code.replace("{value_t}", value_t)
+        code = code.replace("{value_t}", value_h.cxx_t)
         return code
 
 
 class QPairExpander(AbstractExpander):
 
     def __init__(self):
-        super(QPairExpander, self).__init__()
+        super(QPairExpander, self).__init__(["first", "second"])
 
-    def variables(self):
-        return ["first", "second"]
-
-    def decl(self, qt_type, entry):
+    def expand_generic(self, qt_type, entries):
         """
         Generic support for QPair types which are mapped onto a Python tuple. Either
         template parameter can be of any integral (int, long, enum) type or
         non-integral type, for example, QPair<int, QString>.
 
         :param qt_type:         The name of the Qt template, e.g. "QPair".
-        :param entry:           Dictionary describing the C++ template. Expected firsts:
+        :param entries:         Dictionary describing the C++ template. Expected keys:
 
-                                    first           Description of first part of pair.
-                                    second          Description of second part of pair.
-
-                                The first and second descriptions have the following firsts:
-
-                                    type            The type of the item.
-                                    base_type       The base type of the item, different from type in the case of a
-                                                    pointer.
-                                    held_as         Is the item integral, pointer or object?
+                                    first           Is the value integral, pointer or object?
+                                    second          Is the value integral, pointer or object?
         """
-        first_h = entry["first"]["held_as"]
-        second_h = entry["second"]["held_as"]
+        first_h = entries["first"]
+        second_h = entries["second"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
@@ -732,40 +694,28 @@ class QPairExpander(AbstractExpander):
 %End
 """
         code = code.replace("{qt_type}", qt_type)
-        first_t = entry["first"]["type"]
-        code = code.replace("{first_t}", first_t)
-        second_t = entry["second"]["type"]
-        code = code.replace("{second_t}", second_t)
+        code = code.replace("{first_t}", first_h.cxx_t)
+        code = code.replace("{second_t}", second_h.cxx_t)
         return code
 
 
 class SetExpander(AbstractExpander):
 
     def __init__(self):
-        super(SetExpander, self).__init__()
+        super(SetExpander, self).__init__(["value"])
 
-    def variables(self):
-        return ["value"]
-
-    def decl(self, qt_type, entry):
+    def expand_generic(self, qt_type, entries):
         """
         Generic support for QSet<v>. The template parameter can be of any
         integral (int, long, enum) type or non-integral type, for example,
         QSet<int> or QSet<QString>.
 
         :param qt_type:         The name of the Qt template, e.g. "QSet".
-        :param entry:           Dictionary describing the C++ template. Expected keys:
+        :param entries:         Dictionary describing the C++ template. Expected keys:
 
-                                    value           Description of value.
-
-                                The value description has the following keys:
-
-                                    type            The type of the item.
-                                    base_type       The base type of the item, different from type in the case of a
-                                                    pointer.
-                                    held_as         Is the item integral, pointer or object?
+                                    value           Is the item integral, pointer or object?
         """
-        value_h = entry["value"]["held_as"]
+        value_h = entries["value"]
         code = """
 %TypeHeaderCode
 #include <{qt_type}>
@@ -867,8 +817,7 @@ class SetExpander(AbstractExpander):
 %End
 """
         code = code.replace("{qt_type}", qt_type)
-        value_t = entry["value"]["type"]
-        code = code.replace("{value_t}", value_t)
+        code = code.replace("{value_t}", value_h.cxx_t)
         return code
 
 
@@ -878,7 +827,7 @@ def typecode_cfttc_dict(container, typedef, sip, matcher):
     into Python dicts.
     """
     template = DictExpander()
-    template.expand(typecode_cfttc_dict, typedef, sip)
+    template.expand_typedef(typecode_cfttc_dict, typedef, sip)
 
 
 def typecode_cfttc_list(container, typedef, sip, matcher):
@@ -887,7 +836,7 @@ def typecode_cfttc_list(container, typedef, sip, matcher):
     into Python lists.
     """
     template = ListExpander()
-    template.expand(typecode_cfttc_list, typedef, sip)
+    template.expand_typedef(typecode_cfttc_list, typedef, sip)
 
 
 def typecode_cfttc_set(container, typedef, sip, matcher):
@@ -896,7 +845,7 @@ def typecode_cfttc_set(container, typedef, sip, matcher):
     into Python sets.
     """
     template = SetExpander()
-    template.expand(typecode_cfttc_set, typedef, sip)
+    template.expand_typedef(typecode_cfttc_set, typedef, sip)
 
 
 def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
@@ -905,4 +854,4 @@ def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
     into Python sets.
     """
     template = QPairExpander()
-    template.expand(typecode_cfttc_tuple_pair, typedef, sip)
+    template.expand_typedef(typecode_cfttc_tuple_pair, typedef, sip)

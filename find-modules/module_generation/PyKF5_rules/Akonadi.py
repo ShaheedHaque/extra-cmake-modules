@@ -47,12 +47,12 @@ def _typedef_add_collections(container, typedef, sip, matcher):
         "type": parameter,
         "base_type": parameter,
     }
-    value["held_as"] = PyQt_template_typecode.GenerateMappedHelper(value, None)
-    template = PyQt_template_typecode.ListExpander()
+    value_h = PyQt_template_typecode.GenerateMappedHelper(value, None)
+    handler = PyQt_template_typecode.ListExpander()
     for qt_type in ["QList", "QVector"]:
         mapped_type = "{}<{}>".format(qt_type, parameter)
-        trace = trace_generated_for(typedef, _typedef_add_collections, {"value": value["held_as"].category})
-        code = template.decl(qt_type, {"value": value, })
+        trace = trace_generated_for(typedef, _typedef_add_collections, {"value": value_h.category})
+        code = handler.expand_generic(qt_type, {"value": value_h})
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["module_code"][mapped_type] = code
 

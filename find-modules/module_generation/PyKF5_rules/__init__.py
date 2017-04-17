@@ -190,18 +190,20 @@ def fn_result_is_qt_template(container, function, sip, matcher):
 
 
 def _parameter_qpair_mt(container, function, parameter, sip, matcher):
+    """
+    Generate a %MappedType for a QPair<>.
+    """
     template_type, template_args = parse_template(sip["decl"], 2)
     first = {
         "type": actual_type(template_args[0]),
         "base_type": base_type(template_args[0]),
     }
-    first["held_as"] = PyQt_template_typecode.GenerateMappedHelper(first, None)
+    first_h = PyQt_template_typecode.GenerateMappedHelper(first, None)
     second = {
         "type": actual_type(template_args[1]),
         "base_type": base_type(template_args[1]),
     }
-    second["held_as"] = PyQt_template_typecode.GenerateMappedHelper(second, None)
-    template = PyQt_template_typecode.QPairExpander()
+    second_h = PyQt_template_typecode.GenerateMappedHelper(second, None)
     template_args = ", ".join(template_args)
     #
     # Run the template handler...
@@ -210,8 +212,9 @@ def _parameter_qpair_mt(container, function, parameter, sip, matcher):
         template_args += " "
     mapped_type = "{}<{}>".format(template_type, template_args)
     trace = trace_generated_for(parameter, _parameter_qpair_mt,
-                                {"first": first["held_as"].category, "second": second["held_as"].category})
-    code = template.decl(template_type, {"first": first, "second": second})
+                                ({first_h.cxx_t: first_h.category}, {second_h.cxx_t: second_h.category}))
+    handler = PyQt_template_typecode.QPairExpander()
+    code = handler.expand_generic(template_type, {"first": first_h, "second": second_h})
     code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
     sip["module_code"][mapped_type] = code
 
