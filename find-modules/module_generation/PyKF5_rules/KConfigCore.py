@@ -24,6 +24,7 @@ SIP binding customisation for PyKF5.KConfigCore. This modules describes:
 
 from copy import deepcopy
 
+from builtin_rules import make_cxx_declaration
 import rules_engine
 
 
@@ -146,6 +147,19 @@ private:
     sip["code"] = result
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    # Putting knowledge here of any %Import'ers who happen not to have
+    # duplicates is horrid, but much less painful than the alternative.
+    #
+    duplicated = "QExplicitlySharedDataPointer<KSharedConfig>"
+    tmp = sip["mapped_types"][duplicated]
+    tmp = "%If (!KConfigCore_KConfigCoremod || !KNotifications_KNotificationsmod || !KService_KServicemod || !KWidgetsAddons_KWidgetsAddonsmod)\n" + tmp + "%End\n"
+    sip["mapped_types"][duplicated] = tmp
+
+
 def container_rules():
     return [
         ["kconfigbackend.h", "KConfigBackend", ".*", ".*", ".*", _mark_abstract_and_discard_QSharedData],
@@ -193,27 +207,15 @@ def typedef_rules():
 
 def modulecode():
     return {
+        "KConfigCoremod.sip": {
+            "code": module_fix_mapped_types,
+        },
         "kconfig.h": {
             "code":
                 """
                 %ModuleHeaderCode
                 #include <KConfigCore/KDesktopFile>
                 %End
-                """
-        },
-        "kconfiggroup.h": {
-            "code":
-                """
-                %MappedType QExplicitlySharedDataPointer<KSharedConfig>
-                {
-                %ConvertFromTypeCode
-                    // Put something here
-                    int foo = 1;
-                %End
-                %ConvertToTypeCode
-                    int foo = 1;
-                %End
-                };
                 """
         },
         "kcoreconfigskeleton.h": {

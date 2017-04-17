@@ -54,20 +54,34 @@ def module_fix_imports(filename, sip, matcher):
             continue
         lines.append(l)
     sip["decl"] = "\n".join(lines)
+    #
+    # Random stuff.
+    #
+    sip["code"] = """
+    class KIO::Job /External/;
+    class KFileItemList /External/;
+    class QDBusArgument /External/;
+"""
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    duplicated = "QList<QPair<QString, unsigned short> >"
-    tmp = sip["mapped_types"][duplicated]
-    #
     # Putting knowledge here of any %Import'ers who happen not to have
     # duplicates is horrid, but much less painful than the alternative.
     #
+    duplicated = "QList<QPair<QString, unsigned short> >"
+    tmp = sip["mapped_types"][duplicated]
     tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
     sip["mapped_types"][duplicated] = tmp
+    #
+    # Random stuff.
+    #
+    sip["code"] = """
+    class KIO::Job /External/;
+    class QSharedData /External/;
+"""
 
 
 def container_rules():
@@ -88,6 +102,7 @@ def function_rules():
         # Remove some inlined stuff.
         #
         ["KIO::MetaData", "MetaData|operator\\+=|toVariant", ".*", ".*", ".*", fn_remove_inlined],
+        ["udsentry.h", "debugUDSEntry", ".*", ".*", ".*", rules_engine.function_discard],
     ]
 
 

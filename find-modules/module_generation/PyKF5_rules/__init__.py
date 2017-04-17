@@ -35,13 +35,13 @@ SIP binding customisation for PyKF5. This modules describes:
 
 from __future__ import print_function
 import os
-import string
+import re
 import sys
 
 from clang.cindex import AccessSpecifier, CursorKind
 
 import rules_engine
-from builtin_rules import parse_template, actual_type, base_type
+from builtin_rules import make_cxx_declaration
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common_methodcode
 import common_modulecode
@@ -79,7 +79,11 @@ import Syndication
 import PyQt_template_typecode
 from PyQt_template_typecode import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
 from sip_generator import trace_generated_for
-from builtin_rules import HeldAs, RewriteMappedHelper, fqn
+from builtin_rules import HeldAs, fqn
+
+
+RE_PARAMETER_TYPE = re.compile(r"(.*\b)\w+")
+RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>")
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -105,6 +109,50 @@ def _function_discard_protected(container, function, sip, matcher):
         rules_engine.function_discard(container, function, sip, matcher)
 
 
+class QSharedHelper(HeldAs):
+    def __init__(self, cxx_t, clang_kind, manual_t=None):
+        is_qshared = RE_QSHAREDPTR.match(cxx_t)
+        if is_qshared:
+            template_type = is_qshared.group(2)
+            template_args = [(is_qshared.group(1) or "") + is_qshared.group(5)]
+            cxx_t = template_args[0] + " *"
+        super(QSharedHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        self.is_qshared = is_qshared
+
+
+class RewriteResultHelper(QSharedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+        if self.is_qshared:
+            cxx_i += ".data()"
+        return super(RewriteResultHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    cxx_to_py_templates = {
+        HeldAs.INTEGER:
+            """    {name} = {cxx_i};
+#if PY_MAJOR_VERSION >= 3
+    return PyLong_FromLong((long){name});
+#else
+    return PyInt_FromLong((long){name});
+#endif
+""",
+        HeldAs.FLOAT:
+            """    {name} = {cxx_i};
+    return PyFloat_FromDouble((double){name});
+""",
+        HeldAs.POINTER:
+            """    {name} = {cxx_i};
+    return sipConvertFromType({name}, genresultT, {transfer});
+""",
+        HeldAs.OBJECT:
+            """    {name} = &{cxx_i};
+    return sipConvertFromType({name}, genresultT, {transfer});
+""",
+    }
+
+    def cxx_to_py_template(self):
+        return self.cxx_to_py_templates[self.category]
+
+
 def fn_result_is_qt_template(container, function, sip, matcher):
     def in_class(item):
         parent = item.semantic_parent
@@ -112,68 +160,105 @@ def fn_result_is_qt_template(container, function, sip, matcher):
             parent = parent.semantic_parent
         return True if parent else False
 
+    make_cxx_declaration(sip)
     #
     # Deal with function result.
     #
-    template_type, template_args = parse_template(sip["fn_result"])
-    sip["cxx_fn_result"] = sip["fn_result"]
-    result_h = RewriteMappedHelper(sip["fn_result"], None)
-    if result_h.category == HeldAs.OBJECT:
+    result_h = RewriteResultHelper(sip["fn_result"], None)
+    if function.kind != CursorKind.CONSTRUCTOR and result_h.category == HeldAs.OBJECT:
         sip["fn_result"] += " *"
     #
     # Now the function parameters.
     #
-    sip["cxx_parameters"] = sip["parameters"]
     clang_kinds = [c.type.get_canonical() for c in function.get_children() if c.kind == CursorKind.PARM_DECL]
     parameters_h = []
     sip_parameters = []
     sip_stars = []
-    for i, p in enumerate(sip["parameters"]):
+    code = """%MethodCode
+{}
+"""
+    #
+    # Generate parameter list, unwrapping shared data as needed.
+    #
+    for i, p in enumerate(sip["cxx_parameters"]):
         #
-        # Get to type by remving any default value then stripping the name.
+        # Get to type by removing any default value then stripping the name.
         #
-        type_text = p.split("=", 1)[0]
-        type_text = type_text.rstrip(string.letters + " ")
-        parameter_h = RewriteMappedHelper(type_text, clang_kinds[i].kind)
-        sip_parameters.append("a{}".format(i))
-        if parameter_h.category == HeldAs.OBJECT:
-            sip_stars.append("*a{}".format(i))
+        type_text = p.split("=", 1)[0].strip()
+        type_text = RE_PARAMETER_TYPE.match(type_text).group(1).strip()
+        parameter_h = QSharedHelper(type_text, clang_kinds[i].kind)
+        if parameter_h.is_qshared:
+            sip["parameters"][i] = sip["parameters"][i].replace(type_text, parameter_h.cxx_t)
+            code += """            typedef """ + type_text + """ Cxxa0T;
+            Cxxa0T *cxxa0;
+            cxxa0 = new Cxxa0T(a0);
+""".replace("a0", "a{}".format(i))
+            sip_parameters.append("cxxa{}".format(i))
+            sip_stars.append("*cxxa{}".format(i))
         else:
-            sip_stars.append("a{}".format(i))
+            sip_parameters.append("a{}".format(i))
+            if parameter_h.category == HeldAs.OBJECT:
+                sip_stars.append("*a{}".format(i))
+            else:
+                sip_stars.append("a{}".format(i))
         parameters_h.append(parameter_h)
     trace = trace_generated_for(function, fn_result_is_qt_template,
-                                {"result": result_h.category, "parameters": [p.category for p in parameters_h]})
+                                [(result_h.cxx_t, result_h.category), [(p.cxx_t, p.category) for p in parameters_h]])
+    code = code.format(trace)
+    #
+    # Generate function name.
+    #
     fn = function.spelling
     if "static " in sip["prefix"] or not in_class(function):
         fn = fqn(container, fn)
+    elif function.kind == CursorKind.CONSTRUCTOR:
+        fn = "sip" + fqn(container, "")[:-2].replace("::", "_")
     elif not fn.startswith("operator"):
         if function.access_specifier == AccessSpecifier.PROTECTED:
             fn = "sipCpp->sipProtect_" + fn
         else:
             fn = "sipCpp->" + fn
-    code = """%MethodCode\n{}
-            typedef {} CxxvalueT;
-            CxxvalueT cxxvalue;
-
-            Py_BEGIN_ALLOW_THREADS
-            cxxvalue = {}({});
-            Py_END_ALLOW_THREADS
-""".format(trace, sip["cxx_fn_result"], fn, ", ".join(sip_stars))
-    if template_type == "QSharedPointer":
-        code += """            // This will leak but there seems to be no way to detach the object.
-            sipRes = (new CxxvalueT(cxxvalue))->data();
-%End
-"""
-    elif result_h.category == HeldAs.OBJECT:
-        code += """            sipRes = &cxxvalue;
-%End
-"""
+    #
+    # Generate function call, unwrapping shared data result as needed.
+    #
+    if result_h.category == HeldAs.VOID:
+        code += """    Py_BEGIN_ALLOW_THREADS
+    {}({});
+    Py_END_ALLOW_THREADS""".format(fn, ", ".join(sip_stars))
+    elif function.kind == CursorKind.CONSTRUCTOR:
+        code += """    Py_BEGIN_ALLOW_THREADS
+    sipCpp = new {}({});
+    Py_END_ALLOW_THREADS""".format(fn, ", ".join(sip_stars))
     else:
-        code += """            sipRes = cxxvalue;
+        code += """    typedef {} CxxvalueT;
+        CxxvalueT cxxvalue;
+
+        Py_BEGIN_ALLOW_THREADS
+        cxxvalue = {}({});
+        Py_END_ALLOW_THREADS
+""".format(sip["cxx_fn_result"], fn, ", ".join(sip_stars))
+        if result_h.is_qshared:
+            sip["fn_result"] = result_h.cxx_t
+        code += result_h.declare_type_helpers("result", "return 0;")
+        code += result_h.cxx_to_py("sipRes", False, "cxxvalue")
+    code += """
 %End
 """
     if "virtual" in sip["prefix"]:
-        code += """%VirtualCatcherCode\n{}
+        if result_h.category == HeldAs.VOID:
+            code += """%VirtualCatcherCode
+{}
+        PyObject *result = PyObject_CallFunctionObjArgs(sipMethod, {}NULL);
+        if (result == NULL) {{
+            sipIsErr = 1;
+
+            // TBD: Free all the pyobjects.
+        }}
+%End
+""".format(trace, "".join([p + ", " for p in sip_parameters]))
+        else:
+            code += """%VirtualCatcherCode
+{}
         PyObject *result = PyObject_CallFunctionObjArgs(sipMethod, {}NULL);
         if (result == NULL) {{
             sipIsErr = 1;
@@ -187,36 +272,6 @@ def fn_result_is_qt_template(container, function, sip, matcher):
 %End
 """.format(trace, "".join([p + ", " for p in sip_parameters]))
     sip["code"] = code
-
-
-def _parameter_qpair_mt(container, function, parameter, sip, matcher):
-    """
-    Generate a %MappedType for a QPair<>.
-    """
-    template_type, template_args = parse_template(sip["decl"], 2)
-    first = {
-        "type": actual_type(template_args[0]),
-        "base_type": base_type(template_args[0]),
-    }
-    first_h = PyQt_template_typecode.GenerateMappedHelper(first, None)
-    second = {
-        "type": actual_type(template_args[1]),
-        "base_type": base_type(template_args[1]),
-    }
-    second_h = PyQt_template_typecode.GenerateMappedHelper(second, None)
-    template_args = ", ".join(template_args)
-    #
-    # Run the template handler...
-    #
-    if template_args.endswith(">"):
-        template_args += " "
-    mapped_type = "{}<{}>".format(template_type, template_args)
-    trace = trace_generated_for(parameter, _parameter_qpair_mt,
-                                ({first_h.cxx_t: first_h.category}, {second_h.cxx_t: second_h.category}))
-    handler = PyQt_template_typecode.QPairExpander()
-    code = handler.expand_generic(template_type, {"first": first_h, "second": second_h})
-    code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
-    sip["module_code"][mapped_type] = code
 
 
 def _parameter_in(container, function, parameter, sip, matcher):
@@ -309,6 +364,7 @@ def function_rules():
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
         [".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
+        [".*", ".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>.*", fn_result_is_qt_template],
         #
         # This class has inline implementations in the header file.
         #
@@ -358,7 +414,8 @@ def parameter_rules():
         #
         # Create %MappedTypes.
         #
-        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", _parameter_qpair_mt],
+        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", PyQt_template_typecode.qpair_parameter],
+        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", PyQt_template_typecode.qshareddatapointer_parameter],
     ]
 
 

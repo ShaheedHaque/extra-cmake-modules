@@ -231,9 +231,52 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return builtin_rules.base_type(parameter_text)
 
+    def expand_parameter(self, fn, cursor, sip):
+        """
+        Expand a parameter template, and return the results via the sip.
+
+        :param fn:              The function for whom the expansion is being performed.
+        :param cursor:          The CursorKind for whom the expansion is being performed.
+                                This is typically a typed object, such as "QMap" or "QHash".
+        :param sip:             The sip. Expected keys:
+
+                                    decl            Optional. Name of the typedef.
+                                    foo             dd
+        """
+        expected_parameters = self.variables
+        #
+        # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
+        #
+        template_type, template_args = parse_template(sip["decl"], len(expected_parameters))
+        #
+        # Compose the parent type, and the dicts for the parameters and a default declaration.
+        #
+        entries = {}
+        parameters = []
+        for i, parameter in enumerate(expected_parameters):
+            actual_type = self.actual_type(None, template_args[i], None)
+            base_type =  self.base_type(None, template_args[i], None)
+            p = {
+                "type": actual_type,
+                "base_type": base_type,
+            }
+            entries[parameter] = GenerateMappedHelper(p, None)
+            parameters.append(actual_type)
+        template_args = ", ".join(parameters)
+        #
+        # Run the template handler...
+        #
+        if template_args.endswith(">"):
+            template_args += " "
+        mapped_type = "{}<{}>".format(template_type, template_args)
+        trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
+        code = self.expand_generic(template_type, entries)
+        code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
+        sip["module_code"][mapped_type] = code
+
     def expand_typedef(self, fn, cursor, sip):
         """
-        Expand a template using the passed parameters, and return the results via the sip.
+        Expand a typedef template, and return the results via the sip.
 
         :param fn:              The function for whom the expansion is being performed.
         :param cursor:          The CursorKind for whom the expansion is being performed.
@@ -279,9 +322,9 @@ class AbstractExpander(object):
         else:
             types = [None] * len(expected_parameters)
         #
-        # Secondly, extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
+        # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
         #
-        original_type, original_args = parse_template(sip["decl"], len(expected_parameters))
+        template_type, template_args = parse_template(sip["decl"], len(expected_parameters))
         #
         # Compose the parent type, and the dicts for the parameters and a default declaration.
         #
@@ -290,7 +333,7 @@ class AbstractExpander(object):
         entries = {}
         parameters = []
         for i, parameter in enumerate(expected_parameters):
-            actual_type = self.actual_type(manual_types[i], original_args[i], types[i])
+            actual_type = self.actual_type(manual_types[i], template_args[i], types[i])
             base_type =  self.base_type(manual_base_types[i], actual_type, types[i])
             p = {
                 "type": actual_type,
@@ -299,14 +342,14 @@ class AbstractExpander(object):
             kind = types[i].type.get_canonical().kind if types[i] else None
             entries[parameter] = GenerateMappedHelper(p, kind)
             parameters.append(actual_type)
-        original_args = ", ".join(parameters)
+        template_args = ", ".join(parameters)
         #
         # Run the template handler...
         #
-        if original_args.endswith(">"):
-            original_args += " "
-        mapped_type = "{}<{}>".format(original_type, original_args)
-        trace = trace_generated_for(cursor, fn, {p: entries[p].category for p in expected_parameters})
+        if template_args.endswith(">"):
+            template_args += " "
+        mapped_type = "{}<{}>".format(template_type, template_args)
+        trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
         code = self.expand_generic(parent.spelling, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["module_code"][mapped_type] = code
@@ -699,6 +742,76 @@ class QPairExpander(AbstractExpander):
         return code
 
 
+class QSharedDataPointerExpander(AbstractExpander):
+
+    def __init__(self):
+        super(QSharedDataPointerExpander, self).__init__(["value"])
+
+    def expand_generic(self, qt_type, entries):
+        """
+        Generic support for QPair types which are mapped onto a Python tuple.
+        Either template parameter can be of any integral (int, long, enum) type
+        or non-integral type, for example, QPair<int, QString>.
+
+        :param qt_type:         The name of the Qt template, e.g. "QSharedDataPointer".
+        :param entries:         Dictionary describing the C++ template. Expected keys:
+
+                                    value           Is the value integral, pointer or object?
+        """
+        value_h = entries["value"]
+        code = """
+%TypeHeaderCode
+#include <{qt_type}>
+%End
+%ConvertFromTypeCode
+"""
+        # code += value_h.declare_type_helpers("value", "return 0;")
+        # code += value_h.cxx_to_py("value", True, "cxxvalue")
+        code += """    typedef {cxx_t} CxxvalueT;
+    const sipTypeDef *genvalueT = sipType_{cxx_t};
+
+    // Convert the value from C++.
+    CxxvalueT *cxxvalue = sipCpp->data();
+    PyObject *value = sipConvertFromNewType((void *)cxxvalue, genvalueT, sipTransferObj);
+""".replace("{cxx_t}", value_h.cxx_t)
+        code += """    if (value == NULL) {
+        PyErr_Format(PyExc_TypeError, "cannot convert value");
+        return 0;
+    }
+    return value;
+%End
+%ConvertToTypeCode
+"""
+        code += value_h.declare_type_helpers("value", "return 0;", need_string=value_h.category != HeldAs.INTEGER)
+        code += """    PyObject *value;
+
+    // Convert the value to C++.
+    value = sipPy;
+"""
+        code += value_h.py_to_cxx("value", True, "value")
+        code += """
+    if (*sipIsErr) {
+"""
+        if value_h.category != HeldAs.INTEGER:
+            code += """        if (cxxvalue == NULL) {
+            PyErr_Format(PyExc_TypeError, "value has type '%s' but '%s' is expected",
+                         Py_TYPE(value)->tp_name, cxxvalueS);
+        }
+"""
+        code += value_h.release_sip_helper("value")
+        code += """        return 0;
+    }
+"""
+        code += value_h.release_sip_helper("value")
+        code += """    *sipCppPtr = new {qt_type}<CxxvalueT>(cxxvalue);
+    return sipGetState(sipTransferObj);
+%End
+"""
+        code = code.replace("{qt_type}", qt_type)
+        code = code.replace("{value_t}", value_h.cxx_t)
+        return code
+
+
 class SetExpander(AbstractExpander):
 
     def __init__(self):
@@ -848,10 +961,25 @@ def typecode_cfttc_set(container, typedef, sip, matcher):
     template.expand_typedef(typecode_cfttc_set, typedef, sip)
 
 
-def typecode_cfttc_tuple_pair(container, typedef, sip, matcher):
+def qpair_parameter(container, function, parameter, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create %MappedType expansions for QPair with one template argument
-    into Python sets.
+    A ParameterDb-compatible function used to create a %MappedType for a QPair<> (using a 2-tuple).
+    """
+    handler = QPairExpander()
+    handler.expand_parameter(qpair_parameter, parameter, sip)
+
+
+def qpair_typecode(container, typedef, sip, matcher):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for a QPair<> (using a 2-tuple).
     """
     template = QPairExpander()
-    template.expand_typedef(typecode_cfttc_tuple_pair, typedef, sip)
+    template.expand_typedef(qpair_typecode, typedef, sip)
+
+
+def qshareddatapointer_parameter(container, function, parameter, sip, matcher):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for a QSharedDataPointer<>.
+    """
+    handler = QSharedDataPointerExpander()
+    handler.expand_parameter(qshareddatapointer_parameter, parameter, sip)

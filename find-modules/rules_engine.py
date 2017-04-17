@@ -537,7 +537,7 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
             :param parameter:   The clang.cindex.Cursor for the parameter.
             :param sip:         A dict with the following keys:
 
-                                    name                The name of the function.
+                                    name                The name of the parameter.
                                     decl                The declaration.
                                     init                Any initialiser.
                                     annotations         Any SIP annotations.

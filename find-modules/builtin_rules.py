@@ -52,6 +52,17 @@ _ = _
 FIXED_ARRAY_RE = re.compile(".*(\[[^]]+\])+")
 VARIABLE_ARRAY_RE = re.compile(".*(\[\])+")
 MAPPED_TYPE_RE = re.compile(".*<.*")
+ANNOTATIONS_RE = re.compile(" /.*/")
+
+
+def make_cxx_declaration(sip):
+    """
+    Initialise a C++ declaration.
+
+    :param sip:                         The sip to modify.
+    """
+    sip["cxx_parameters"] = [ANNOTATIONS_RE.sub("", p) for p in sip["parameters"]]
+    sip["cxx_fn_result"] = sip["fn_result"]
 
 
 def fqn(container, child):

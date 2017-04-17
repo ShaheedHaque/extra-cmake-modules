@@ -27,6 +27,19 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    # Putting knowledge here of any %Import'ers who happen not to have
+    # duplicates is horrid, but much less painful than the alternative.
+    #
+    duplicated = "QExplicitlySharedDataPointer<KSharedConfig>"
+    tmp = sip["mapped_types"][duplicated]
+    tmp = "%If (!KConfigGui_KConfigGuimod)\n" + tmp + "%End\n"
+    sip["mapped_types"][duplicated] = tmp
+
+
 def container_rules():
     return [
         #
@@ -39,6 +52,9 @@ def container_rules():
 
 def modulecode():
     return {
+        "KConfigGuimod.sip": {
+            "code": module_fix_mapped_types,
+        },
         "kconfigskeleton.h": {
             "code":
                 """
