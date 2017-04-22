@@ -132,6 +132,7 @@ class HeldAs(object):
     """
     __metaclass__ = ABCMeta
 
+    VOID = "void"
     BYTE = "BYTE"
     INTEGER = "INTEGER"
     FLOAT = "FLOAT"
@@ -196,6 +197,8 @@ class HeldAs(object):
         """
         if cxx_t.endswith("*"):
             return HeldAs.POINTER
+        elif cxx_t == HeldAs.VOID:
+            return HeldAs.VOID
         #
         # The clang type should be authoritative.
         #
