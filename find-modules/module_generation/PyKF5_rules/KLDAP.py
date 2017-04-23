@@ -23,7 +23,7 @@ SIP binding customisation for PyKF5.KLDAP. This modules describes:
 """
 
 import rules_engine
-from PyQt_template_typecode import typecode_cfttc_list
+from PyQt_templates import typecode_cfttc_list
 
 
 def function_fully_qualify(container, function, sip, matcher):

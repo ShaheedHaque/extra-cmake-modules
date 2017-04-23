@@ -76,8 +76,8 @@ import KXmlGui
 import MessageCore
 import Sonnet
 import Syndication
-import PyQt_template_typecode
-from PyQt_template_typecode import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
+import PyQt_templates
+from PyQt_templates import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
 from sip_generator import trace_generated_for
 from builtin_rules import HeldAs, fqn
 
@@ -414,8 +414,8 @@ def parameter_rules():
         #
         # Create %MappedTypes.
         #
-        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", PyQt_template_typecode.qpair_parameter],
-        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", PyQt_template_typecode.qshareddatapointer_parameter],
+        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", PyQt_templates.qpair_parameter],
+        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", PyQt_templates.qshareddatapointer_parameter],
     ]
 
 
