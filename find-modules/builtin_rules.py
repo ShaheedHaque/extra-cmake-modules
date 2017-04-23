@@ -34,7 +34,6 @@ could be handled by calling @see variable_rewrite_array_nonfixed() and then
 """
 
 from __future__ import print_function
-from abc import ABCMeta, abstractmethod
 import gettext
 import logging
 import re
@@ -130,8 +129,6 @@ class HeldAs(object):
     TODO: In the case of pointers, we also need to know whether a specialised
     pointer type is in use (or just "*").
     """
-    __metaclass__ = ABCMeta
-
     VOID = "void"
     BYTE = "BYTE"
     INTEGER = "INTEGER"
@@ -153,30 +150,30 @@ class HeldAs(object):
     }
     _rev_map = None
 
-    def __init__(self, cxx_t, clang_kind, manual_t=None):
+    def __init__(self, cxx_t, clang_kind, base_cxx_t=None):
         """
         :param cxx_t:                       The declaration text from the source code.
         :param clang_kind:                  The clang kind or None.
-        :param manual_t:                    A manual override for the type.
+        :param base_cxx_t:                  Th base type, can be manually overridden.
         """
         self.cxx_t = cxx_t
-        if manual_t is None:
-            manual_t = cxx_t
+        if base_cxx_t is None:
+            base_cxx_t = cxx_t
+            if base_cxx_t.endswith((" *", " &")):
+                base_cxx_t = base_cxx_t[:-2]
         #
         # This may be a mapped type.
         #
-        self.is_mapped_type = ("<" in manual_t)
+        self.is_mapped_type = ("<" in base_cxx_t)
         if self.is_mapped_type:
             self.sip_t = "sipFindType(cxx{name}S)"
         else:
-            self.sip_t = "sipType_" + manual_t.replace("::", "_")
+            self.sip_t = "sipType_" + base_cxx_t.replace("::", "_")
         self.category = HeldAs.categorise(cxx_t, clang_kind)
 
-    @abstractmethod
     def cxx_to_py_template(self):
         raise NotImplementedError()
 
-    @abstractmethod
     def py_to_cxx_template(self):
         raise NotImplementedError()
 
