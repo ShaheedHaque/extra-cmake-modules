@@ -40,9 +40,12 @@ import sys
 
 from clang.cindex import AccessSpecifier, CursorKind
 
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import rules_engine
-from builtin_rules import make_cxx_declaration
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from builtin_rules import HeldAs, fqn, make_cxx_declaration
+from PyQt_templates import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
+    qpair_parameter, qshareddatapointer_parameter
+from sip_generator import trace_generated_for
 import common_methodcode
 import common_modulecode
 import common_typecode
@@ -76,10 +79,6 @@ import KXmlGui
 import MessageCore
 import Sonnet
 import Syndication
-import PyQt_templates
-from PyQt_templates import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set
-from sip_generator import trace_generated_for
-from builtin_rules import HeldAs, fqn
 
 
 RE_PARAMETER_TYPE = re.compile(r"(.*\b)\w+")
@@ -414,8 +413,8 @@ def parameter_rules():
         #
         # Create %MappedTypes.
         #
-        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", PyQt_templates.qpair_parameter],
-        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", PyQt_templates.qshareddatapointer_parameter],
+        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", qpair_parameter],
+        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", qshareddatapointer_parameter],
     ]
 
 

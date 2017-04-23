@@ -24,7 +24,6 @@ SIP binding customisation for PyKF5.KConfigCore. This modules describes:
 
 from copy import deepcopy
 
-from builtin_rules import make_cxx_declaration
 import rules_engine
 
 
