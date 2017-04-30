@@ -361,8 +361,8 @@ def main(argv=None):
 
     Examples:
 
-        sip_compiler.py --select KDBusAddons sip
-        sip_compiler.py sip 
+        module_compiler.py --select KDBusAddons sip output
+        module_compiler.py sip output
     """
     if argv is None:
         argv = sys.argv

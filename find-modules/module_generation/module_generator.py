@@ -715,7 +715,7 @@ def find_clang(exe_clang, lib_clang):
 
 def main(argv=None):
     """
-    Convert a whole set of KDE header files and generate the corresponding SIP
+    Convert a whole set of header files and generate the corresponding SIP
     files. Beyond simple generation of the SIP files from the corresponding C++
     header files:
 
@@ -723,12 +723,12 @@ def main(argv=None):
 
         - For each set of SIP files in a directory, if at least one SIP file
           is named like a new-style header (i.e. starts with an upper case
-          letter, or has no .h suffix), the a "module.sip" is created which
+          letter, or has no .h suffix), then a "module.sip" is created which
           facilitates running the SIP compiler on a set of related files.
 
     Examples:
 
-        sip_bulk_generator.py /tmp /usr/include/KF5
+        module_generator.py /tmp /usr/include/KF5
     """
     if argv is None:
         argv = sys.argv
