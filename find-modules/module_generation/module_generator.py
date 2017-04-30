@@ -62,13 +62,15 @@ MODULE_SIP = "mod.sip"
 INCLUDES_EXTRACT = "includes"
 PYQT5_SIPS = "/usr/share/sip/PyQt5"
 PYKF5_SOURCES = "/usr/include/KF5"
-PYKF5_INCLUDES = "/usr/include/x86_64-linux-gnu/qt5,/usr/include/x86_64-linux-gnu/qt5/QtXml,/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64,/usr/include/libxml2"
+PYKF5_INCLUDES = "/usr/include/x86_64-linux-gnu/qt5," \
+                 "/usr/include/x86_64-linux-gnu/qt5/QtXml," \
+                 "/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64,/usr/include/libxml2"
 PYKF5_LIBRARIES = "/usr/lib/x86_64-linux-gnu/libKF5*.so"
 PYKF5_RULES = "PyKF5_rules/__init__.py"
 PYKF5_PACKAGE_NAME = "PyKF5"
 CLANG_PATHS = "clang++-3.9,libclang-3.9.so"
 QT5_COMPILE_FLAGS = "-fPIC,-std=gnu++14"
-FILE_SORT_KEY=str.lower
+FILE_SORT_KEY = str.lower
 
 
 def feature_for_sip_module(sip_file):
@@ -97,15 +99,13 @@ class RuleUsage(dict):
 
         rule_set.dump_unused(accumulate_local)
 
-    def add_remote_stats(self, rule_dict):
+    def add_remote_stats(self, stats):
         """
-        Statistics from remote processes where we do not have access to the rule database directly (not least because
-        rule databases contain regular expression which cannot be pickled).
-
-        :param rule_set:
-        :return:
+        Statistics from remote processes where we do not have access to the
+        rule database directly (not least because rule databases contain
+        regular expression which cannot be pickled).
         """
-        for rule, usage_count in rule_dict.items():
+        for rule, usage_count in stats.items():
             self.setdefault(rule, 0)
             self[rule] += usage_count
 
@@ -142,8 +142,8 @@ class ModuleGenerator(object):
         #     possible, and add each xxxmod.sip we find to the available set.
         #
         #   - Under self.output_dir, of course, the .sip files don't actually exist before we start running. So here,
-        #     we walk self.project_root, folding into any non-lower-case-only names when possible, and add the xxxxmod.sip
-        #     name that will be created to the available set.
+        #     we walk self.project_root, folding into any non-lower-case-only names when possible, and add the
+        #     xxxxmod.sip name that will be created to the available set.
         #
         self.include_to_import_cache = {}
         for sip_root in self.sips:
@@ -265,8 +265,6 @@ class ModuleGenerator(object):
     def process_dir(self, jobs, compiled_rules, dirname, filenames):
         """
         Walk over a directory tree and for each file or directory, apply a function.
-
-        :param root:                Tree to be walked.
         """
         attempts = 0
         failures = []
@@ -281,7 +279,8 @@ class ModuleGenerator(object):
                 per_process_args.append((source, h_file))
         if not per_process_args:
             return attempts, failures
-        std_args = (self.project_root, self.project_rules, self.compile_flags, self.includes, self.output_dir, self.package)
+        std_args = (self.project_root, self.project_rules, self.compile_flags, self.includes, self.output_dir,
+                    self.package)
         if jobs == 0:
             #
             # Debug mode.
@@ -415,7 +414,7 @@ class ModuleGenerator(object):
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
             with open(full_output, "w") as f:
-                f.write(header(output_file, h_dir, h_dir, self.package))
+                f.write(header(output_file, h_dir, self.package))
                 f.write(body)
                 f.write(sip["decl"])
                 #
@@ -477,14 +476,16 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
                                     error,
                                 )
     """
+    sip_suffix = None
+    all_includes = lambda: []
+    direct_includes = []
+    result, mapped_types, rule_usage = "", {}, {},
     #
     # Make sure any errors mention the file that was being processed.
     #
     try:
         compiled_rules = rules_engine.rules(project_rules)
         generator = SipGenerator(compiled_rules, compile_flags)
-        sip_suffix = None
-        result, mapped_types, all_includes, direct_includes, rule_usage = "", {}, lambda: [], set(), {}
         if h_suffix.endswith("_export.h"):
             pass
         elif h_suffix.endswith("_version.h"):
@@ -502,7 +503,7 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
                             result += "{} = {}\n".format(match.group("name"), match.group("value"))
         else:
             result, mapped_types, all_includes = generator.create_sip(h_file, h_suffix)
-        direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
+            direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
         if result:
             pass
         elif len(direct_includes) == 1:
@@ -523,8 +524,6 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
                 #
                 result, mapped_types, all_includes = generator.create_sip(direct_includes[0], h_suffix)
                 direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
-        else:
-            direct_includes = []
         #
         # From the set of includes, we want two things:
         #
@@ -598,7 +597,7 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
             if sip_basename == os.path.basename(module_path):
                 sip_basename += "_"
             sip_suffix = os.path.join(module_path, sip_basename)
-            header_text = header(sip_suffix, h_suffix, module_path, package)
+            header_text = header(sip_suffix, h_suffix, package)
             #
             # Write the header and the body.
             #
@@ -612,10 +611,11 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
             with open(sip_file, "w") as f:
                 f.write(header_text)
                 f.write(result)
-            #
-            # Fill the dict of the used rules.
-            #
+
             def add_used(rule, usage_count):
+                """
+                Fill the dict of the used rules.
+                """
                 if usage_count > 0:
                     rule_usage[str(rule)] = usage_count
 
@@ -632,16 +632,16 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
     return h_file, sip_suffix, mapped_types, direct_includes, i_paths, rule_usage, None
 
 
-def header(output_file, h_file, module_path, package):
+def header(output_file, h_file, package):
     """
     Override this to get your own preferred file header.
 
     :param output_file:                 The name of the output file.
     :param h_file:                      The name of the input file.
-    :param module_path:                 The delta from the root.
+    :param package: 
     :return:
     """
-    header = """//
+    template = """//
 // This file, {}, is part of {}.
 // It was derived from {}.
 //
@@ -664,15 +664,14 @@ def header(output_file, h_file, module_path, package):
 // 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 %End
 //
-""".format(output_file, package, h_file, datetime.datetime.utcnow().year)
-    return header
+"""
+    return template.format(output_file, package, h_file, datetime.datetime.utcnow().year)
 
 
 def find_clang(exe_clang, lib_clang):
-    """"
+    """
     Find the clang++, system include directories and libclang.so.
     """
-    sys_includes = []
     #
     # Look for a usable executable.
     #
@@ -696,11 +695,13 @@ def find_clang(exe_clang, lib_clang):
             end = i
             break
     assert start and end, _("Unable to find system includes in {}").format(lines)
-    # on OSX, gcc says things like this:  "/System/Library/Frameworks (framework directory)"
+    #
+    # On OSX, gcc says things like this:  "/System/Library/Frameworks (framework directory)".
+    #
     sys_includes = [l.replace("(framework directory)", "") for l in lines[start:end]]
     sys_includes = [l.strip() for l in sys_includes]
     if not sys_includes:
-        RuntimeError(_("Cannot find system includes"))
+        raise RuntimeError(_("Cannot find system includes"))
     lines = subprocess.check_output(["/sbin/ldconfig", "-p"])
     for line in lines.split("\n"):
         fields = line.split()
