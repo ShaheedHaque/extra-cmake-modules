@@ -25,13 +25,53 @@ SIP binding customisation for PyKF5.KContacts. This modules describes:
 import rules_engine
 
 
-def forward_declaration_rules():
-    return [
-        ["field.h", "KConfigGroup", ".*", rules_engine.mark_forward_declaration_external],
-    ]
-
 def function_rules():
     return [
         ["KContacts::ContactGroup", "contact.*Reference|data", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
         ["KContacts::Field", "Field", ".*", ".*", ".*Private.*", ".*", ".*", rules_engine.function_discard],
     ]
+
+
+def typecode():
+    return {
+        "KContacts::Address": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKContacts_Address KContacts::Address
+                %End
+                """
+        },
+        "KContacts::AddresseeList": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKContacts_AddresseeList KContacts::AddresseeList
+                %End
+                """
+        },
+        "KContacts::PhoneNumber": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKContacts_PhoneNumber KContacts::PhoneNumber
+                %End
+                """
+        },
+    }
+
+
+def modulecode():
+    return {
+        "KContactsmod.sip": {
+            "code":
+                """
+                %If (!KContacts_KContacts_KContactsmod)
+                class KConfigGroup /External/;
+                %End
+                """
+        },
+    }

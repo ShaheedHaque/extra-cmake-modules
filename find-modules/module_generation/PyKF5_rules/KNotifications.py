@@ -44,6 +44,20 @@ def function_rules():
     ]
 
 
+def typecode():
+    return {
+        "knotifyconfig.h::KNotifyConfig": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKNotifyConfig KNotifyConfig
+                %End
+                """
+        },
+    }
+
+
 def modulecode():
     return {
         "KNotificationsmod.sip": {

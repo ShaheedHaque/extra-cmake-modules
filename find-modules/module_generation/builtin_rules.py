@@ -121,11 +121,7 @@ def base_type(parameter_text):
     :param parameter_text:              The text from the source code.
     :return: the base_type of the parameter, e.g. without a pointer suffix.
     """
-    if parameter_text.endswith("Ptr"):
-        parameter_text = parameter_text[:-3]
-        if parameter_text.endswith("::"):
-            parameter_text = parameter_text[:-2]
-    elif parameter_text.endswith(("*", "&")):
+    if parameter_text.endswith(("*", "&")):
         parameter_text = parameter_text[:-1].strip()
     if parameter_text.startswith("const "):
         parameter_text = parameter_text[6:]
@@ -169,9 +165,7 @@ class HeldAs(object):
         """
         self.cxx_t = cxx_t
         if base_cxx_t is None:
-            base_cxx_t = cxx_t
-            if base_cxx_t.endswith((" *", " &")):
-                base_cxx_t = base_cxx_t[:-2]
+            base_cxx_t = base_type(cxx_t)
         #
         # This may be a mapped type.
         #
@@ -227,6 +221,8 @@ class HeldAs(object):
             except KeyError:
                 if clang_kind == TypeKind.LVALUEREFERENCE:
                     return HeldAs.OBJECT
+                elif clang_kind == TypeKind.VOID:
+                    return HeldAs.VOID
                 #
                 # We we already know it did not seem to be a pointer, so check for a templated object:
                 #

@@ -94,6 +94,15 @@ def typedef_rules():
 
 def typecode():
     return {
+        "kplugininfo.h::KPluginInfo": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKPluginInfo KPluginInfo
+                %End
+                """
+        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED kservicegroup.h::KServiceGroup": {  # KServiceGroup : KSycocaEntry
             "code":

@@ -42,7 +42,7 @@ from clang.cindex import AccessSpecifier, CursorKind
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import rules_engine
-from builtin_rules import HeldAs, fqn, make_cxx_declaration
+from builtin_rules import HeldAs, fqn, base_type, make_cxx_declaration
 from PyQt_templates import typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
     qpair_parameter, qshareddatapointer_parameter
 from sip_generator import trace_generated_for
@@ -81,7 +81,8 @@ import Sonnet
 import Syndication
 
 
-RE_PARAMETER_TYPE = re.compile(r"(.*\b)\w+")
+RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
+RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
 RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>")
 
 
@@ -113,7 +114,7 @@ class QSharedHelper(HeldAs):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
         if is_qshared:
             template_type = is_qshared.group(2)
-            template_args = [(is_qshared.group(1) or "") + is_qshared.group(5)]
+            template_args = [is_qshared.group(5)]
             cxx_t = template_args[0] + " *"
         super(QSharedHelper, self).__init__(cxx_t, clang_kind, manual_t)
         self.is_qshared = is_qshared
@@ -168,7 +169,7 @@ def fn_result_is_qt_template(container, function, sip, matcher):
     #
     # Deal with function result.
     #
-    result_h = RewriteResultHelper(sip["fn_result"], None)
+    result_h = RewriteResultHelper(sip["fn_result"], function.result_type.get_canonical().kind)
     if function.kind != CursorKind.CONSTRUCTOR and result_h.category == HeldAs.OBJECT:
         sip["fn_result"] += " *"
     #
@@ -188,14 +189,21 @@ def fn_result_is_qt_template(container, function, sip, matcher):
         #
         # Get to type by removing any default value then stripping the name.
         #
-        type_text = p.split("=", 1)[0].strip()
-        type_text = RE_PARAMETER_TYPE.match(type_text).group(1).strip()
-        parameter_h = QSharedHelper(type_text, clang_kinds[i].kind)
+        lhs, rhs = RE_PARAMETER_VALUE.split(p + "=")[:2]
+        t, v = RE_PARAMETER_TYPE.match(lhs).groups()
+        t = t.strip()
+        parameter_h = QSharedHelper(t, clang_kinds[i].kind)
         if parameter_h.is_qshared:
-            sip["parameters"][i] = sip["parameters"][i].replace(type_text, parameter_h.cxx_t)
-            code += """            typedef """ + type_text + """ Cxxa0T;
-            Cxxa0T *cxxa0;
-            cxxa0 = new Cxxa0T(a0);
+            if rhs:
+                #
+                # TODO: We really just want rhs.data() as the default value, but SIP gets confused.
+                #
+                sip["parameters"][i] = "{} {} = {}".format(parameter_h.cxx_t, v, "NULL")
+            else:
+                sip["parameters"][i] = "{} {}".format(parameter_h.cxx_t, v)
+            code += """    typedef """ + base_type(t) + """ Cxxa0T;
+    Cxxa0T *cxxa0;
+    cxxa0 = new Cxxa0T(a0);
 """.replace("a0", "a{}".format(i))
             sip_parameters.append("cxxa{}".format(i))
             sip_stars.append("*cxxa{}".format(i))
@@ -212,41 +220,61 @@ def fn_result_is_qt_template(container, function, sip, matcher):
                                 [(result_h.cxx_t, result_h.category), [(p.cxx_t, p.category) for p in parameters_h]])
     code = code.format(trace)
     #
-    # Generate function name.
-    #
-    fn = function.spelling
-    if "static " in sip["prefix"] or not in_class(function):
-        fn = fqn(container, fn)
-    elif function.kind == CursorKind.CONSTRUCTOR:
-        fn = "sip" + fqn(container, "")[:-2].replace("::", "_")
-    elif not fn.startswith("operator"):
-        if function.access_specifier == AccessSpecifier.PROTECTED:
-            fn = "sipCpp->sipProtect_" + fn
-        else:
-            fn = "sipCpp->" + fn
-    #
     # Generate function call, unwrapping shared data result as needed.
     #
-    if result_h.category == HeldAs.VOID:
-        code += """    Py_BEGIN_ALLOW_THREADS
-    {}({});
-    Py_END_ALLOW_THREADS""".format(fn, ", ".join(sip_stars))
-    elif function.kind == CursorKind.CONSTRUCTOR:
-        code += """    Py_BEGIN_ALLOW_THREADS
-    sipCpp = new {}({});
-    Py_END_ALLOW_THREADS""".format(fn, ", ".join(sip_stars))
+    if function.kind == CursorKind.CONSTRUCTOR:
+        fn = fqn(container, "")[:-2].replace("::", "_")
+        callsite = """    Py_BEGIN_ALLOW_THREADS
+    sipCpp = new sip{fn}({});
+    Py_END_ALLOW_THREADS
+"""
+        callsite = callsite.replace("{fn}", fn)
+        code += callsite.format(", ".join(sip_stars))
     else:
-        code += """    typedef {} CxxvalueT;
-        CxxvalueT cxxvalue;
-
-        Py_BEGIN_ALLOW_THREADS
-        cxxvalue = {}({});
-        Py_END_ALLOW_THREADS
-""".format(sip["cxx_fn_result"], fn, ", ".join(sip_stars))
-        if result_h.is_qshared:
-            sip["fn_result"] = result_h.cxx_t
-        code += result_h.declare_type_helpers("result", "return 0;")
-        code += result_h.cxx_to_py("sipRes", False, "cxxvalue")
+        fn = function.spelling
+        if "static " in sip["prefix"] or not in_class(function):
+            fn = fqn(container, fn)
+            callsite = """    cxxvalue = {fn}({});
+"""
+        elif function.access_specifier == AccessSpecifier.PROTECTED:
+            if "virtual" in sip["prefix"]:
+                callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
+    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({})
+                           : sipCpp->{fn}({});
+#else
+    cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{});
+#endif
+"""
+                if sip["parameters"]:
+                    callsite = callsite.replace("{sep}", ", ", 1)
+                else:
+                    callsite = callsite.replace("{sep}", "", 1)
+                callsite = callsite.replace("{qn}", fqn(container, "").replace("::", "_"))
+            else:
+                callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
+    cxxvalue = sipCpp->{fn}({});
+#else
+    cxxvalue = sipCpp->sipProtect_{fn}({});
+#endif
+"""
+        else:
+            callsite = """    cxxvalue = sipCpp->{fn}({});
+"""
+        callsite = callsite.replace("{fn}", fn)
+        callsite = callsite.replace("{}", ", ".join(sip_stars))
+        callsite = """    Py_BEGIN_ALLOW_THREADS
+""" + callsite + """    Py_END_ALLOW_THREADS
+"""
+        if result_h.category == HeldAs.VOID:
+            code += callsite.replace("cxxvalue = ", "")
+        else:
+            code += """    typedef {} CxxvalueT;
+    CxxvalueT cxxvalue;
+""".format(sip["cxx_fn_result"]) + callsite
+            if result_h.is_qshared:
+                sip["fn_result"] = result_h.cxx_t
+            code += result_h.declare_type_helpers("result", "return 0;")
+            code += result_h.cxx_to_py("sipRes", False, "cxxvalue")
     code += """
 %End
 """

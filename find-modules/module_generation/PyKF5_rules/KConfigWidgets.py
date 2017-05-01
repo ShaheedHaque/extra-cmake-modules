@@ -56,6 +56,20 @@ def parameter_rules():
     ]
 
 
+def typecode():
+    return {
+        "kcolorscheme.h::KStatefulBrush": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKStatefulBrush KStatefulBrush
+                %End
+                """
+        },
+    }
+
+
 def modulecode():
     return {
         "ktipdialog.h": {
