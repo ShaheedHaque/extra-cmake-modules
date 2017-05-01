@@ -121,6 +121,12 @@ class QSharedHelper(HeldAs):
 
 
 class RewriteResultHelper(QSharedHelper):
+    def declare_type_helpers(self, name, error, need_string=False):
+        text = super(RewriteResultHelper, self).declare_type_helpers(name, error, need_string)
+        lines = text.split("\n")
+        lines = [l for l in lines if not l.endswith("Cxx{}T;".format(name))]
+        return "\n".join(lines)
+
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
         if self.is_qshared:
             cxx_i += ".data()"
