@@ -159,6 +159,11 @@ def fn_result_is_qt_template(container, function, sip, matcher):
             parent = parent.semantic_parent
         return True if parent else False
 
+    #
+    # No generated code for signals.
+    #
+    if sip["is_signal"]:
+        return
     make_cxx_declaration(sip)
     #
     # Deal with function result.

@@ -277,6 +277,7 @@ class SipGenerator(object):
         had_copy_constructor = False
         had_const_member = False
         module_code = {}
+        is_signal = False
         VARIABLE_KINDS = [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]
         FN_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
                     CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
@@ -320,12 +321,12 @@ class SipGenerator(object):
                 # SIP needs to see private functions at least for the case described in
                 # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html.
                 #
-                decl, tmp = self._fn_get(container, member, level + 1)
+                decl, tmp = self._fn_get(container, member, level + 1, is_signal)
                 module_code.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:
                 decl = self._enum_get(container, member, level + 1) + ";\n"
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
-                decl = self._get_access_specifier(member, level + 1)
+                decl, is_signal = self._get_access_specifier(member, level + 1)
             elif member.kind == CursorKind.TYPEDEF_DECL:
                 #
                 # Typedefs for inlined enums/structs/unions seem to be emitted twice. Refer back to original.
@@ -511,13 +512,16 @@ class SipGenerator(object):
         :param member:                  The access_specifier.
         :return:
         """
+        access_specifier = ""
+        is_signal = False
         access_specifier_text = self._read_source(member.extent)
         if access_specifier_text == "Q_OBJECT":
-            return ""
+            return access_specifier, is_signal
         pad = " " * ((level - 1) * 4)
-        access_specifier = ""
-        if (access_specifier_text in ("Q_SIGNALS:", "signals:",
-                                      "public Q_SLOTS:", "public slots:",
+        if (access_specifier_text in ("Q_SIGNALS:", "signals:")):
+            access_specifier = access_specifier_text
+            is_signal = True
+        elif (access_specifier_text in ("public Q_SLOTS:", "public slots:",
                                       "protected Q_SLOTS:", "protected slots:")):
             access_specifier = access_specifier_text
         elif member.access_specifier == AccessSpecifier.PRIVATE:
@@ -531,7 +535,7 @@ class SipGenerator(object):
             logger.warn(_("// Replaced '{}' with 'public' (by {})".format(access_specifier_text,
                                                                           "access specifier handling")))
         decl = pad + access_specifier + "\n"
-        return decl
+        return decl, is_signal
 
     def _enum_get(self, container, enum, level):
         pad = " " * (level * 4)
@@ -548,13 +552,14 @@ class SipGenerator(object):
         decl += pad + "}"
         return decl
 
-    def _fn_get(self, container, function, level):
+    def _fn_get(self, container, function, level, is_signal):
         """
         Generate the translation for a function.
 
         :param container:           A class or namespace.
         :param function:            The function object.
         :param level:               Recursion level controls indentation.
+        :param is_signal:           Is this a Qt signal?
         :return:                    A string.
         """
         if container.kind == CursorKind.TRANSLATION_UNIT and \
@@ -567,6 +572,7 @@ class SipGenerator(object):
         sip = {
             "name": function.spelling,
             "annotations": set(),
+            "is_signal": is_signal,
         }
         parameters = []
         parameter_modifying_rules = []

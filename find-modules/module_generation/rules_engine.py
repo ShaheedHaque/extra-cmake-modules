@@ -458,6 +458,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
                                                         ends with a space.
                                     suffix              Trailing keywords ("const"). Separated by space, starts with
                                                         space.
+                                    is_signal           Is this is a signal?
                                     annotations         Any SIP annotations.
 
             :param matcher:         The re.Match object. This contains named
