@@ -1444,6 +1444,14 @@ def unexposed_discard(container, unexposed, sip, matcher):
     sip["name"] = ""
 
 
+def parameter_in(container, function, parameter, sip, matcher):
+    sip["annotations"].add("In")
+
+
+def parameter_out(container, function, parameter, sip, matcher):
+    sip["annotations"].add("Out")
+
+
 def parameter_transfer_to_parent(container, function, parameter, sip, matcher):
     if function.is_static_method():
         sip["annotations"].add("Transfer")

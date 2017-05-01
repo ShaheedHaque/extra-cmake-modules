@@ -198,6 +198,8 @@ def fn_result_is_qt_template(container, function, sip, matcher):
             sip_parameters.append("a{}".format(i))
             if parameter_h.category == HeldAs.OBJECT:
                 sip_stars.append("*a{}".format(i))
+            elif re.search("/.*Out.*/", sip["parameters"][i]):
+                sip_stars.append("&a{}".format(i))
             else:
                 sip_stars.append("a{}".format(i))
         parameters_h.append(parameter_h)
@@ -271,14 +273,6 @@ def fn_result_is_qt_template(container, function, sip, matcher):
 %End
 """.format(trace, "".join([p + ", " for p in sip_parameters]))
     sip["code"] = code
-
-
-def _parameter_in(container, function, parameter, sip, matcher):
-    sip["annotations"].add("In")
-
-
-def _parameter_out(container, function, parameter, sip, matcher):
-    sip["annotations"].add("Out")
 
 
 def _parameter_rewrite_without_colons(container, function, parameter, sip, matcher):
@@ -403,8 +397,8 @@ def parameter_rules():
         # Annotate with Transfer or TransferThis when we see a parent object.
         #
         [".*", ".*", ".*", r"[KQ][A-Za-z_0-9]+\W*\*\W*parent", ".*", _parameter_transfer_to_parent],
-        ["KCoreConfigSkeleton", "addItem.*", "reference", ".*", ".*", _parameter_in],
-        ["KDateTime", "fromString", "negZero", ".*", ".*", _parameter_out],
+        ["KCoreConfigSkeleton", "addItem.*", "reference", ".*", ".*", rules_engine.parameter_in],
+        ["KDateTime", "fromString", "negZero", ".*", ".*", rules_engine.parameter_out],
         ["KPty", "tcGetAttr|tcSetAttr", "ttmode", ".*", ".*", _parameter_rewrite_without_colons],
         #
         # TODO: Temporarily trim any parameters which start "enum".
