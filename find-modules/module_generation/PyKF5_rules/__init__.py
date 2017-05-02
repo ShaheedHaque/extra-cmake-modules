@@ -160,7 +160,12 @@ class RewriteResultHelper(QSharedHelper):
         return self.cxx_to_py_templates[self.category]
 
 
-def fn_result_is_qt_template(container, function, sip, matcher):
+def fn_uses_qt_template(container, function, sip, matcher):
+    """
+    Automatic handling for functions with templated paramters and/or return types.
+    Built-in knowledge of Q(Explicitly|)Shared(Data|)Pointer templates "unwraps"
+    uses of these types in the signature.
+    """
     def in_class(item):
         parent = item.semantic_parent
         while parent and parent.kind != CursorKind.CLASS_DECL:
@@ -223,7 +228,7 @@ def fn_result_is_qt_template(container, function, sip, matcher):
             else:
                 sip_stars.append("a{}".format(i))
         parameters_h.append(parameter_h)
-    trace = trace_generated_for(function, fn_result_is_qt_template,
+    trace = trace_generated_for(function, fn_uses_qt_template,
                                 [(result_h.cxx_t, result_h.category), [(p.cxx_t, p.category) for p in parameters_h]])
     code = code.format(trace)
     #
@@ -396,8 +401,8 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", "Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
-        [".*", ".*", ".*", ".*", ".*Q[A-Za-z0-9_]+<.*>.*", fn_result_is_qt_template],
+        [".*", ".*", ".*", "Q[A-Za-z0-9_]+<.*>", ".*", fn_uses_qt_template],
+        [".*", ".*", ".*", ".*", ".*Q[A-Za-z0-9_]+<.*>.*", fn_uses_qt_template],
         #
         # This class has inline implementations in the header file.
         #
