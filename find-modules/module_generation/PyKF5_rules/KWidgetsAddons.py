@@ -44,6 +44,7 @@ def forward_declaration_rules():
 def function_rules():
     return [
         ["KRatingWidget", "ratingChanged|set.*Rating", ".*", ".*", "unsigned.*", rules_engine.function_discard],
+        ["KPageDialog", "KPageDialog", ".*", ".*", "KPageDialogPrivate.*", rules_engine.function_discard],
     ]
 
 

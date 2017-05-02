@@ -32,6 +32,7 @@ def _parameter_remove_qualifier(container, function, parameter, sip, matcher):
 def function_rules():
     return [
         ["KMainWindow", "k_func", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMainWindow", "KMainWindow", ".*", ".*", "KMainWindowPrivate.*", rules_engine.function_discard],
     ]
 
 

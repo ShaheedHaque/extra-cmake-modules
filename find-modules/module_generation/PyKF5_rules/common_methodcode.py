@@ -55,23 +55,6 @@ SIP binding custom method-related code for PyKF5.
 #
 def code():
     return {
-# ./kparts/browserextension.sip
-"KParts::BrowserExtension":
-{
-    "createNewWindow":
-    {
-        "parameters": ["const KUrl& url", "const KParts::OpenUrlArguments& arguments = KParts::OpenUrlArguments()", "const KParts::BrowserArguments& browserArguments = KParts::BrowserArguments()", "const KParts::WindowArgs& windowArgs = KParts::WindowArgs()", "KParts::ReadOnlyPart** part = 0"],
-        "fn_result": "void",
-        "code":
-        """
-        %MethodCode
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->KParts::BrowserExtension::createNewWindow (*a0, *a1, *a2, *a3, &a4);
-            Py_END_ALLOW_THREADS
-        %End
-        """
-    },
-},
 # ./kdecore/kurl.sip
 "kdecore/kurl.h":
 {

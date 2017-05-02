@@ -80,6 +80,12 @@ def function_rules():
     ]
 
 
+def parameter_rules():
+    return [
+        ["KShell", "splitArgs", "err", ".*", ".*", rules_engine.parameter_out],
+    ]
+
+
 def typecode():
     return {
         # DISABLED until I figure out an approach for CTSCC.

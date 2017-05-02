@@ -71,6 +71,7 @@ import KLDAP
 import KMime
 import KNotifyConfig
 import KNotifications
+import KParts
 import KService
 import KStyle
 import KUnitConversion
@@ -395,8 +396,8 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
-        [".*", ".*", ".*", ".*", "(?!QFlags)Q[A-Za-z0-9_]+<.*>.*", fn_result_is_qt_template],
+        [".*", ".*", ".*", "Q[A-Za-z0-9_]+<.*>", ".*", fn_result_is_qt_template],
+        [".*", ".*", ".*", ".*", ".*Q[A-Za-z0-9_]+<.*>.*", fn_result_is_qt_template],
         #
         # This class has inline implementations in the header file.
         #
@@ -539,10 +540,6 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             typedef_rules=KCalCore.typedef_rules)
         self.add_rules(
-            container_rules=KCoreAddons.container_rules,
-            function_rules=KCoreAddons.function_rules,
-            typecode=KCoreAddons.typecode)
-        self.add_rules(
             container_rules=KCodecs.container_rules,
             function_rules=KCodecs.function_rules)
         self.add_rules(
@@ -562,10 +559,17 @@ class RuleSet(rules_engine.RuleSet):
         self.add_rules(
             function_rules=KConfigWidgets.function_rules,
             parameter_rules=KConfigWidgets.parameter_rules,
+            typecode=KConfigWidgets.typecode,
             modulecode=KConfigWidgets.modulecode)
         self.add_rules(
-            forward_declaration_rules=KContacts.forward_declaration_rules,
-            function_rules=KContacts.function_rules)
+            function_rules=KContacts.function_rules,
+            typecode=KContacts.typecode,
+            modulecode=KContacts.modulecode)
+        self.add_rules(
+            container_rules=KCoreAddons.container_rules,
+            function_rules=KCoreAddons.function_rules,
+            parameter_rules=KCoreAddons.parameter_rules,
+            typecode=KCoreAddons.typecode)
         self.add_rules(
             parameter_rules=KCrash.parameter_rules)
         self.add_rules(
@@ -602,12 +606,15 @@ class RuleSet(rules_engine.RuleSet):
             forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
         self.add_rules(
             function_rules=KNotifications.function_rules,
+            typecode=KNotifications.typecode,
             modulecode=KNotifications.modulecode)
+        self.add_rules(
+            modulecode=KParts.modulecode)
         self.add_rules(
             container_rules=KService.container_rules,
             function_rules=KService.function_rules,
             typedef_rules=KService.typedef_rules,
-            typecode = KService.typecode,
+            typecode=KService.typecode,
             modulecode=KService.modulecode)
         self.add_rules(
             function_rules=KStyle.function_rules)
