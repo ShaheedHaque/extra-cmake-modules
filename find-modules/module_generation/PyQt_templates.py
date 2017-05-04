@@ -587,7 +587,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
 {}
 """.format(trace)
         #
-        # Generate parameter list, unwrapping shared data as needed.
+        # Generate parameter list, wrapping shared data as needed.
         #
         sip_parameters = []
         sip_stars = []
@@ -601,7 +601,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
                 sip_stars.append("*cxxa{}".format(i))
             else:
                 sip_parameters.append("a{}".format(i))
-                if parameter_h.category == HeldAs.OBJECT:
+                if parameter_h.category == HeldAs.OBJECT or parameter_h.cxx_t.endswith("&"):
                     sip_stars.append("*a{}".format(i))
                 elif p_outs[i]:
                     sip_stars.append("&a{}".format(i))

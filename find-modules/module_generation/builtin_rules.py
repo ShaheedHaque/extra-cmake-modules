@@ -197,7 +197,7 @@ class HeldAs(object):
         :param clang_kind:                  The clang kind or None.
         :return: the storage type of the object.
         """
-        if cxx_t.endswith("*"):
+        if cxx_t.endswith(("*", "&")):
             return HeldAs.POINTER
         elif cxx_t == HeldAs.VOID:
             return HeldAs.VOID
