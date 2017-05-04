@@ -1037,7 +1037,7 @@ class QSharedDataPointerExpander(AbstractExpander):
         # code += value_h.declare_type_helpers("value", "return 0;")
         # code += value_h.cxx_to_py("value", True, "cxxvalue")
         code += """    typedef {cxx_t} CxxvalueT;
-    const sipTypeDef *genvalueT = sipType_{cxx_t};
+    const sipTypeDef *genvalueT = {sip_t};
 
     // Convert the value from C++.
     CxxvalueT *cxxvalue = sipCpp->data();
@@ -1077,7 +1077,7 @@ class QSharedDataPointerExpander(AbstractExpander):
 %End
 """
         code = code.replace("{qt_type}", qt_type)
-        code = code.replace("{value_t}", value_h.cxx_t)
+        code = code.replace("{sip_t}", value_h.sip_t)
         return code
 
 
