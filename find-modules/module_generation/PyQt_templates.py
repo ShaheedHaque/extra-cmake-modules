@@ -594,8 +594,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
         for i, parameter_h in enumerate(parameters):
             if parameter_h.is_qshared:
                 code += """    typedef """ + base_type(p_types[i]) + """ Cxxa0T;
-    Cxxa0T *cxxa0;
-    cxxa0 = new Cxxa0T(a0);
+    Cxxa0T *cxxa0 = new Cxxa0T(a0);
 """.replace("a0", "a{}".format(i))
                 sip_parameters.append("cxxa{}".format(i))
                 sip_stars.append("*cxxa{}".format(i))
@@ -627,8 +626,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
             elif function.access_specifier == AccessSpecifier.PROTECTED:
                 if function.is_virtual_method():
                     callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
-    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({})
-                           : sipCpp->{fn}({});
+    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
 #else
     cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{});
 #endif
@@ -637,7 +635,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
                         callsite = callsite.replace("{sep}", ", ", 1)
                     else:
                         callsite = callsite.replace("{sep}", "", 1)
-                    callsite = callsite.replace("{qn}", fqn(container, "").replace("::", "_"))
+                    callsite = callsite.replace("{qn}", fqn(container, ""))
                 else:
                     callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
     cxxvalue = sipCpp->{fn}({});
@@ -646,7 +644,13 @@ class FunctionWithTemplatesExpander(AbstractExpander):
 #endif
 """
             else:
-                callsite = """    cxxvalue = sipCpp->{fn}({});
+
+                if function.is_virtual_method():
+                    callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
+"""
+                    callsite = callsite.replace("{qn}", fqn(container, ""))
+                else:
+                    callsite = """    cxxvalue = sipCpp->{fn}({});
 """
             callsite = callsite.replace("{fn}", fn)
             callsite = callsite.replace("{}", ", ".join(sip_stars))
