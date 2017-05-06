@@ -730,21 +730,11 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 """
     is_complex = converter.category in [HeldAs.POINTER, HeldAs.OBJECT]
     is_static = sip["decl"].startswith("static ")
-    has_parent = is_complex and not is_static
-    if has_parent:
-        code += """    sipPy = sipGetReference(sipPySelf, -1);
-    if (sipPy) {
-        return sipPy;
-    }
-"""
     if is_static:
         cxx = fqn(container, "{name}")
     else:
         cxx = "sipCpp->{name}"
     code += converter.cxx_to_py("value", False, "{cxx}")
-    if has_parent:
-        code += """    sipKeepReference(sipPySelf, -1, value);
-"""
     code += """    sipPy = (sipErr || PyErr_Occurred()) ? NULL : value;
 %End
 

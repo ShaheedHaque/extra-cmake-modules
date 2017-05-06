@@ -586,6 +586,9 @@ class FunctionWithTemplatesExpander(AbstractExpander):
         code = """%MethodCode
 {}
 """.format(trace)
+        if function.is_pure_virtual_method():
+            code += """    bool sipSelfWasArg = false;
+"""
         #
         # Generate parameter list, wrapping shared data as needed.
         #
@@ -644,7 +647,6 @@ class FunctionWithTemplatesExpander(AbstractExpander):
 #endif
 """
             else:
-
                 if function.is_virtual_method():
                     callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
 """

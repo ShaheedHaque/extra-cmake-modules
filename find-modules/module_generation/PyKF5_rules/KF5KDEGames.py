@@ -135,6 +135,14 @@ def modulecode():
                 class QMatrix /External/;
                 """
         },
+        "kgamemod.sip": {
+            "code":
+                """
+                %ModuleHeaderCode
+                class KConfig;
+                %End
+                """
+        },
         "KDEmod.sip": {
             "code": module_remove_redundant
         }

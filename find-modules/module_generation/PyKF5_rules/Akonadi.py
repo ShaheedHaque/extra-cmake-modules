@@ -436,29 +436,20 @@ def modulecode():
             // Solve the problem that the following are not part of the public API:
             //
             //  - Akonadi::Protocol::Command
-            //  - Akonadi::ServerManager
+            //  - Akonadi::ServerManagerPrivate
             //
-            namespace Akonadi {
-                namespace Protocol {
-                    class Command {
-                    public:
-                    };
-                };
-                class ServerManagerPrivate {
-                public:
-                };
-            };
+            class Akonadi::Protocol::Command /External/;
+            class Akonadi::ServerManagerPrivate /External/;
             %ModuleHeaderCode
-            namespace Akonadi {
-                namespace Protocol {
-                    class Command {
-                    public:
-                    };
-                };
-                class ServerManagerPrivate {
-                public:
-                };
-            };
+            #include <akonadi/private/protocol_p.h>
+            %End
+            """
+        },
+    "AkonadiXmlmod.sip": {
+        "code":
+            """
+            %ModuleHeaderCode
+            #include <akonadi/private/protocol_p.h>
             %End
             """
         },
