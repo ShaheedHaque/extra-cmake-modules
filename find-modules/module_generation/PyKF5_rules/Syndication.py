@@ -25,6 +25,7 @@ SIP binding customisation for PyKF5.Syndication. This modules describes:
 import os
 
 import rules_engine
+import PyQt_templates
 
 
 def _function_fixup_template_params(container, function, sip, matcher):
@@ -44,6 +45,11 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
     pointer = pointer.capitalize() + "Ptr"
     if pointer != typedef.spelling:
         rules_engine.typedef_discard(container, typedef, sip, matcher)
+    else:
+        #
+        # This is the one we want. Keep it, and generate its %MappedType.
+        #
+        PyQt_templates.qshareddatapointer_typecode(container, typedef, sip, matcher)
 
 
 def function_rules():
@@ -74,12 +80,14 @@ def modulecode():
                 """
                 class KIO::Job /External/;
                 class KJob /External/;
-                class QDomDocument /External/;
-                class QDomElement /External/;
+                %Import(name=QtXml/QtXmlmod.sip)
                 class Syndication::Atom::EntryDocument /External/;
                 class Syndication::Atom::FeedDocument /External/;
+                class Syndication::Atom::Entry /External/;
                 class Syndication::RDF::Document /External/;
+                class Syndication::RDF::Item /External/;
                 class Syndication::RSS2::Document /External/;
+                class Syndication::RSS2::Item /External/;
                 """
         },
     }

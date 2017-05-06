@@ -1308,3 +1308,11 @@ def qshareddatapointer_parameter(container, function, parameter, sip, matcher):
     """
     handler = QSharedDataPointerExpander()
     handler.expand_parameter(qshareddatapointer_parameter, parameter, sip)
+
+
+def qshareddatapointer_typecode(container, typedef, sip, matcher):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for a QSharedDataPointer<>.
+    """
+    handler = QSharedDataPointerExpander()
+    handler.expand_typedef(qshareddatapointer_parameter, typedef, sip)
