@@ -62,11 +62,9 @@ RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
 RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>")
 
 
-class FunctionTemplatedParameterHelper(HeldAs):
+class QSharedHelper(HeldAs):
     """
-    Automatic handling for templated function parameter types.
-    Built-in knowledge of Q(Explicitly|)Shared(Data|)Pointer templates "unwraps"
-    uses of these types in the signature.
+    Automatic handling for Q(Explicitly|)Shared(Data|)Pointer templates.
     """
     def __init__(self, cxx_t, clang_kind, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
@@ -74,11 +72,26 @@ class FunctionTemplatedParameterHelper(HeldAs):
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]
             cxx_t = template_args[0] + " *"
-        super(FunctionTemplatedParameterHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        super(QSharedHelper, self).__init__(cxx_t, clang_kind, manual_t)
         self.is_qshared = is_qshared
 
+
+class FunctionTemplatedParameterHelper(QSharedHelper):
+    """
+    Automatic handling for templated function parameter types.
+    """
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+        if self.is_qshared:
+            cxx_i += ".data()"
+        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx_i)
+
+
+class FunctionTemplatedReturnHelper(QSharedHelper):
+    """
+    Automatic handling for templated function return types.
+    """
     def declare_type_helpers(self, name, error, need_string=False):
-        text = super(FunctionTemplatedParameterHelper, self).declare_type_helpers(name, error, need_string)
+        text = super(FunctionTemplatedReturnHelper, self).declare_type_helpers(name, error, need_string)
         lines = text.split("\n")
         lines = [l for l in lines if not l.endswith("Cxx{}T;".format(name))]
         return "\n".join(lines)
@@ -86,7 +99,7 @@ class FunctionTemplatedParameterHelper(HeldAs):
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
         if self.is_qshared:
             cxx_i += ".data()"
-        return super(FunctionTemplatedParameterHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+        return super(FunctionTemplatedReturnHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
 
     cxx_to_py_templates = {
         HeldAs.INTEGER:
@@ -592,17 +605,14 @@ class FunctionWithTemplatesExpander(AbstractExpander):
         #
         # Generate parameter list, wrapping shared data as needed.
         #
-        sip_parameters = []
         sip_stars = []
         for i, parameter_h in enumerate(parameters):
             if parameter_h.is_qshared:
                 code += """    typedef """ + base_type(p_types[i]) + """ Cxxa0T;
     Cxxa0T *cxxa0 = new Cxxa0T(a0);
 """.replace("a0", "a{}".format(i))
-                sip_parameters.append("cxxa{}".format(i))
                 sip_stars.append("*cxxa{}".format(i))
             else:
-                sip_parameters.append("a{}".format(i))
                 if parameter_h.category == HeldAs.OBJECT or parameter_h.cxx_t.endswith("&"):
                     sip_stars.append("*a{}".format(i))
                 elif p_outs[i]:
@@ -671,32 +681,58 @@ class FunctionWithTemplatesExpander(AbstractExpander):
 %End
 """
         if function.is_virtual_method():
+            code += """%VirtualCatcherCode
+{}""".format(trace)
+            #
+            # Generate parameter list, unwrapping shared data as needed.
+            #
+            sip_stars = []
+            sip_encodings = []
+            for i, parameter_h in enumerate(parameters):
+                p = "a{}".format(i)
+                code += parameter_h.declare_type_helpers(p, "sipIsErr = 1;")
+                code += parameter_h.cxx_to_py(p, False, p)
+
+                #
+                # Encoding map.
+                #
+                _encoding_map = {
+                    HeldAs.BYTE: "c",
+                    HeldAs.INTEGER: "n",
+                    HeldAs.FLOAT: "d",
+                    HeldAs.POINTER: "N",
+                    HeldAs.OBJECT: "N",
+                }
+                _cast_map = {
+                    HeldAs.BYTE: "(char)cxx{}",
+                    HeldAs.INTEGER: "(long long)cxx{}",
+                    HeldAs.FLOAT: "(double)cxx{}",
+                    HeldAs.POINTER: "cxx{}, gen{}T, NULL",
+                    HeldAs.OBJECT: "&cxx{}, gen{}T, NULL",
+                }
+                e = _encoding_map[parameter_h.category]
+                v = _cast_map[parameter_h.category].format(p, p)
+                sip_stars.append(v)
+                sip_encodings.append(e)
+            sip_stars = ['"' + "".join(sip_encodings) + '"'] + sip_stars
+            code += """
+    PyObject *result = sipCallMethod(&sipIsErr, sipMethod, {}, NULL);
+    if (result == NULL) {{
+        sipIsErr = 1;
+
+        // TBD: Free all the pyobjects.
+    }}""".format(", ".join(sip_stars))
             if result.category == HeldAs.VOID:
-                code += """%VirtualCatcherCode
-{}
-        PyObject *result = PyObject_CallFunctionObjArgs(sipMethod, {}NULL);
-        if (result == NULL) {{
-            sipIsErr = 1;
-
-            // TBD: Free all the pyobjects.
-        }}
-%End
-""".format(trace, "".join([p + ", " for p in sip_parameters]))
+                pass
             else:
-                code += """%VirtualCatcherCode
-{}
-        PyObject *result = PyObject_CallFunctionObjArgs(sipMethod, {}NULL);
-        if (result == NULL) {{
-            sipIsErr = 1;
-
-            // TBD: Free all the pyobjects.
-        }} else {{
-            // Convert the result to the C++ type. TBD: Figure out type encodings?
-            sipParseResult(&sipIsErr, sipMethod, result, "i", &sipRes);
-            Py_DECREF(result);
-        }}
+                code += """ else {
+        // Convert the result to the C++ type. TBD: Figure out type encodings?
+        sipParseResult(&sipIsErr, sipMethod, result, "i", &sipRes);
+        Py_DECREF(result);
+    }"""
+            code += """
 %End
-""".format(trace, "".join([p + ", " for p in sip_parameters]))
+"""
         return code
 
     def expand_function(self, fn, cursor, sip):
@@ -719,7 +755,7 @@ class FunctionWithTemplatesExpander(AbstractExpander):
         #
         # Deal with function result.
         #
-        result_h = FunctionTemplatedParameterHelper(sip["fn_result"], cursor.result_type.get_canonical().kind)
+        result_h = FunctionTemplatedReturnHelper(sip["fn_result"], cursor.result_type.get_canonical().kind)
         if cursor.kind != CursorKind.CONSTRUCTOR and result_h.category == HeldAs.OBJECT:
             sip["fn_result"] += " *"
         if result_h.is_qshared:
