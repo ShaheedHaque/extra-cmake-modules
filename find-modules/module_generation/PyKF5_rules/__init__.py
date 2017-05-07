@@ -41,7 +41,7 @@ from clang.cindex import AccessSpecifier
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import rules_engine
-from PyQt_templates import fn_uses_qt_template, typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
+from PyQt_templates import function_uses_templates, typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
     qpair_parameter, qshareddatapointer_parameter
 import common_methodcode
 import common_modulecode
@@ -62,6 +62,7 @@ import KF5KDEGames
 import KGeoMap
 import kio
 import KIOCore
+import KItemViews
 import KI18n
 import KJobWidgets
 import KLDAP
@@ -77,6 +78,9 @@ import KXmlGui
 import MessageCore
 import Sonnet
 import Syndication
+
+
+RE_QSHAREDPTR = "(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -183,8 +187,8 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", "Q[A-Za-z0-9_]+<.*>", ".*", fn_uses_qt_template],
-        [".*", ".*", ".*", ".*", ".*Q[A-Za-z0-9_]+<.*>.*", fn_uses_qt_template],
+        [".*", ".*", ".*", RE_QSHAREDPTR, ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*", ".*" + RE_QSHAREDPTR + ".*", function_uses_templates],
         #
         # This class has inline implementations in the header file.
         #
@@ -235,7 +239,7 @@ def parameter_rules():
         # Create %MappedTypes.
         #
         [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", qpair_parameter],
-        [".*", ".*", ".*", "(const )?Q(Explicitly|)SharedDataPointer<.*>.*", ".*", qshareddatapointer_parameter],
+        [".*", ".*", ".*", RE_QSHAREDPTR + ".*", ".*", qshareddatapointer_parameter],
     ]
 
 
@@ -373,6 +377,8 @@ class RuleSet(rules_engine.RuleSet):
             typedef_rules=KIOCore.typedef_rules,
             modulecode=KIOCore.modulecode,
             typecode=KIOCore.typecode)
+        self.add_rules(
+            function_rules=KItemViews.function_rules)
         self.add_rules(
             variable_rules=kio.variable_rules)
         self.add_rules(

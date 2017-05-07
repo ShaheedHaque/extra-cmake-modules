@@ -62,6 +62,27 @@ def _variable_array_to_star(container, variable, sip, matcher):
     builtin_rules.variable_rewrite_static(container, variable, sip, matcher)
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["mapped_types"]["QSharedPointer<type-parameter-0-0>"]
+    del sip["mapped_types"]["QSharedPointer<type-parameter-1-0>"]
+    sip["code"] = """
+//
+// Solve the problem that the following are not part of the public API:
+//
+//  - Akonadi::Protocol::Command
+//  - Akonadi::ServerManagerPrivate
+//
+class Akonadi::Protocol::Command /External/;
+class Akonadi::ServerManagerPrivate /External/;
+%ModuleHeaderCode
+#include <akonadi/private/protocol_p.h>
+%End
+"""
+
+
 _akonadi_qobject_ctscc = """
 %ConvertToSubClassCode
     // CTSCC for subclasses of 'QObject'
@@ -430,20 +451,7 @@ def typecode():
 def modulecode():
     return {
     "AkonadiCoremod.sip": {
-        "code":
-            """
-            //
-            // Solve the problem that the following are not part of the public API:
-            //
-            //  - Akonadi::Protocol::Command
-            //  - Akonadi::ServerManagerPrivate
-            //
-            class Akonadi::Protocol::Command /External/;
-            class Akonadi::ServerManagerPrivate /External/;
-            %ModuleHeaderCode
-            #include <akonadi/private/protocol_p.h>
-            %End
-            """
+        "code": module_fix_mapped_types,
         },
     "AkonadiXmlmod.sip": {
         "code":

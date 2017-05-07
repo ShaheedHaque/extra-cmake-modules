@@ -38,9 +38,8 @@ import gettext
 import logging
 import re
 
-from clang.cindex import CursorKind, TypeKind
+from clang.cindex import AccessSpecifier, CursorKind, TypeKind
 from sip_generator import trace_generated_for
-
 
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
@@ -53,16 +52,8 @@ FIXED_ARRAY_RE = re.compile(".*(\[[^]]+\])+")
 VARIABLE_ARRAY_RE = re.compile(".*(\[\])+")
 MAPPED_TYPE_RE = re.compile(".*<.*")
 ANNOTATIONS_RE = re.compile(" /.*/")
-
-
-def make_cxx_declaration(sip):
-    """
-    Initialise a C++ declaration.
-
-    :param sip:                         The sip to modify.
-    """
-    sip["cxx_parameters"] = [ANNOTATIONS_RE.sub("", p) for p in sip["parameters"]]
-    sip["cxx_fn_result"] = sip["fn_result"]
+RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
+RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
 
 
 def fqn(container, child):
@@ -238,7 +229,7 @@ class HeldAs(object):
             return HeldAs.INTEGER
         return HeldAs.OBJECT
 
-    def declare_type_helpers(self, name, error, need_string=False):
+    def declare_type_helpers(self, name, error, need_string=False, need_cxx_t=True):
         """
         Make it easier to track changes in generated output.
 
@@ -249,14 +240,16 @@ class HeldAs(object):
         if self.is_mapped_type or need_string:
             code += """    const char *cxx{name}S = "{cxx_t}";
 """
+        if need_cxx_t:
+            code += """    typedef {cxx_t} Cxx{name}T;
+"""
         if self.category in [HeldAs.POINTER, HeldAs.OBJECT]:
             #
             # If the sipTypeDef needs a run-time lookup using sipFindMappedType, can convert that into a one-off cost
             # using a static.
             #
             if self.is_mapped_type:
-                code += """    typedef {cxx_t} Cxx{name}T;
-    static const sipTypeDef *gen{name}T = NULL;
+                code += """    static const sipTypeDef *gen{name}T = NULL;
     if (gen{name}T == NULL) {
         gen{name}T = {sip_t};
         if (gen{name}T == NULL) {
@@ -266,11 +259,7 @@ class HeldAs(object):
     }
 """
             else:
-                code += """    typedef {cxx_t} Cxx{name}T;
-    const sipTypeDef *gen{name}T = {sip_t};
-"""
-        else:
-            code += """    typedef {cxx_t} Cxx{name}T;
+                code += """    const sipTypeDef *gen{name}T = {sip_t};
 """
         code = code.replace("{sip_t}", self.sip_t)
         code = code.replace("{name}", name)
@@ -391,6 +380,308 @@ class RewriteMappedHelper(HeldAs):
         return self.py_to_cxx_templates[self.category]
 
 
+class FunctionParameterHelper(HeldAs):
+    """
+    Function parameter helper base class for FunctionWithTemplatesExpander.
+    Use subclasses to customise the output from FunctionWithTemplatesExpander.
+    """
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx_i)
+
+    def cxx_to_cxx(self, aN, original_type, is_out_paramter):
+        code = ""
+        if self.category == HeldAs.OBJECT or self.cxx_t.endswith("&"):
+            aN = "*" + aN
+        elif is_out_paramter:
+            aN = "&" + aN
+        else:
+            aN = aN
+        return code, aN
+
+    def py_parameter(self, type, name, default, annotations):
+        if not self.cxx_t.endswith(("*", "&", ">")):
+            name = " " + name
+        if default:
+            return "{}{}{} = {}".format(self.cxx_t, name, annotations, default)
+        else:
+            return "{}{}{}".format(self.cxx_t, name, annotations)
+
+
+class FunctionReturnHelper(HeldAs):
+    """
+    Function return value helper base class for FunctionWithTemplatesExpander.
+    Use subclasses to customise the output from FunctionWithTemplatesExpander.
+    """
+    def declare_type_helpers(self, name, error):
+        return super(FunctionReturnHelper, self).declare_type_helpers(name, error, need_cxx_t=False)
+
+    cxx_to_py_templates = {
+        HeldAs.INTEGER:
+            """    {name} = {cxx_i};
+#if PY_MAJOR_VERSION >= 3
+    return PyLong_FromLong((long){name});
+#else
+    return PyInt_FromLong((long){name});
+#endif
+""",
+        HeldAs.FLOAT:
+            """    {name} = {cxx_i};
+    return PyFloat_FromDouble((double){name});
+""",
+        HeldAs.POINTER:
+            """    {name} = {cxx_i};
+    return sipConvertFromType({name}, genresultT, {transfer});
+""",
+        HeldAs.OBJECT:
+            """    {name} = &{cxx_i};
+    return sipConvertFromType({name}, genresultT, {transfer});
+""",
+    }
+
+    def cxx_to_py_template(self):
+        return self.cxx_to_py_templates[self.category]
+
+    def py_fn_result(self, is_constructor):
+        if not is_constructor and self.category == HeldAs.OBJECT:
+            return self.cxx_t + " *"
+        return self.cxx_t
+
+
+class FunctionWithTemplatesExpander(object):
+    """
+    Automatic handling for functions with templated parameters and/or return types.
+    """
+    def __init__(self, parameter_helper, return_helper):
+        """
+
+        :param parameter_helper:            (Subclass of) FunctionParameterHelper.
+        :param return_helper:               (Subclass of) FunctionReturnHelper.
+        """
+        super(FunctionWithTemplatesExpander, self).__init__()
+        self.parameter_helper = parameter_helper
+        self.return_helper = return_helper
+
+    def expand_template(self, function, entries):
+        """
+        :param function:        The CursorKind for the function.
+        :param entries:         Dictionary describing the C++ template. Expected keys:
+
+                                    result          Is the return type integral, pointer or object?
+                                    parameters      Is the parameter integral, pointer or object?
+        """
+        def in_class(item):
+            parent = item.semantic_parent
+            while parent and parent.kind != CursorKind.CLASS_DECL:
+                parent = parent.semantic_parent
+            return True if parent else False
+
+        result = entries["result"]
+        parameters = entries["parameters"]
+        p_types = entries["p_types"]
+        p_outs = entries["p_outs"]
+        trace = entries["trace"]
+        container = function.semantic_parent
+        code = """%MethodCode
+{}
+""".format(trace)
+        if function.is_pure_virtual_method():
+            code += """    bool sipSelfWasArg = false;
+"""
+        #
+        # Generate parameter list, wrapping shared data as needed.
+        #
+        sip_stars = []
+        for i, parameter_h in enumerate(parameters):
+            tmp, p = parameter_h.cxx_to_cxx("a{}".format(i), p_types[i], p_outs[i])
+            code += tmp
+            sip_stars.append(p)
+        #
+        # Generate function call, unwrapping shared data result as needed.
+        #
+        if function.kind == CursorKind.CONSTRUCTOR:
+            fn = fqn(container, "")[:-2].replace("::", "_")
+            callsite = """    Py_BEGIN_ALLOW_THREADS
+    sipCpp = new sip{fn}({});
+    Py_END_ALLOW_THREADS
+"""
+            callsite = callsite.replace("{fn}", fn)
+            code += callsite.format(", ".join(sip_stars))
+        else:
+            fn = function.spelling
+            if function.is_static_method() or not in_class(function):
+                fn = fqn(container, fn)
+                callsite = """    cxxvalue = {fn}({});
+"""
+            elif function.access_specifier == AccessSpecifier.PROTECTED:
+                if function.is_virtual_method():
+                    callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
+    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
+#else
+    cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{});
+#endif
+"""
+                    if parameters:
+                        callsite = callsite.replace("{sep}", ", ", 1)
+                    else:
+                        callsite = callsite.replace("{sep}", "", 1)
+                    callsite = callsite.replace("{qn}", fqn(container, ""))
+                else:
+                    callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
+    cxxvalue = sipCpp->{fn}({});
+#else
+    cxxvalue = sipCpp->sipProtect_{fn}({});
+#endif
+"""
+            else:
+                if function.is_virtual_method():
+                    callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
+"""
+                    callsite = callsite.replace("{qn}", fqn(container, ""))
+                else:
+                    callsite = """    cxxvalue = sipCpp->{fn}({});
+"""
+            callsite = callsite.replace("{fn}", fn)
+            callsite = callsite.replace("{}", ", ".join(sip_stars))
+            callsite = """    Py_BEGIN_ALLOW_THREADS
+""" + callsite + """    Py_END_ALLOW_THREADS
+"""
+            if result.category == HeldAs.VOID:
+                code += callsite.replace("cxxvalue = ", "")
+            else:
+                code += """    typedef {} CxxvalueT;
+    CxxvalueT cxxvalue;
+""".format(entries["cxx_fn_result"]) + callsite
+                code += result.declare_type_helpers("result", "return 0;")
+                code += result.cxx_to_py("sipRes", False, "cxxvalue")
+        code += """
+%End
+"""
+        if function.is_virtual_method():
+            code += """%VirtualCatcherCode
+{}""".format(trace)
+            #
+            # Generate parameter list, unwrapping shared data as needed.
+            #
+            sip_stars = []
+            sip_encodings = []
+            for i, parameter_h in enumerate(parameters):
+                p = "a{}".format(i)
+                code += parameter_h.declare_type_helpers(p, "sipIsErr = 1;")
+                code += parameter_h.cxx_to_py(p, False, p)
+
+                #
+                # Encoding map.
+                #
+                _encoding_map = {
+                    HeldAs.BYTE: "c",
+                    HeldAs.INTEGER: "n",
+                    HeldAs.FLOAT: "d",
+                    HeldAs.POINTER: "N",
+                    HeldAs.OBJECT: "N",
+                }
+                _cast_map = {
+                    HeldAs.BYTE: "(char)cxx{}",
+                    HeldAs.INTEGER: "(long long)cxx{}",
+                    HeldAs.FLOAT: "(double)cxx{}",
+                    HeldAs.POINTER: "cxx{}, gen{}T, NULL",
+                    HeldAs.OBJECT: "&cxx{}, gen{}T, NULL",
+                }
+                e = _encoding_map[parameter_h.category]
+                v = _cast_map[parameter_h.category].format(p, p)
+                sip_stars.append(v)
+                sip_encodings.append(e)
+            sip_stars = ['"' + "".join(sip_encodings) + '"'] + sip_stars
+            code += """
+    PyObject *result = sipCallMethod(&sipIsErr, sipMethod, {}, NULL);
+    if (result == NULL) {{
+        sipIsErr = 1;
+
+        // TBD: Free all the pyobjects.
+    }}""".format(", ".join(sip_stars))
+            if result.category == HeldAs.VOID:
+                pass
+            else:
+                code += """ else {
+        // Convert the result to the C++ type. TBD: Figure out type encodings?
+        sipParseResult(&sipIsErr, sipMethod, result, "i", &sipRes);
+        Py_DECREF(result);
+    }"""
+            code += """
+%End
+"""
+        return code
+
+    def analyse_function(self, fn, cursor, sip):
+        """
+        Analyse a function, and return the results via the sip.
+
+        :param fn:              The caller asking for the template expansion.
+        :param cursor:          The CursorKind for whom the expansion is being performed.
+                                This is the function whose parameters and/or return type
+                                uses templates.
+        :param sip:             The sip. Expected keys:
+
+                                    decl            Optional. Name of the function.
+                                    foo             dd
+        """
+        #
+        # Initialise a C++ declaration.
+        #
+        annotations = []
+        sip["cxx_parameters"] = []
+        for p in sip["parameters"]:
+            a = ANNOTATIONS_RE.search(p)
+            if a:
+                a = a.group()
+                p = ANNOTATIONS_RE.sub("", p)
+            else:
+                a = ""
+            annotations.append(a)
+            sip["cxx_parameters"].append(p)
+        sip["cxx_fn_result"] = sip["fn_result"]
+        #
+        # Deal with function result.
+        #
+        result_h = self.return_helper(sip["fn_result"], cursor.result_type.get_canonical().kind)
+        sip["fn_result"] = result_h.py_fn_result(cursor.kind == CursorKind.CONSTRUCTOR)
+        #
+        # Now the function parameters.
+        #
+        clang_kinds = [c.type.get_canonical() for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
+        parameters = []
+        p_types = []
+        p_outs = []
+        #
+        # Generate parameter list, unwrapping shared data as needed.
+        #
+        for i, p in enumerate(sip["cxx_parameters"]):
+            #
+            # Get to type by removing any default value then stripping the name.
+            #
+            lhs, rhs = RE_PARAMETER_VALUE.split(p + "=")[:2]
+            t, v = RE_PARAMETER_TYPE.match(lhs).groups()
+            t = t.strip()
+            parameter_h = self.parameter_helper(t, clang_kinds[i].kind)
+            sip["parameters"][i] = parameter_h.py_parameter(t, v, rhs, annotations[i])
+            parameters.append(parameter_h)
+            p_types.append(t)
+            p_outs.append("Out" in annotations[i])
+        #
+        # Run the template handler...
+        #
+        trace = trace_generated_for(cursor, fn, [(result_h.cxx_t, result_h.category),
+                                                 [(p.cxx_t, p.category) for p in parameters]])
+        entries = {
+            "result": result_h,
+            "parameters": parameters,
+            "p_types": p_types,
+            "p_outs": p_outs,
+            "trace": trace,
+            "cxx_fn_result": sip["cxx_fn_result"],
+        }
+        return entries
+
+
 def container_rewrite_exception(container, sip, matcher):
     """
     Convert a class which is an exception into a %Exception.
@@ -445,6 +736,25 @@ def container_rewrite_std_exception(container, sip, matcher):
 %End
 }};
 """.format(std_exception, py_name, sip_name)
+
+
+def function_uses_templates(container, function, sip, matcher):
+    """
+    A FunctionDb-compatible function used to create %MethodCode expansions
+    for C++ functions with templated return types and/or parameters.
+    """
+    #
+    # No generated code for signals, SIP does not support that.
+    #
+    if sip["is_signal"]:
+        return
+    template = sip.get("template", FunctionWithTemplatesExpander)
+    parameter_helper = sip.get("parameter_helper", FunctionParameterHelper)
+    return_helper = sip.get("return_helper", FunctionReturnHelper)
+    template = template(parameter_helper, return_helper)
+    entries = template.analyse_function(function_uses_templates, function, sip)
+    code = template.expand_template(function, entries)
+    sip["code"] = code
 
 
 def variable_rewrite_array_fixed(container, variable, sip, matcher):
@@ -779,6 +1089,16 @@ def container_rules():
         # Other exceptions.
         #
         [".*", ".*", ".*", ".*", ".*Exception", container_rewrite_exception],
+    ]
+
+
+def function_rules():
+    return [
+        #
+        # Handle functions with templated return types and/or templated parameters.
+        #
+        [".*", ".*", ".*", "[A-Za-z0-9_]+<.*>", ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*", ".*[A-Za-z0-9_]+<.*>.*", function_uses_templates],
     ]
 
 

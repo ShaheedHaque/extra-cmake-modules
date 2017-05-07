@@ -1269,7 +1269,9 @@ class RuleSet(object):
         # Built-in rules go first.
         #
         self.add_rules(
-            container_rules=builtin_rules.container_rules, variable_rules=builtin_rules.variable_rules)
+            container_rules=builtin_rules.container_rules,
+            function_rules=builtin_rules.function_rules,
+            variable_rules=builtin_rules.variable_rules)
         #
         # User supplied rules.
         #

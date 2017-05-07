@@ -44,10 +44,10 @@ import gettext
 import os
 import re
 
-from clang.cindex import AccessSpecifier, CursorKind, TypeKind
+from clang.cindex import CursorKind, TypeKind
 
 import builtin_rules
-from builtin_rules import HeldAs, base_type, fqn, make_cxx_declaration, parse_template
+from builtin_rules import HeldAs, base_type, parse_template
 from sip_generator import trace_generated_for
 
 gettext.install(os.path.basename(__file__))
@@ -57,14 +57,13 @@ logger = logging.getLogger(__name__)
 _ = _
 
 
-RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
-RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
 RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>")
 
 
-class QSharedHelper(HeldAs):
+class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
     """
-    Automatic handling for Q(Explicitly|)Shared(Data|)Pointer templates.
+    Automatic handling for templated function parameter types with auto-unwrapping of
+    Q(Explicitly|)Shared(Data|)Pointer templates.
     """
     def __init__(self, cxx_t, clang_kind, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
@@ -72,60 +71,55 @@ class QSharedHelper(HeldAs):
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]
             cxx_t = template_args[0] + " *"
-        super(QSharedHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        super(FunctionParameterHelper, self).__init__(cxx_t, clang_kind, manual_t)
         self.is_qshared = is_qshared
 
-
-class FunctionTemplatedParameterHelper(QSharedHelper):
-    """
-    Automatic handling for templated function parameter types.
-    """
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
         if self.is_qshared:
             cxx_i += ".data()"
-        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx_i)
+        return super(FunctionParameterHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def cxx_to_cxx(self, aN, original_type, is_out_paramter):
+        if self.is_qshared:
+            code = """    typedef """ + base_type(original_type) + """ Cxx{aN}T;
+    Cxx{aN}T *cxx{aN} = new Cxx{aN}T({aN});
+""".replace("{aN}", aN)
+            aN = "*cxx" + aN
+            return code, aN
+        return super(FunctionParameterHelper, self).cxx_to_cxx(aN, original_type, is_out_paramter)
+
+    def py_parameter(self, type, name, default, annotations):
+        if self.is_qshared and default:
+            #
+            # TODO: We really just want default.data() as the default value, but SIP gets confused.
+            #
+            default = "NULL"
+        return super(FunctionParameterHelper, self).py_parameter(type, name, default, annotations)
 
 
-class FunctionTemplatedReturnHelper(QSharedHelper):
+class FunctionReturnHelper(builtin_rules.FunctionReturnHelper):
     """
-    Automatic handling for templated function return types.
+    Automatic handling for templated function return types with auto-unwrapping of
+    Q(Explicitly|)Shared(Data|)Pointer templates.
     """
-    def declare_type_helpers(self, name, error, need_string=False):
-        text = super(FunctionTemplatedReturnHelper, self).declare_type_helpers(name, error, need_string)
-        lines = text.split("\n")
-        lines = [l for l in lines if not l.endswith("Cxx{}T;".format(name))]
-        return "\n".join(lines)
+    def __init__(self, cxx_t, clang_kind, manual_t=None):
+        is_qshared = RE_QSHAREDPTR.match(cxx_t)
+        if is_qshared:
+            template_type = is_qshared.group(2)
+            template_args = [is_qshared.group(5)]
+            cxx_t = template_args[0] + " *"
+        super(FunctionReturnHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        self.is_qshared = is_qshared
 
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
         if self.is_qshared:
             cxx_i += ".data()"
-        return super(FunctionTemplatedReturnHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+        return super(FunctionReturnHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
 
-    cxx_to_py_templates = {
-        HeldAs.INTEGER:
-            """    {name} = {cxx_i};
-#if PY_MAJOR_VERSION >= 3
-    return PyLong_FromLong((long){name});
-#else
-    return PyInt_FromLong((long){name});
-#endif
-""",
-        HeldAs.FLOAT:
-            """    {name} = {cxx_i};
-    return PyFloat_FromDouble((double){name});
-""",
-        HeldAs.POINTER:
-            """    {name} = {cxx_i};
-    return sipConvertFromType({name}, genresultT, {transfer});
-""",
-        HeldAs.OBJECT:
-            """    {name} = &{cxx_i};
-    return sipConvertFromType({name}, genresultT, {transfer});
-""",
-    }
-
-    def cxx_to_py_template(self):
-        return self.cxx_to_py_templates[self.category]
+    def py_fn_result(self, is_constructor):
+        if self.is_qshared:
+            return self.cxx_t
+        return super(FunctionReturnHelper, self).py_fn_result(is_constructor)
 
 
 class GenerateMappedHelper(HeldAs):
@@ -567,245 +561,6 @@ class DictExpander(AbstractExpander):
         return code
 
 
-class FunctionWithTemplatesExpander(AbstractExpander):
-    """
-    Automatic handling for functions with templated paramters and/or return types.
-    Built-in knowledge of Q(Explicitly|)Shared(Data|)Pointer templates "unwraps"
-    uses of these types in the signature.
-    """
-    def __init__(self):
-        super(FunctionWithTemplatesExpander, self).__init__(None)
-
-    def expand_generic(self, function, entries):
-        """
-        :param function:        The CursorKind for the function.
-        :param entries:         Dictionary describing the C++ template. Expected keys:
-
-                                    result          Is the return type integral, pointer or object?
-                                    parameters      Is the parameter integral, pointer or object?
-        """
-        def in_class(item):
-            parent = item.semantic_parent
-            while parent and parent.kind != CursorKind.CLASS_DECL:
-                parent = parent.semantic_parent
-            return True if parent else False
-
-        result = entries["result"]
-        parameters = entries["parameters"]
-        p_types = entries["p_types"]
-        p_outs = entries["p_outs"]
-        trace = entries["trace"]
-        container = function.semantic_parent
-        code = """%MethodCode
-{}
-""".format(trace)
-        if function.is_pure_virtual_method():
-            code += """    bool sipSelfWasArg = false;
-"""
-        #
-        # Generate parameter list, wrapping shared data as needed.
-        #
-        sip_stars = []
-        for i, parameter_h in enumerate(parameters):
-            if parameter_h.is_qshared:
-                code += """    typedef """ + base_type(p_types[i]) + """ Cxxa0T;
-    Cxxa0T *cxxa0 = new Cxxa0T(a0);
-""".replace("a0", "a{}".format(i))
-                sip_stars.append("*cxxa{}".format(i))
-            else:
-                if parameter_h.category == HeldAs.OBJECT or parameter_h.cxx_t.endswith("&"):
-                    sip_stars.append("*a{}".format(i))
-                elif p_outs[i]:
-                    sip_stars.append("&a{}".format(i))
-                else:
-                    sip_stars.append("a{}".format(i))
-        #
-        # Generate function call, unwrapping shared data result as needed.
-        #
-        if function.kind == CursorKind.CONSTRUCTOR:
-            fn = fqn(container, "")[:-2].replace("::", "_")
-            callsite = """    Py_BEGIN_ALLOW_THREADS
-    sipCpp = new sip{fn}({});
-    Py_END_ALLOW_THREADS
-"""
-            callsite = callsite.replace("{fn}", fn)
-            code += callsite.format(", ".join(sip_stars))
-        else:
-            fn = function.spelling
-            if function.is_static_method() or not in_class(function):
-                fn = fqn(container, fn)
-                callsite = """    cxxvalue = {fn}({});
-"""
-            elif function.access_specifier == AccessSpecifier.PROTECTED:
-                if function.is_virtual_method():
-                    callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
-    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
-#else
-    cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{});
-#endif
-"""
-                    if parameters:
-                        callsite = callsite.replace("{sep}", ", ", 1)
-                    else:
-                        callsite = callsite.replace("{sep}", "", 1)
-                    callsite = callsite.replace("{qn}", fqn(container, ""))
-                else:
-                    callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
-    cxxvalue = sipCpp->{fn}({});
-#else
-    cxxvalue = sipCpp->sipProtect_{fn}({});
-#endif
-"""
-            else:
-                if function.is_virtual_method():
-                    callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
-"""
-                    callsite = callsite.replace("{qn}", fqn(container, ""))
-                else:
-                    callsite = """    cxxvalue = sipCpp->{fn}({});
-"""
-            callsite = callsite.replace("{fn}", fn)
-            callsite = callsite.replace("{}", ", ".join(sip_stars))
-            callsite = """    Py_BEGIN_ALLOW_THREADS
-""" + callsite + """    Py_END_ALLOW_THREADS
-"""
-            if result.category == HeldAs.VOID:
-                code += callsite.replace("cxxvalue = ", "")
-            else:
-                code += """    typedef {} CxxvalueT;
-    CxxvalueT cxxvalue;
-""".format(entries["cxx_fn_result"]) + callsite
-                code += result.declare_type_helpers("result", "return 0;")
-                code += result.cxx_to_py("sipRes", False, "cxxvalue")
-        code += """
-%End
-"""
-        if function.is_virtual_method():
-            code += """%VirtualCatcherCode
-{}""".format(trace)
-            #
-            # Generate parameter list, unwrapping shared data as needed.
-            #
-            sip_stars = []
-            sip_encodings = []
-            for i, parameter_h in enumerate(parameters):
-                p = "a{}".format(i)
-                code += parameter_h.declare_type_helpers(p, "sipIsErr = 1;")
-                code += parameter_h.cxx_to_py(p, False, p)
-
-                #
-                # Encoding map.
-                #
-                _encoding_map = {
-                    HeldAs.BYTE: "c",
-                    HeldAs.INTEGER: "n",
-                    HeldAs.FLOAT: "d",
-                    HeldAs.POINTER: "N",
-                    HeldAs.OBJECT: "N",
-                }
-                _cast_map = {
-                    HeldAs.BYTE: "(char)cxx{}",
-                    HeldAs.INTEGER: "(long long)cxx{}",
-                    HeldAs.FLOAT: "(double)cxx{}",
-                    HeldAs.POINTER: "cxx{}, gen{}T, NULL",
-                    HeldAs.OBJECT: "&cxx{}, gen{}T, NULL",
-                }
-                e = _encoding_map[parameter_h.category]
-                v = _cast_map[parameter_h.category].format(p, p)
-                sip_stars.append(v)
-                sip_encodings.append(e)
-            sip_stars = ['"' + "".join(sip_encodings) + '"'] + sip_stars
-            code += """
-    PyObject *result = sipCallMethod(&sipIsErr, sipMethod, {}, NULL);
-    if (result == NULL) {{
-        sipIsErr = 1;
-
-        // TBD: Free all the pyobjects.
-    }}""".format(", ".join(sip_stars))
-            if result.category == HeldAs.VOID:
-                pass
-            else:
-                code += """ else {
-        // Convert the result to the C++ type. TBD: Figure out type encodings?
-        sipParseResult(&sipIsErr, sipMethod, result, "i", &sipRes);
-        Py_DECREF(result);
-    }"""
-            code += """
-%End
-"""
-        return code
-
-    def expand_function(self, fn, cursor, sip):
-        """
-        Expand a parameter template, and return the results via the sip.
-
-        :param fn:              The caller asking for the template expansion.
-        :param cursor:          The CursorKind for whom the expansion is being performed.
-                                This is the function whose parameters and/or return type
-                                uses templates.
-        :param sip:             The sip. Expected keys:
-
-                                    decl            Optional. Name of the function.
-                                    foo             dd
-        """
-        #
-        # Run the template handler...
-        #
-        make_cxx_declaration(sip)
-        #
-        # Deal with function result.
-        #
-        result_h = FunctionTemplatedReturnHelper(sip["fn_result"], cursor.result_type.get_canonical().kind)
-        if cursor.kind != CursorKind.CONSTRUCTOR and result_h.category == HeldAs.OBJECT:
-            sip["fn_result"] += " *"
-        if result_h.is_qshared:
-            sip["fn_result"] = result_h.cxx_t
-        #
-        # Now the function parameters.
-        #
-        clang_kinds = [c.type.get_canonical() for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
-        parameters = []
-        p_types = []
-        p_outs = []
-        #
-        # Generate parameter list, unwrapping shared data as needed.
-        #
-        for i, p in enumerate(sip["cxx_parameters"]):
-            #
-            # Get to type by removing any default value then stripping the name.
-            #
-            lhs, rhs = RE_PARAMETER_VALUE.split(p + "=")[:2]
-            t, v = RE_PARAMETER_TYPE.match(lhs).groups()
-            t = t.strip()
-            parameter_h = FunctionTemplatedParameterHelper(t, clang_kinds[i].kind)
-            if parameter_h.is_qshared:
-                if rhs:
-                    #
-                    # TODO: We really just want rhs.data() as the default value, but SIP gets confused.
-                    #
-                    sip["parameters"][i] = "{} {} = {}".format(parameter_h.cxx_t, v, "NULL")
-                else:
-                    sip["parameters"][i] = "{} {}".format(parameter_h.cxx_t, v)
-            parameters.append(parameter_h)
-            p_types.append(t)
-            p_outs.append(re.search("/.*Out.*/", sip["parameters"][i]))
-        #
-        # Run the template handler...
-        #
-        trace = trace_generated_for(cursor, fn, [(result_h.cxx_t, result_h.category),
-                                                 [(p.cxx_t, p.category) for p in parameters]])
-        entries = {
-            "result": result_h,
-            "parameters": parameters,
-            "p_types": p_types,
-            "p_outs": p_outs,
-            "trace": trace,
-            "cxx_fn_result": sip["cxx_fn_result"],
-        }
-        code = self.expand_generic(cursor, entries)
-        sip["code"] = code
-
-
 class ListExpander(AbstractExpander):
 
     def __init__(self):
@@ -1245,18 +1000,14 @@ class SetExpander(AbstractExpander):
         return code
 
 
-def fn_uses_qt_template(container, function, sip, matcher):
+def function_uses_templates(container, function, sip, matcher):
     """
     A FunctionDb-compatible function used to create %MethodCode expansions
     for C++ functions with templated return types and/or parameters.
     """
-    #
-    # No generated code for signals, SIP does not support that.
-    #
-    if sip["is_signal"]:
-        return
-    template = FunctionWithTemplatesExpander()
-    template.expand_function(fn_uses_qt_template, function, sip)
+    sip.setdefault("parameter_helper", FunctionParameterHelper)
+    sip.setdefault("return_helper", FunctionReturnHelper)
+    builtin_rules.function_uses_templates(container, function, sip, matcher)
 
 
 def typecode_cfttc_dict(container, typedef, sip, matcher):
