@@ -80,6 +80,7 @@ class ModuleCompiler(object):
         :param compile_flags:       The compile flags for the file.
         :param verbose:             Debug info.
         """
+        project_rules = rules_engine.rules(project_rules)
         self.package = package
         self.rules = project_rules
         self.input_sips = sips
@@ -399,19 +400,11 @@ def main(argv=None):
         #
         sips = os.path.normpath(args.sips)
         includes = args.includes.lstrip().split(",")
-        exploded_includes = args.includes.lstrip().split(",")
-        for i in includes:
-            for dirpath, dirnames, filenames in os.walk(i):
-                for d in dirnames:
-                    d = os.path.join(dirpath, d)
-                    if d not in exploded_includes:
-                        exploded_includes.append(d)
-        rules = rules_engine.rules(args.project_rules)
         imports = args.imports.lstrip().split(",")
         libraries = args.libraries.lstrip().split(",")
         compile_flags = args.compile_flags.split(",")
-        d = ModuleCompiler(args.package, args.output, rules, sips, includes, imports, libraries, compile_flags,
-                           args.verbose)
+        d = ModuleCompiler(args.package, args.output, args.project_rules, sips, includes, imports, libraries,
+                           compile_flags, args.verbose)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.

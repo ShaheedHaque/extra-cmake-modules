@@ -111,10 +111,11 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, package, project_rules, compile_flags, includes, sips, project_root, output_dir):
+    def __init__(self, clang_paths, package, project_rules, compile_flags, includes, sips, project_root, output_dir):
         """
         Constructor.
 
+        :param clang_paths:         Where to find Clang.
         :param package:             The name of the Python package.
         :param project_rules:       The rules for the project.
         :param compile_flags:       The compile flags for the file.
@@ -124,6 +125,21 @@ class ModuleGenerator(object):
         :param output_dir:          The destination SIP directory.
         """
         super(ModuleGenerator, self).__init__()
+        #
+        # Find and load the libclang.
+        #
+        exe_clang, sys_includes, lib_clang = find_clang(*clang_paths)
+        cindex.Config.set_library_file(lib_clang)
+        exploded_includes = list(includes)
+        for i in includes:
+            for dirpath, dirnames, filenames in os.walk(i):
+                for d in dirnames:
+                    d = os.path.join(dirpath, d)
+                    if d not in exploded_includes:
+                        exploded_includes.append(d)
+        compile_flags = ["-I" + i for i in exploded_includes] + \
+                            ["-isystem" + i for i in sys_includes] + \
+                            compile_flags
         self.project_rules = project_rules
         self.compile_flags = compile_flags
         self.package = package
@@ -764,26 +780,14 @@ def main(argv=None):
         else:
             logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
         #
-        # Find and load the libclang.
-        #
-        exe_clang, sys_includes, lib_clang = find_clang(*args.clang_paths.split(","))
-        cindex.Config.set_library_file(lib_clang)
-        #
         # Generate!
         #
-        sources = os.path.normpath(args.sources)
+        clang_paths = args.clang_paths.split(",")
         includes = args.includes.lstrip().split(",")
-        exploded_includes = args.includes.lstrip().split(",")
-        for i in includes:
-            for dirpath, dirnames, filenames in os.walk(i):
-                for d in dirnames:
-                    d = os.path.join(dirpath, d)
-                    if d not in exploded_includes:
-                        exploded_includes.append(d)
-        compile_flags = ["-I" + i for i in exploded_includes] + \
-                            ["-isystem" + i for i in sys_includes] + \
-                            args.compile_flags.split(",")
-        d = ModuleGenerator(args.package, args.project_rules, compile_flags, includes, args.imports, sources, args.sips)
+        compile_flags = args.compile_flags.split(",")
+        sources = os.path.normpath(args.sources)
+        d = ModuleGenerator(clang_paths, args.package, args.project_rules, compile_flags, includes, args.imports,
+                            sources, args.sips)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):
