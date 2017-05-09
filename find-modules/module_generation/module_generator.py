@@ -60,16 +60,20 @@ _ = _
 
 MODULE_SIP = "mod.sip"
 INCLUDES_EXTRACT = "includes"
-PYQT5_SIPS = "/usr/share/sip/PyQt5"
-PYKF5_SOURCES = "/usr/include/KF5"
-PYKF5_INCLUDES = "/usr/include/x86_64-linux-gnu/qt5," \
-                 "/usr/include/x86_64-linux-gnu/qt5/QtXml," \
-                 "/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64,/usr/include/libxml2"
-PYKF5_LIBRARIES = "/usr/lib/x86_64-linux-gnu/libKF5*.so"
-PYKF5_RULES = "PyKF5_rules/__init__.py"
+PYQT5_SIPS = ["/usr/share/sip/PyQt5"]
+PYQT5_INCLUDES = [
+    "/usr/include/x86_64-linux-gnu/qt5",
+    "/usr/include/x86_64-linux-gnu/qt5/QtWidgets",
+    "/usr/include/x86_64-linux-gnu/qt5/QtXml",
+    "/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64",
+    "/usr/include/libxml2"
+]
+PYQT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
+PYKF5_INCLUDES = "/usr/include/KF5"
+PYKF5_LIBRARIES = ["/usr/lib/x86_64-linux-gnu/libKF5*.so"]
+PYKF5_RULES = os.path.join(os.path.dirname(__file__), "PyKF5_rules/__init__.py")
 PYKF5_PACKAGE_NAME = "PyKF5"
-CLANG_PATHS = "clang++-3.9,libclang-3.9.so"
-QT5_COMPILE_FLAGS = "-fPIC,-std=gnu++14"
+CLANG_PATHS = ["clang++-3.9", "libclang-3.9.so"]
 FILE_SORT_KEY = str.lower
 
 
@@ -130,6 +134,10 @@ class ModuleGenerator(object):
         #
         exe_clang, sys_includes, lib_clang = find_clang(*clang_paths)
         cindex.Config.set_library_file(lib_clang)
+        #
+        # Get paths.
+        #
+        includes.append(project_root)
         exploded_includes = list(includes)
         for i in includes:
             for dirpath, dirnames, filenames in os.walk(i):
@@ -752,17 +760,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--clang-paths", default=CLANG_PATHS,
+    parser.add_argument("--clang-paths", default=",".join(CLANG_PATHS),
                         help=_("Comma-separated clang++ executable and libclang names"))
-    parser.add_argument("--includes", default=PYKF5_INCLUDES + "," + PYKF5_SOURCES,
+    parser.add_argument("--includes", default=",".join(PYQT5_INCLUDES),
                         help=_("Comma-separated C++ header directories for includes"))
-    parser.add_argument("--compile-flags", default=QT5_COMPILE_FLAGS,
+    parser.add_argument("--compile-flags", default=",".join(PYQT5_COMPILE_FLAGS),
                         help=_("Comma-separated C++ compiler options to use"))
-    parser.add_argument("--imports", default=PYQT5_SIPS,
+    parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), PYKF5_RULES),
-                        help=_("Project rules"))
+    parser.add_argument("--project-rules", default=PYKF5_RULES, help=_("Project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers under 'sources' to be processed"))
     parser.add_argument("--omit", default="KDELibs4Support", type=lambda s: re.compile(s, re.I),
@@ -772,7 +779,7 @@ def main(argv=None):
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
     parser.add_argument("output", help=_("SIP output directory"))
-    parser.add_argument("input", default=PYKF5_SOURCES, nargs="?", help=_("C++ header directory to process"))
+    parser.add_argument("input", default=PYKF5_INCLUDES, nargs="?", help=_("C++ header directory to process"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -787,7 +794,7 @@ def main(argv=None):
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         input = os.path.normpath(args.input)
-        output = os.path.normcase(args.output)
+        output = os.path.normpath(args.output)
         d = ModuleGenerator(clang_paths, args.package, args.project_rules, compile_flags, includes, imports, input,
                             output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)

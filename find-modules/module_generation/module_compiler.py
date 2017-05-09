@@ -47,7 +47,7 @@ from PyQt5.QtCore import PYQT_CONFIGURATION
 
 import rules_engine
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYQT5_SIPS, PYKF5_INCLUDES, QT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES,\
+from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES,\
     PYKF5_PACKAGE_NAME
 
 
@@ -370,17 +370,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default=PYKF5_INCLUDES + ",/usr/include/x86_64-linux-gnu/qt5/QtWidgets",
+    parser.add_argument("--includes", default=",".join(PYQT5_INCLUDES),
                         help=_("Comma-separated C++ header directories for includes"))
-    parser.add_argument("--libraries", default=PYKF5_LIBRARIES,
+    parser.add_argument("--libraries", default=",".join(PYKF5_LIBRARIES),
                         help=_("Comma-separated globs of libraries for linking"))
-    parser.add_argument("--compile-flags", default=QT5_COMPILE_FLAGS,
+    parser.add_argument("--compile-flags", default=",".join(PYQT5_COMPILE_FLAGS),
                         help=_("Comma-separated C++ compiler options to use"))
-    parser.add_argument("--imports", default=PYQT5_SIPS,
+    parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=os.path.join(os.path.dirname(__file__), PYKF5_RULES),
-                        help=_("Project rules"))
+    parser.add_argument("--project-rules", default=PYKF5_RULES, help=_("Project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of SIP modules under 'sips' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
@@ -399,7 +398,7 @@ def main(argv=None):
         # Compile!
         #
         input = os.path.normpath(args.input)
-        output = os.path.normcase(args.output)
+        output = os.path.normpath(args.output)
         includes = [i.strip() for i in args.includes.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         libraries = [i.strip() for i in args.libraries.split(",")]
