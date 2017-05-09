@@ -111,7 +111,7 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, clang_paths, package, project_rules, compile_flags, includes, sips, project_root, output_dir):
+    def __init__(self, clang_paths, package, project_rules, compile_flags, includes, imports, project_root, output_dir):
         """
         Constructor.
 
@@ -119,8 +119,8 @@ class ModuleGenerator(object):
         :param package:             The name of the Python package.
         :param project_rules:       The rules for the project.
         :param compile_flags:       The compile flags for the file.
-        :param includes:            Comma-separated CXX includes directories to use.
-        :param sips:                Comma-separated SIP module directories to use.
+        :param includes:            CXX includes directories to use.
+        :param imports:             SIP module directories to use.
         :param project_root:        The root of files for which to generate SIP.
         :param output_dir:          The destination SIP directory.
         """
@@ -144,7 +144,7 @@ class ModuleGenerator(object):
         self.compile_flags = compile_flags
         self.package = package
         self.includes = includes
-        self.sips = sips.lstrip().split(",")
+        self.imports = imports
         self.project_root = project_root
         self.output_dir = output_dir
         #
@@ -154,7 +154,7 @@ class ModuleGenerator(object):
         #
         # However, this is made tricky because we want to use new-style CamelCase names whereever possible:
         #
-        #   - Under self.sips, we simply walk the directory structure, folding into any non-lower-case-only names when
+        #   - Under self.imports, we simply walk the directory structure, folding into any non-lower-case-only names when
         #     possible, and add each xxxmod.sip we find to the available set.
         #
         #   - Under self.output_dir, of course, the .sip files don't actually exist before we start running. So here,
@@ -162,7 +162,7 @@ class ModuleGenerator(object):
         #     xxxxmod.sip name that will be created to the available set.
         #
         self.include_to_import_cache = {}
-        for sip_root in self.sips:
+        for sip_root in self.imports:
             sips = []
             self.find_existing_module_sips(sips, sip_root)
             self.add_include_to_sip_mappings(sips, sip_root)
@@ -752,10 +752,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default=PYKF5_INCLUDES + "," + PYKF5_SOURCES,
-                        help=_("Comma-separated C++ header directories for includes"))
     parser.add_argument("--clang-paths", default=CLANG_PATHS,
                         help=_("Comma-separated clang++ executable and libclang names"))
+    parser.add_argument("--includes", default=PYKF5_INCLUDES + "," + PYKF5_SOURCES,
+                        help=_("Comma-separated C++ header directories for includes"))
     parser.add_argument("--compile-flags", default=QT5_COMPILE_FLAGS,
                         help=_("Comma-separated C++ compiler options to use"))
     parser.add_argument("--imports", default=PYQT5_SIPS,
@@ -771,8 +771,8 @@ def main(argv=None):
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
-    parser.add_argument("sips", help=_("SIP output directory"))
-    parser.add_argument("sources", default=PYKF5_SOURCES, nargs="?", help=_("C++ header directory to process"))
+    parser.add_argument("output", help=_("SIP output directory"))
+    parser.add_argument("input", default=PYKF5_SOURCES, nargs="?", help=_("C++ header directory to process"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -782,12 +782,14 @@ def main(argv=None):
         #
         # Generate!
         #
-        clang_paths = args.clang_paths.split(",")
-        includes = args.includes.lstrip().split(",")
-        compile_flags = args.compile_flags.split(",")
-        sources = os.path.normpath(args.sources)
-        d = ModuleGenerator(clang_paths, args.package, args.project_rules, compile_flags, includes, args.imports,
-                            sources, args.sips)
+        clang_paths = [i.strip() for i in args.clang_paths.split(",")]
+        includes = [i.strip() for i in args.includes.split(",")]
+        compile_flags = [i.strip() for i in args.compile_flags.split(",")]
+        imports = [i.strip() for i in args.imports.split(",")]
+        input = os.path.normpath(args.input)
+        output = os.path.normcase(args.output)
+        d = ModuleGenerator(clang_paths, args.package, args.project_rules, compile_flags, includes, imports, input,
+                            output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

@@ -66,26 +66,33 @@ FILE_SORT_KEY=str.lower
 
 
 class ModuleCompiler(object):
-    def __init__(self, package, output, project_rules, sips, includes, imports, libraries, compile_flags, verbose):
+    def __init__(self, package, project_rules, compile_flags, includes, imports, libraries, verbose, input, output):
         """
         Constructor.
 
         :param package:             The name of the Python package.
-        :param output:              The Python and shippable SIP output directory.
         :param project_rules:       The rules for the project.
-        :param sips:                The source SIP directory.
+        :param compile_flags:       The compile flags for the file.
         :param includes:            CXX includes directories to use.
         :param imports:             SIP module directories to use.
         :param libraries:           Globs of library files.
-        :param compile_flags:       The compile flags for the file.
         :param verbose:             Debug info.
+        :param input:               The source SIP directory.
+        :param output:              The Python and shippable SIP output directory.
         """
         project_rules = rules_engine.rules(project_rules)
         self.package = package
         self.rules = project_rules
-        self.input_sips = sips
+        self.compile_flags = compile_flags
         self.includes = includes
         self.imports = imports
+        self.libraries = []
+        for lg in libraries:
+            lg = lg.strip()
+            libs = [":" + os.path.basename(l) for l in glob.glob(lg)]
+            self.libraries.extend(libs)
+        self.verbose = verbose
+        self.input_sips = input
         self.tmp = os.path.join(output, "tmp")
         self.output_so = os.path.join(output, "python")
         #
@@ -94,13 +101,6 @@ class ModuleCompiler(object):
         # package of .sip files and bindings.
         #
         self.output_sips = os.path.join(output, "sip")
-        self.libraries = []
-        for lg in libraries:
-            lg = lg.strip()
-            libs = [":" + os.path.basename(l) for l in glob.glob(lg)]
-            self.libraries.extend(libs)
-        self.compile_flags = compile_flags
-        self.verbose = verbose
         #
         # Get the SIP configuration information.
         #
@@ -387,7 +387,7 @@ def main(argv=None):
                         help=_("Regular expression of C++ headers under 'sips' NOT to be processed"))
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
-    parser.add_argument("sips", help=_("SIP input directory to process"))
+    parser.add_argument("input", help=_("SIP input directory to process"))
     parser.add_argument("output", help=_("Python and shippable SIP output directory"))
     try:
         args = parser.parse_args(argv[1:])
@@ -398,13 +398,13 @@ def main(argv=None):
         #
         # Compile!
         #
-        sips = os.path.normpath(args.sips)
-        includes = args.includes.lstrip().split(",")
-        imports = args.imports.lstrip().split(",")
-        libraries = args.libraries.lstrip().split(",")
-        compile_flags = args.compile_flags.split(",")
-        d = ModuleCompiler(args.package, args.output, args.project_rules, sips, includes, imports, libraries,
-                           compile_flags, args.verbose)
+        input = os.path.normpath(args.input)
+        output = os.path.normcase(args.output)
+        includes = [i.strip() for i in args.includes.split(",")]
+        imports = [i.strip() for i in args.imports.split(",")]
+        libraries = [i.strip() for i in args.libraries.split(",")]
+        compile_flags = [i.strip() for i in args.compile_flags.split(",")]
+        d = ModuleCompiler(args.package, args.project_rules, compile_flags, includes, imports, libraries, args.verbose, input, output)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.
