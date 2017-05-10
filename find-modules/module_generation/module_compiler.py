@@ -45,10 +45,8 @@ import traceback
 
 from PyQt5.QtCore import PYQT_CONFIGURATION
 
-import rules_engine
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES_PKG,\
-    PYKF5_PACKAGE_NAME
+from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES_PKG
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -66,12 +64,11 @@ FILE_SORT_KEY=str.lower
 
 
 class ModuleCompiler(object):
-    def __init__(self, package, project_rules, compile_flags, includes, imports, libraries, verbose, input, output):
+    def __init__(self, rules_pkg, compile_flags, includes, imports, libraries, verbose, input, output):
         """
         Constructor.
 
-        :param package:             The name of the Python package.
-        :param project_rules:       The rules for the project.
+        :param rules_pkg:           The rules for the project.
         :param compile_flags:       The compile flags for the file.
         :param includes:            CXX includes directories to use.
         :param imports:             SIP module directories to use.
@@ -80,9 +77,7 @@ class ModuleCompiler(object):
         :param input:               The source SIP directory.
         :param output:              The Python and shippable SIP output directory.
         """
-        project_rules = rules_engine.rules(project_rules)
-        self.package = package
-        self.rules = project_rules
+        self.package = os.path.basename(rules_pkg)
         self.compile_flags = compile_flags
         self.includes = includes
         self.imports = imports
@@ -378,8 +373,7 @@ def main(argv=None):
                         help=_("Comma-separated C++ compiler options to use"))
     parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
-    parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=PYKF5_RULES_PKG, help=_("Python package of project rules"))
+    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules (package name is used for output package)"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of SIP modules under 'sips' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
@@ -402,9 +396,9 @@ def main(argv=None):
         includes = [i.strip() for i in args.includes.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         libraries = [i.strip() for i in args.libraries.split(",")]
-        project_rules = os.path.normpath(args.project_rules)
+        rules_pkg = os.path.normpath(args.rules_pkg)
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
-        d = ModuleCompiler(args.package, project_rules, compile_flags, includes, imports, libraries, args.verbose, input, output)
+        d = ModuleCompiler(rules_pkg, compile_flags, includes, imports, libraries, args.verbose, input, output)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.

@@ -71,8 +71,7 @@ PYQT5_INCLUDES = [
 PYQT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
 PYKF5_INCLUDES = "/usr/include/KF5"
 PYKF5_LIBRARIES = ["/usr/lib/x86_64-linux-gnu/libKF5*.so"]
-PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5_rules")
-PYKF5_PACKAGE_NAME = "PyKF5"
+PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5")
 CLANG_PATHS = ["clang++-3.9", "libclang-3.9.so"]
 FILE_SORT_KEY = str.lower
 
@@ -115,13 +114,12 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, clang_paths, package, project_rules, compile_flags, includes, imports, project_root, output_dir):
+    def __init__(self, clang_paths, rules_pkg, compile_flags, includes, imports, project_root, output_dir):
         """
         Constructor.
 
         :param clang_paths:         Where to find Clang.
-        :param package:             The name of the Python package.
-        :param project_rules:       The rules for the project.
+        :param rules_pkg:           The rules for the project.
         :param compile_flags:       The compile flags for the file.
         :param includes:            CXX includes directories to use.
         :param imports:             SIP module directories to use.
@@ -148,9 +146,9 @@ class ModuleGenerator(object):
         compile_flags = ["-I" + i for i in exploded_includes] + \
                             ["-isystem" + i for i in sys_includes] + \
                             compile_flags
-        self.project_rules = project_rules
+        self.rules_pkg = rules_pkg
+        self.package = os.path.basename(rules_pkg)
         self.compile_flags = compile_flags
-        self.package = package
         self.includes = includes
         self.imports = imports
         self.project_root = project_root
@@ -241,7 +239,7 @@ class ModuleGenerator(object):
         self.omitter = omitter
         self.selector = selector
         self.all_features = []
-        compiled_rules = rules_engine.rules(self.project_rules)
+        compiled_rules = rules_engine.rules(self.rules_pkg)
         attempts = 0
         failures = []
         directories = 0
@@ -303,8 +301,7 @@ class ModuleGenerator(object):
                 per_process_args.append((source, h_file))
         if not per_process_args:
             return attempts, failures
-        std_args = (self.project_root, self.project_rules, self.compile_flags, self.includes, self.output_dir,
-                    self.package)
+        std_args = (self.project_root, self.rules_pkg, self.compile_flags, self.includes, self.output_dir)
         if jobs == 0:
             #
             # Debug mode.
@@ -478,18 +475,17 @@ class ModuleGenerator(object):
         return None
 
 
-def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths, output_dir, package):
+def process_one(h_file, h_suffix, h_root, rules_pkg, compile_flags, i_paths, output_dir):
     """
     Walk over a directory tree and for each file or directory, apply a function.
 
     :param h_file:              Source to be processed.
     :param h_suffix:            Source to be processed, right hand side of name.
     :param h_root:              Config
-    :param project_rules:       Config
+    :param rules_pkg:           Config
     :param compile_flags:       Config
     :param i_paths:             Config
     :param output_dir:          Config
-    :param package:             Config
     :return:                    (
                                     source,
                                     sip_suffix,
@@ -500,6 +496,7 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
                                     error,
                                 )
     """
+    package = os.path.basename(rules_pkg)
     sip_suffix = None
     all_includes = lambda: []
     direct_includes = []
@@ -508,8 +505,7 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
     # Make sure any errors mention the file that was being processed.
     #
     try:
-        compiled_rules = rules_engine.rules(project_rules)
-        generator = SipGenerator(compiled_rules, compile_flags)
+        generator = SipGenerator(rules_pkg, compile_flags)
         if h_suffix.endswith("_export.h"):
             pass
         elif h_suffix.endswith("_version.h"):
@@ -643,7 +639,7 @@ def process_one(h_file, h_suffix, h_root, project_rules, compile_flags, i_paths,
                 if usage_count > 0:
                     rule_usage[str(rule)] = usage_count
 
-            compiled_rules.dump_unused(add_used)
+            generator.compiled_rules.dump_unused(add_used)
         else:
             logger.info(_("Not creating empty SIP for {}").format(h_file))
     except Exception as e:
@@ -768,8 +764,7 @@ def main(argv=None):
                         help=_("Comma-separated C++ compiler options to use"))
     parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
-    parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=PYKF5_RULES_PKG, help=_("Python package of project rules"))
+    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules (package name is used for output package)"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers under 'sources' to be processed"))
     parser.add_argument("--omit", default="KDELibs4Support", type=lambda s: re.compile(s, re.I),
@@ -791,12 +786,12 @@ def main(argv=None):
         #
         clang_paths = [i.strip() for i in args.clang_paths.split(",")]
         includes = [i.strip() for i in args.includes.split(",")]
-        project_rules = os.path.normpath(args.project_rules)
+        rules_pkg = os.path.normpath(args.rules_pkg)
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        d = ModuleGenerator(clang_paths, args.package, project_rules, compile_flags, includes, imports, input, output)
+        d = ModuleGenerator(clang_paths, rules_pkg, compile_flags, includes, imports, input, output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

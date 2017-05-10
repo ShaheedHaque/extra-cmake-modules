@@ -116,16 +116,16 @@ def trace_modified_by(cursor, rule, text=None):
 
 
 class SipGenerator(object):
-    def __init__(self, project_rules, compile_flags, verbose=False, dump_includes=False, dump_privates=False):
+    def __init__(self, rules_pkg, compile_flags, verbose=False, dump_includes=False, dump_privates=False):
         """
         Constructor.
 
-        :param project_rules:       The rules for the file.
+        :param rules_pkg:           The rules for the file.
         :param compile_flags:       The compile flags for the file.
         :param dump_includes:       Turn on diagnostics for include files.
         :param dump_privates:       Turn on diagnostics for omitted private items.
         """
-        self.rules = project_rules
+        self.compiled_rules = rules_engine.rules(rules_pkg)
         self.compile_flags = compile_flags
         self.verbose = verbose
         self.dump_includes = dump_includes
@@ -197,7 +197,7 @@ class SipGenerator(object):
                 "decl": body
             }
             body = ""
-            modifying_rule = self.rules.modulecode(h_name, sip)
+            modifying_rule = self.compiled_rules.modulecode(h_name, sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(h_name, modifying_rule)
             body += sip["decl"] + sip["code"]
@@ -439,7 +439,7 @@ class SipGenerator(object):
                 #
                 # Forward declaration.
                 #
-                modifying_rule = self.rules.forward_declaration_rules().apply(container, sip)
+                modifying_rule = self.compiled_rules.forward_declaration_rules().apply(container, sip)
                 if sip["name"]:
                     if modifying_rule:
                         body += trace_modified_by(container, modifying_rule)
@@ -460,7 +460,7 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["body"] = body
-        modifying_rule = self.rules.container_rules().apply(container, sip)
+        modifying_rule = self.compiled_rules.container_rules().apply(container, sip)
         if sip["name"]:
             decl = ""
             if modifying_rule:
@@ -471,7 +471,7 @@ class SipGenerator(object):
             # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode,
             # %TypeHeaderCode other type-related directives)?
             #
-            modifying_rule = self.rules.typecode(container, sip)
+            modifying_rule = self.compiled_rules.typecode(container, sip)
             if modifying_rule:
                 decl += pad + trace_modified_by(container, modifying_rule)
             decl += pad + sip["decl"]
@@ -612,7 +612,7 @@ class SipGenerator(object):
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }
-                modifying_rule = self.rules.parameter_rules().apply(container, function, child, child_sip)
+                modifying_rule = self.compiled_rules.parameter_rules().apply(container, function, child, child_sip)
                 if modifying_rule:
                     parameter_modifying_rules.append(trace_modified_by(child, modifying_rule))
                 decl = child_sip["decl"]
@@ -657,7 +657,7 @@ class SipGenerator(object):
             sip["fn_result"] = function.result_type.get_canonical().spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
-        modifying_rule = self.rules.function_rules().apply(container, function, sip)
+        modifying_rule = self.compiled_rules.function_rules().apply(container, function, sip)
         pad = " " * (level * 4)
         if sip["name"]:
             decl1 = ""
@@ -670,7 +670,7 @@ class SipGenerator(object):
             # Any method-related code (%MethodCode, %VirtualCatcherCode, VirtualCallCode
             # or other method-related directives)?
             #
-            modifying_rule = self.rules.methodcode(function, sip)
+            modifying_rule = self.compiled_rules.methodcode(function, sip)
             if modifying_rule:
                 decl1 += pad + trace_modified_by(function, modifying_rule)
             decl += self._function_render(function, sip, pad)
@@ -1004,7 +1004,7 @@ class SipGenerator(object):
                     sip["fn_result"] = sip["decl"].split("(*)", 1)[0]
                 args = [spelling for spelling, name in args]
                 sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
-        modifying_rule = self.rules.typedef_rules().apply(container, typedef, sip)
+        modifying_rule = self.compiled_rules.typedef_rules().apply(container, typedef, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
@@ -1019,7 +1019,7 @@ class SipGenerator(object):
             # %ConvertToTypeCode, %GCClearCode, %GCTraverseCode, %InstanceCode, %PickleCode, %TypeCode
             # or %TypeHeaderCode)?
             #
-            modifying_rule = self.rules.typecode(typedef, sip)
+            modifying_rule = self.compiled_rules.typecode(typedef, sip)
             if modifying_rule:
                 decl += pad + trace_modified_by(typedef, modifying_rule)
             if sip["fn_result"]:
@@ -1057,7 +1057,7 @@ class SipGenerator(object):
         #
         sip["decl"] = text
         module_code = {}
-        modifying_rule = self.rules.unexposed_rules().apply(container, unexposed, sip)
+        modifying_rule = self.compiled_rules.unexposed_rules().apply(container, unexposed, sip)
         #
         # Now the rules have run, add any prefix/suffix.
         #
@@ -1100,10 +1100,10 @@ class SipGenerator(object):
             sip["fn_result"] = "void"
             sip["parameters"] = []
             sip["prefix"], sip["suffix"] = "", ""
-            modifying_rule = self.rules.function_rules().apply(container, using, sip)
+            modifying_rule = self.compiled_rules.function_rules().apply(container, using, sip)
         else:
             sip["decl"] = ""
-            modifying_rule = self.rules.variable_rules().apply(container, using, sip)
+            modifying_rule = self.compiled_rules.variable_rules().apply(container, using, sip)
         #
         # Make it clear that we intervened.
         #
@@ -1177,7 +1177,7 @@ class SipGenerator(object):
         # Before the rules have run, add/remove any prefix.
         #
         self._var_get_keywords(container, variable, sip)
-        modifying_rule = self.rules.variable_rules().apply(container, variable, sip)
+        modifying_rule = self.compiled_rules.variable_rules().apply(container, variable, sip)
         pad = " " * (level * 4)
         if sip["name"]:
             decl = ""
@@ -1283,7 +1283,7 @@ def main(argv=None):
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
     parser.add_argument("libclang", help=_("libclang library to use for parsing"))
-    parser.add_argument("project_rules", help=_("Project rules"))
+    parser.add_argument("rules", help=_("Project rules"))
     parser.add_argument("source", help=_("C++ header to process"))
     parser.add_argument("output", help=_("output filename to write"))
     try:
@@ -1299,8 +1299,12 @@ def main(argv=None):
         #
         # Generate!
         #
-        rules = rules_engine.rules(args.project_rules)
-        g = SipGenerator(rules, args.flags.lstrip().split(";"), args.verbose)
+        rules_pkg = os.path.normpath(args.rules)
+        if rules_pkg.endswith("__init__.py"):
+            rules_pkg = os.path.dirname(rules_pkg)
+        elif rules_pkg.endswith(".py"):
+            rules_pkg = rules_pkg[:-3]
+        g = SipGenerator(rules_pkg, args.flags.lstrip().split(";"), args.verbose)
         body, module_code, includes = g.create_sip(args.source, args.include_filename)
         with open(args.output, "w") as f:
             #
@@ -1324,7 +1328,7 @@ def main(argv=None):
                 rule_usage[str(rule)] = usage_count
 
             rule_usage = {}
-            rules.dump_unused(add_usage)
+            g.compiled_rules.dump_unused(add_usage)
             for rule in sorted(rule_usage.keys()):
                 usage_count = rule_usage[rule]
                 if usage_count:

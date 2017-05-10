@@ -31,10 +31,10 @@
 
 from __future__ import print_function
 
-import importlib
 from abc import ABCMeta, abstractmethod
 import argparse
 import gettext
+import importlib
 import inspect
 import logging
 import os
@@ -1493,17 +1493,18 @@ def container_mark_abstract(container, sip, matcher):
     sip["annotations"].add("Abstract")
 
 
-def rules(project_rules):
+def rules(rules_pkg):
     """
     Constructor.
 
-    :param project_rules:       The rules file for the project.
+    :param rules_pkg:               The rules package for the project.
     """
-    project_rules = importlib.import_module(os.path.basename(project_rules), os.path.dirname(project_rules))
+    sys.path.insert(0, os.path.dirname(rules_pkg))
+    rules_pkg = importlib.import_module(os.path.basename(rules_pkg))
     #
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
-    return project_rules.RuleSet()
+    return rules_pkg.RuleSet()
 
 
 def main(argv=None):
