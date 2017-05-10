@@ -71,7 +71,7 @@ PYQT5_INCLUDES = [
 PYQT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
 PYKF5_INCLUDES = "/usr/include/KF5"
 PYKF5_LIBRARIES = ["/usr/lib/x86_64-linux-gnu/libKF5*.so"]
-PYKF5_RULES = os.path.join(os.path.dirname(__file__), "PyKF5_rules/__init__.py")
+PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5_rules")
 PYKF5_PACKAGE_NAME = "PyKF5"
 CLANG_PATHS = ["clang++-3.9", "libclang-3.9.so"]
 FILE_SORT_KEY = str.lower
@@ -769,7 +769,7 @@ def main(argv=None):
     parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=PYKF5_RULES, help=_("Project rules"))
+    parser.add_argument("--project-rules", default=PYKF5_RULES_PKG, help=_("Python package of project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers under 'sources' to be processed"))
     parser.add_argument("--omit", default="KDELibs4Support", type=lambda s: re.compile(s, re.I),
@@ -791,12 +791,12 @@ def main(argv=None):
         #
         clang_paths = [i.strip() for i in args.clang_paths.split(",")]
         includes = [i.strip() for i in args.includes.split(",")]
+        project_rules = os.path.normpath(args.project_rules)
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        d = ModuleGenerator(clang_paths, args.package, args.project_rules, compile_flags, includes, imports, input,
-                            output)
+        d = ModuleGenerator(clang_paths, args.package, project_rules, compile_flags, includes, imports, input, output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

@@ -30,6 +30,8 @@
 """SIP file generation rules engine."""
 
 from __future__ import print_function
+
+import importlib
 from abc import ABCMeta, abstractmethod
 import argparse
 import gettext
@@ -1497,12 +1499,11 @@ def rules(project_rules):
 
     :param project_rules:       The rules file for the project.
     """
-    import imp
-    imp.load_source("project_rules", project_rules)
+    project_rules = importlib.import_module(os.path.basename(project_rules), os.path.dirname(project_rules))
     #
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
-    return getattr(sys.modules["project_rules"], "RuleSet")()
+    return project_rules.RuleSet()
 
 
 def main(argv=None):

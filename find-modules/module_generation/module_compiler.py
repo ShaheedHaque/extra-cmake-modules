@@ -47,7 +47,7 @@ from PyQt5.QtCore import PYQT_CONFIGURATION
 
 import rules_engine
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES,\
+from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES_PKG,\
     PYKF5_PACKAGE_NAME
 
 
@@ -379,7 +379,7 @@ def main(argv=None):
     parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
                         help=_("Comma-separated SIP module directories for imports"))
     parser.add_argument("--package", default=PYKF5_PACKAGE_NAME, help=_("Package name"))
-    parser.add_argument("--project-rules", default=PYKF5_RULES, help=_("Project rules"))
+    parser.add_argument("--project-rules", default=PYKF5_RULES_PKG, help=_("Python package of project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of SIP modules under 'sips' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
@@ -402,8 +402,9 @@ def main(argv=None):
         includes = [i.strip() for i in args.includes.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         libraries = [i.strip() for i in args.libraries.split(",")]
+        project_rules = os.path.normpath(args.project_rules)
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
-        d = ModuleCompiler(args.package, args.project_rules, compile_flags, includes, imports, libraries, args.verbose, input, output)
+        d = ModuleCompiler(args.package, project_rules, compile_flags, includes, imports, libraries, args.verbose, input, output)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.
