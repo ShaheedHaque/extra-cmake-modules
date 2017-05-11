@@ -34,12 +34,9 @@ SIP binding customisation for PyKF5. This modules describes:
 """
 
 from __future__ import print_function
-import os
-import sys
 
 from clang.cindex import AccessSpecifier
 
-sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import rules_engine
 from PyQt_templates import function_uses_templates, typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
     qpair_parameter, qshareddatapointer_parameter
@@ -84,44 +81,44 @@ RE_QSHAREDPTR = "(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
 
 
 def _container_discard_templated_bases(container, sip, matcher):
-    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if not "<" in b]
+    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
 
 
-def _function_discard_class(container, function, sip, matcher):
+def _function_discard_class(container, fn, sip, matcher):
     sip["fn_result"] = sip["fn_result"].replace("class ", "")
 
 
-def _function_discard_impl(container, function, sip, matcher):
-    if function.extent.start.column == 1:
-        rules_engine.function_discard(container, function, sip, matcher)
+def _function_discard_impl(container, fn, sip, matcher):
+    if fn.extent.start.column == 1:
+        rules_engine.function_discard(container, fn, sip, matcher)
 
 
-def _function_discard_non_const(container, function, sip, matcher):
+def _function_discard_non_const(container, fn, sip, matcher):
     if not sip["suffix"]:
-        rules_engine.function_discard(container, function, sip, matcher)
+        rules_engine.function_discard(container, fn, sip, matcher)
 
 
-def _function_discard_protected(container, function, sip, matcher):
-    if function.access_specifier == AccessSpecifier.PROTECTED:
-        rules_engine.function_discard(container, function, sip, matcher)
+def _function_discard_protected(container, fn, sip, matcher):
+    if fn.access_specifier == AccessSpecifier.PROTECTED:
+        rules_engine.function_discard(container, fn, sip, matcher)
 
 
-def _parameter_rewrite_without_colons(container, function, parameter, sip, matcher):
+def _parameter_rewrite_without_colons(container, fn, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("::", "")
 
 
-def _parameter_transfer_to_parent(container, function, parameter, sip, matcher):
-    if function.is_static_method():
+def _parameter_transfer_to_parent(container, fn, parameter, sip, matcher):
+    if fn.is_static_method():
         sip["annotations"].add("Transfer")
     else:
         sip["annotations"].add("TransferThis")
 
 
-def _parameter_set_max_int(container, function, parameter, sip, matcher):
+def _parameter_set_max_int(container, fn, parameter, sip, matcher):
     sip["init"] = "(uint)-1"
 
 
-def _parameter_strip_class_enum(container, function, parameter, sip, matcher):
+def _parameter_strip_class_enum(container, fn, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
 
 
@@ -147,7 +144,6 @@ def _variable_discard_protected(container, variable, sip, matcher):
 
 
 def container_rules():
-
     return [
         [".*", "(QMetaTypeId|QTypeInfo)<.*>", ".*", ".*", ".*", rules_engine.container_discard],
         #
@@ -171,7 +167,6 @@ def container_rules():
 
 
 def function_rules():
-
     return [
         #
         # Discard functions emitted by QOBJECT.
@@ -207,7 +202,7 @@ def function_rules():
         ["KPageDialog", "pageWidget|buttonBox", ".*", ".*", "", _function_discard_non_const],
         [".*", ".*", ".*", ".*", ".*Private.*", _function_discard_protected],
         #
-        # This function does not exist.
+        # This fn does not exist.
         #
         [".*", "qt_check_for_QGADGET_macro", ".*", ".*", ".*", rules_engine.function_discard],
         #
@@ -244,7 +239,6 @@ def parameter_rules():
 
 
 def typedef_rules():
-
     return [
         #
         # Supplement Qt templates with manual code.
