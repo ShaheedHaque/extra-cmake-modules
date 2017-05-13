@@ -33,12 +33,15 @@ import errno
 import gettext
 import os
 import inspect
+import json
 import logging
 import multiprocessing
 from multiprocessing.pool import Pool
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 
 from clang import cindex
@@ -72,7 +75,6 @@ PYQT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
 PYKF5_INCLUDES = "/usr/include/KF5"
 PYKF5_LIBRARIES = ["/usr/lib/x86_64-linux-gnu/libKF5*.so"]
 PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5")
-CLANG_PATHS = ["clang++-3.9", "libclang-3.9.so"]
 FILE_SORT_KEY = str.lower
 
 
@@ -114,11 +116,10 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, clang_paths, rules_pkg, compile_flags, includes, imports, project_root, output_dir):
+    def __init__(self, rules_pkg, compile_flags, includes, imports, project_root, output_dir):
         """
         Constructor.
 
-        :param clang_paths:         Where to find Clang.
         :param rules_pkg:           The rules for the project.
         :param compile_flags:       The compile flags for the file.
         :param includes:            CXX includes directories to use.
@@ -130,7 +131,7 @@ class ModuleGenerator(object):
         #
         # Find and load the libclang.
         #
-        exe_clang, sys_includes, lib_clang = find_clang(*clang_paths)
+        exe_clang, sys_includes, lib_clang = find_clang()
         cindex.Config.set_library_file(lib_clang)
         #
         # Get paths.
@@ -688,10 +689,20 @@ def header(output_file, h_file, package):
     return template.format(output_file, package, h_file, datetime.datetime.utcnow().year)
 
 
-def find_clang(exe_clang, lib_clang):
+def find_clang():
     """
     Find the clang++, system include directories and libclang.so.
     """
+    tmpdir = tempfile.mkdtemp()
+    try:
+        logger.info(os.path.dirname(os.path.realpath(__file__)))
+        subprocess.check_call(["cmake", os.path.dirname(os.path.realpath(__file__))], cwd=tmpdir)
+        with open(os.path.join(tmpdir, "configure.json"), "rU") as f:
+            data = json.load(f)
+    finally:
+        shutil.rmtree(tmpdir)
+    exe_clang = data["CLANGPP_EXECUTABLE"]
+    lib_clang = data["LIBCLANG_LIBRARY"]
     #
     # Look for a usable executable.
     #
@@ -722,14 +733,6 @@ def find_clang(exe_clang, lib_clang):
     sys_includes = [l.strip() for l in sys_includes]
     if not sys_includes:
         raise RuntimeError(_("Cannot find system includes"))
-    lines = subprocess.check_output(["/sbin/ldconfig", "-p"])
-    for line in lines.split("\n"):
-        fields = line.split()
-        if fields and fields[0].endswith(lib_clang):
-            lib_clang = fields[-1]
-            logger.debug(_("Found libclang at {}").format(lib_clang))
-    if not lib_clang:
-        raise RuntimeError(_("Cannot find libclang"))
     logger.info(_("Found {} and {}").format(exe_clang, lib_clang))
     return exe_clang, sys_includes, lib_clang
 
@@ -756,8 +759,6 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--clang-paths", default=",".join(CLANG_PATHS),
-                        help=_("Comma-separated clang++ executable and libclang names"))
     parser.add_argument("--includes", default=",".join(PYQT5_INCLUDES),
                         help=_("Comma-separated C++ header directories for includes"))
     parser.add_argument("--compile-flags", default=",".join(PYQT5_COMPILE_FLAGS),
@@ -784,14 +785,13 @@ def main(argv=None):
         #
         # Generate!
         #
-        clang_paths = [i.strip() for i in args.clang_paths.split(",")]
         includes = [i.strip() for i in args.includes.split(",")]
         rules_pkg = os.path.normpath(args.rules_pkg)
         compile_flags = [i.strip() for i in args.compile_flags.split(",")]
         imports = [i.strip() for i in args.imports.split(",")]
         input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        d = ModuleGenerator(clang_paths, rules_pkg, compile_flags, includes, imports, input, output)
+        d = ModuleGenerator(rules_pkg, compile_flags, includes, imports, input, output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

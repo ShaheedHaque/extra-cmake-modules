@@ -5,18 +5,24 @@ Pre-requisites
 Ubuntu/Debian "sudo apt install"
 --------------------------------
 
+    #
+    # Core system dependencies.
+    #
+    cmake                               # For cmake
     python-clang-3.9 libclang-3.9       # For libclang
     clang++-3.9                         # For clang++
     sip-dev python-sip-dev              # For sip.h
+    #
+    # Regression test basics.
+    #
     pyqt5-dev python-pyqt5              # For PyQt
-
     qtbase5-dev                         # For QtCore
     qttools5-dev                        # For kwidgetsaddons
     kdoctools-dev                       # For kconfigwidgets
     qtdeclarative5-dev                  # For ki18n
     libqt5x11extras5-dev                # For kjobwidgets
     #
-    # Packages I tested against.
+    # Regression test packages.
     #
     kio-dev
     kross-dev
@@ -144,19 +150,21 @@ To build PyKF5
     #
     # 1. Run the SIP generation phase.
     #
-    ./sip_bulk_generator.py sip
+    ./module_generator.py tmp
     #
     # 2. Run the compiler...
     #
-    ./sip_compiler.py sip
+    ./module_compiler.py tmp result
 
 The output is:
 
-    # A "tmp" directory containing .sip files.
-    # A "PyKF5" directory with:
-        * The bindings comprising a __init__.py, and all the .so files
-          such as KItemModels.so.
-        * A disposable "tmp" directory
+    # A "tmp" directory containing intermediate files.
+    # A "results/python/PyKF5" directory with the Python bindings:
+        * An __init__.py.
+        * All the .so files such as KItemModels.so.
+    # A "results/sip/PyKF5" directory with:
+        * The shippable SIP files.
+        * A modules.feature file.
 
 To build your own bindings
 ==========================

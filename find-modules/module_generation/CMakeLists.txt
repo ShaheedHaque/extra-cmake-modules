@@ -23,30 +23,36 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#
+# This is a helper script used to locate binaries, libraries and other
+# platform- and system-dependent items for use by the Python code.
+#
 cmake_minimum_required(VERSION 3.4)
 
 project(sip_module_generation)
 
-include(FindSIP.cmake)
-include(FindClang.cmake)
-include(FindLibClang.cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+find_package(SIP REQUIRED)
+find_package(Clang)
+find_package(LibClang REQUIRED)
 
-enable_testing()
-
-if(SIP_VERSION VERSION_LESS 4.19)
+if(NOT ClangPP_FOUND)
+    message(SEND_ERROR "Clang++ not found")
+elif(SIP_VERSION VERSION_LESS 4.19)
     message(SEND_ERROR "SIP version \"${SIP_VERSION}\" too old")
-elif(Clang_VERSION VERSION_LESS 3.9)
-    message(SEND_ERROR "Clang version \"${Clang_VERSION}\" too old")
+elif(ClangPP_VERSION VERSION_LESS 3.9)
+    message(SEND_ERROR "Clang++ version \"${ClangPP_VERSION}\" too old")
 elif(LibClang_VERSION VERSION_LESS 3.9)
     message(SEND_ERROR "LibClang version \"${LibClang_VERSION}\" too old")
 else()
     #
-    # Write the values we found.
+    # Write the values we found as a JSON blob.
     #
-    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/configure.py"
-"
-SIP_EXECUTABLE = \"${SIP_EXECUTABLE}\"
-CLANG_EXECUTABLE = \"${Clang_EXECUTABLE}\"
-LIBCLANG_LIBRARY = \"${LibClang_LIBRARY}\"
-")
+    set(dict "${CMAKE_CURRENT_BINARY_DIR}/configure.json")
+    file(WRITE "${dict}" "{")
+    file(APPEND "${dict}" "\"SIP_EXECUTABLE\": \"${SIP_EXECUTABLE}\",")
+    file(APPEND "${dict}" "\"CLANGPP_EXECUTABLE\": \"${ClangPP_EXECUTABLE}\",")
+    file(APPEND "${dict}" "\"LIBCLANG_LIBRARY\": \"${LibClang_LIBRARY}\",")
+    file(APPEND "${dict}" "\"terminator\": null")
+    file(APPEND "${dict}" "}")
 endif()
