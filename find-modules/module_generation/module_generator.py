@@ -691,49 +691,24 @@ def header(output_file, h_file, package):
 
 def find_clang():
     """
-    Find the clang++, system include directories and libclang.so.
+    Find clang++, the system include directories and libclang.so.
     """
     tmpdir = tempfile.mkdtemp()
     try:
-        logger.info(os.path.dirname(os.path.realpath(__file__)))
         subprocess.check_call(["cmake", os.path.dirname(os.path.realpath(__file__))], cwd=tmpdir)
         with open(os.path.join(tmpdir, "configure.json"), "rU") as f:
             data = json.load(f)
     finally:
         shutil.rmtree(tmpdir)
-    exe_clang = data["CLANGPP_EXECUTABLE"]
-    lib_clang = data["LIBCLANG_LIBRARY"]
-    #
-    # Look for a usable executable.
-    #
-    try:
-        lines = subprocess.check_output([exe_clang, "-v", "-E", "-x", "c++", "/dev/null"], stderr=subprocess.STDOUT)
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            raise RuntimeError(_("Unable to find {}").format(exe_clang))
-    lines = lines.split("\n")
-    #
-    # Try to find the system includes. Modelled on the logic in extra-cmake-modules...
-    #
-    start = None
-    end = None
-    for i in reversed(range(len(lines))):
-        if lines[i].find("search starts here") != -1:
-            start = i + 1
-            break
-    for i in range(len(lines)):
-        if lines[i].find("End of search list") != -1:
-            end = i
-            break
-    assert start and end, _("Unable to find system includes in {}").format(lines)
-    #
-    # On OSX, gcc says things like this:  "/System/Library/Frameworks (framework directory)".
-    #
-    sys_includes = [l.replace("(framework directory)", "") for l in lines[start:end]]
-    sys_includes = [l.strip() for l in sys_includes]
+    exe_clang = data["ClangPP_EXECUTABLE"]
+    sys_includes = data["ClangPP_SYS_INCLUDES"].split(";")
+    sys_includes = [str(os.path.normpath(i)) for i in sys_includes]
     if not sys_includes:
         raise RuntimeError(_("Cannot find system includes"))
-    logger.info(_("Found {} and {}").format(exe_clang, lib_clang))
+    lib_clang = data["LibClang_LIBRARY"]
+    logger.info(_("Found {}").format(exe_clang))
+    logger.info(_("Found {}").format(sys_includes))
+    logger.info(_("Found {}").format(lib_clang))
     return exe_clang, sys_includes, lib_clang
 
 
