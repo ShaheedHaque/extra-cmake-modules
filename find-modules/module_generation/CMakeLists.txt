@@ -27,7 +27,7 @@
 # This is a helper script used to locate binaries, libraries and other
 # platform- and system-dependent items for use by the Python code.
 #
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.7)
 
 project(sip_module_generation)
 
