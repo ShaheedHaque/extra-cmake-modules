@@ -196,6 +196,36 @@ function(get_qt5_targets component)
 endfunction(get_qt5_targets)
 
 #
+# Fetch a target property, recursing if necessary.
+#
+function(get_target_property_recursive target property)
+    set(result)
+    get_target_property(values ${target} ${property})
+    if(values STREQUAL "values-NOTFOUND")
+        # Skip
+        message(STATUS "Warning: Target ${target} has no property ${property}")
+    else()
+        foreach(value ${values})
+            string(FIND ${value} "$<TARGET_PROPERTY:" found)
+            if(found EQUAL 0)
+                #
+                # Recurse. The format is:
+                #
+                # $<TARGET_PROPERTY:KF5::WebKit,INTERFACE_INCLUDE_DIRECTORIES>
+                #
+                string(REGEX REPLACE "\\$<TARGET_PROPERTY:(.*),(.*)>" "\\1" nested_tgt ${value})
+                string(REGEX REPLACE "\\$<TARGET_PROPERTY:(.*),(.*)>" "\\2" nested_prop ${value})
+                get_target_property_recursive(${nested_tgt} ${nested_prop})
+                list(APPEND result ${get_target_property_recursive_result})
+            else()
+                list(APPEND result ${value})
+            endif()
+        endforeach()
+    endif()
+    set(get_target_property_recursive_result "${result}" PARENT_SCOPE)
+endfunction(get_target_property_recursive)
+
+#
 # Find the includes, libraries etc. for a component.
 #
 function(get_targets_info dict component targets)
@@ -210,10 +240,8 @@ function(get_targets_info dict component targets)
         if(TARGET ${target})
             get_target_property(tmp ${target} LOCATION)
             list(APPEND libraries ${tmp})
-            get_target_property(tmp ${target} INTERFACE_INCLUDE_DIRECTORIES)
-            if(NOT tmp STREQUAL "tmp-NOTFOUND")
-                list(APPEND includes ${tmp})
-            endif()
+            get_target_property_recursive(${target} INTERFACE_INCLUDE_DIRECTORIES)
+            list(APPEND includes ${get_target_property_recursive_result})
         else()
             message(STATUS "Warning: Ignoring invalid target \"${target}\" in ${f}")
         endif()
