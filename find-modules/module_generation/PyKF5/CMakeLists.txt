@@ -25,13 +25,40 @@
 
 #
 # This is a helper script used to locate binaries, libraries and other
-# platform-dependent items for use by the Python code.
+# platform-dependent items for use by the Python code. The output is
+# NOT CMakeCache.txt et. al. but a JSON file:
 #
+#   {
+#       "CXX_SOURCES": {
+#           "KF5Activities": {
+#               "LIBRARIES": "/usr/lib/x86_64-linux-gnu/libKF5Activities.so.5.31.0",
+#               "INCLUDE_DIRS": "/usr/include/KF5/KActivities;/usr/include/KF5"
+#           },
+#           ...
+#           "$": null
+#       },
+#       "CXX_DEPENDENCIES": {
+#           "Qt5Widgets": {
+#               "LIBRARIES": ...,
+#               "INCLUDE_DIRS": ...,
+#           },
+#           "$": null
+#       },
+#       "CXX_COMPILE_OPTIONS": "-fPIC,-std=gnu++14",
+#       "SIP_DEPENDENCIES": "/usr/share/sip/PyQt5",
+#       "CXX_SOURCE_ROOT": "/usr/include/KF5",
+#       "PY_PACKAGE": "PyKF5",
+#       "$": null
+#   }
+#
+# The "$" dict entries are a convenience which the caller discards.
+#
+
 cmake_minimum_required(VERSION 3.7)
 
 project(PyKF5)
 
-set(SOURCES
+set(CXX_SOURCES
         KF5Activities
         KF5ActivitiesStats
         KF5Akonadi
@@ -158,7 +185,7 @@ set(SOURCES
         KF5XmlGui
         KF5XmlRpcClient)
 
-set(QT5_DEPENDENCIES
+set(CXX_DEPENDENCIES
         Qt5Widgets
         Qt5Xml)
 
@@ -236,6 +263,8 @@ function(get_targets_info dict component targets)
     #
     # Make a combined list of includes, libraries etc.
     #
+    set(libraries)
+    set(includes)
     foreach(target ${targets})
         if(TARGET ${target})
             get_target_property(tmp ${target} LOCATION)
@@ -251,40 +280,70 @@ function(get_targets_info dict component targets)
     #
     if(DEFINED includes)
         list(REMOVE_DUPLICATES includes)
+        #
+        # Not sure why the headers seem to include this.
+        #
+        list(REMOVE_ITEM includes "/usr/include")
     endif()
     file(APPEND "${dict}" "\"${component}\": {\n")
     file(APPEND "${dict}" "    \"LIBRARIES\": \"${libraries}\",\n")
     file(APPEND "${dict}" "    \"INCLUDE_DIRS\": \"${includes}\"\n")
     file(APPEND "${dict}" "},\n")
+    set(includes "${includes}" PARENT_SCOPE)
 endfunction(get_targets_info)
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+find_package(PyQt REQUIRED)
 #
 # Write the values we found as a JSON blob.
 #
-set(dict "${CMAKE_CURRENT_BINARY_DIR}/configure.json")
+set(dict ${CMAKE_CURRENT_BINARY_DIR}/configure.json)
+message(STATUS "Writing ${dict}")
 file(WRITE "${dict}" "{\n")
 #
 # Sources.
 #
-file(APPEND "${dict}" "\"SOURCES\": {\n")
-foreach(component ${SOURCES})
+file(APPEND "${dict}" "\"CXX_SOURCES\": {\n")
+foreach(component ${CXX_SOURCES})
     find_package(${component} REQUIRED)
     get_kf5_targets(${component} ${${component}_DIR}/${component}*.cmake)
     get_targets_info(${dict} ${component} "${targets}")
+    #
+    # Find the source root.
+    #
+    if(NOT DEFINED CXX_SOURCE_ROOT)
+        foreach(include ${includes})
+            if(include MATCHES ".*/KF5$")
+                set(CXX_SOURCE_ROOT ${include})
+                break()
+            endif()
+        endforeach()
+    endif()
 endforeach()
+if(NOT DEFINED CXX_SOURCE_ROOT)
+    message(SEND_ERROR "Unable to find CXX_SOURCE_ROOT")
+    return()
+endif()
+#
+# Write results.
+#
 file(APPEND "${dict}" "\"$\": null\n")
 file(APPEND "${dict}" "},\n")
 #
 # Dependencies.
 #
-file(APPEND "${dict}" "\"DEPENDENCIES\": {\n")
-foreach(component ${QT5_DEPENDENCIES})
+file(APPEND "${dict}" "\"CXX_DEPENDENCIES\": {\n")
+foreach(component ${CXX_DEPENDENCIES})
     find_package(${component})
     get_qt5_targets(${component})
     get_targets_info(${dict} ${component} "${targets}")
 endforeach()
 file(APPEND "${dict}" "\"$\": null\n")
 file(APPEND "${dict}" "},\n")
+file(APPEND "${dict}" "\"CXX_COMPILE_OPTIONS\": \"-fPIC,-std=gnu++14\",\n")
+file(APPEND "${dict}" "\"SIP_DEPENDENCIES\": \"${PyQt_INCLUDE_DIRS}\",\n")
+file(APPEND "${dict}" "\"CXX_SOURCE_ROOT\": \"${CXX_SOURCE_ROOT}\",\n")
+file(APPEND "${dict}" "\"SIP_PACKAGE\": \"${CMAKE_PROJECT_NAME}\",\n")
 file(APPEND "${dict}" "\"$\": null\n")
 file(APPEND "${dict}" "}\n")
 unset(component)

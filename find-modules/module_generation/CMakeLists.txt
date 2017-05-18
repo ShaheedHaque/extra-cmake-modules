@@ -25,8 +25,20 @@
 
 #
 # This is a helper script used to locate binaries, libraries and other
-# platform- and system-dependent items for use by the Python code.
+# platform-dependent items for use by the Python code. The output is
+# NOT CMakeCache.txt et. al. but a JSON file:
 #
+#   {
+#       "SIP_EXECUTABLE": "/usr/bin/sip",
+#       "ClangPP_EXECUTABLE": "/usr/bin/clang++-3.9",
+#       "ClangPP_SYS_INCLUDES": "/usr/bin/...;/usr/bin/...",
+#       "LibClang_LIBRARY": "/usr/lib/x86_64-linux-gnu/libclang-3.9.so",
+#       "$": null
+#   }
+#
+# The "$" dict entries are a convenience which the caller discards.
+#
+
 cmake_minimum_required(VERSION 3.7)
 
 project(sip_module_generation)
@@ -67,11 +79,12 @@ else()
     #
     # Write the values we found as a JSON blob.
     #
-    set(dict "${CMAKE_CURRENT_BINARY_DIR}/configure.json")
+    set(dict ${CMAKE_CURRENT_BINARY_DIR}/configure.json)
+    message(STATUS "Writing ${dict}")
     file(WRITE "${dict}" "{\n")
     foreach(var "SIP_EXECUTABLE" "ClangPP_EXECUTABLE" "ClangPP_SYS_INCLUDES" "LibClang_LIBRARY")
         file(APPEND "${dict}" "\"${var}\": \"${${var}}\",\n")
     endforeach()
-    file(APPEND "${dict}" "\"EOF\": null\n")
+    file(APPEND "${dict}" "\"$\": null\n")
     file(APPEND "${dict}" "}\n")
 endif()
