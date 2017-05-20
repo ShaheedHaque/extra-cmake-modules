@@ -442,16 +442,10 @@ class RuleSet(rules_engine.RuleSet):
             result.update(dirlist)
 
     def cxx_source_root(self):
-        """
-        The root of C++ header directories to process to generate SIP: .
-        """
         self._fill_cache()
         return self.pd_cache["CXX_SOURCE_ROOT"]
 
     def cxx_sources(self):
-        """
-        The individual C++ header subdirectories to process.
-        """
         source_root = self.cxx_source_root() + os.path.sep
         result = set()
         self._update_dir_set(result, "CXX_SOURCES", "INCLUDE_DIRS")
@@ -463,11 +457,6 @@ class RuleSet(rules_engine.RuleSet):
         return result
 
     def cxx_includes(self):
-        """
-        Where are the .h files we will need to include?
-
-        :return:
-        """
         source_root = self.cxx_source_root() + os.path.sep
         result = set()
         self._update_dir_set(result, "CXX_DEPENDENCIES", "INCLUDE_DIRS")
@@ -496,9 +485,6 @@ class RuleSet(rules_engine.RuleSet):
         return self.pd_cache["SIP_PACKAGE"]
 
     def sip_imports(self):
-        """
-        SIP module directories to use.
-        """
         self._fill_cache()
         result = set()
         dirlist = self.pd_cache["SIP_DEPENDENCIES"].split(";")

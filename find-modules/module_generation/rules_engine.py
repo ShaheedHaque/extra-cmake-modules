@@ -1402,6 +1402,64 @@ class RuleSet(object):
         """
         return self._typecode.apply(container, sip)
 
+    def cxx_source_root(self):
+        """
+        The root of C++ header directories to process to generate SIP.
+
+        :return: Absolute directory path.
+        """
+        raise NotImplementedError()
+
+    def cxx_sources(self):
+        """
+        The individual C++ header subdirectories to process.
+        If None is returned, then all subdirectories of cxx_source_root()
+        are processed.
+
+        :return: [Absolute directory path...] or None.
+        """
+        raise NotImplementedError()
+
+    def cxx_includes(self):
+        """
+        Where are the .h files we will need to include?
+
+        :return: [Absolute directory path...]
+        """
+        raise NotImplementedError()
+
+    def cxx_compile_flags(self):
+        """
+        Where are the .h files we will need to include?
+
+        :return: [flag...]
+        """
+        raise NotImplementedError()
+
+    def cxx_libraries(self):
+        """
+        Glob patterns of the libraries we will need to link against.
+
+        :return: [Absolute library glob...].
+        """
+        raise NotImplementedError()
+
+    def sip_package(self):
+        """
+        The name of the SIP/Python package to create.
+
+        :return: Package name.
+        """
+        raise NotImplementedError()
+
+    def sip_imports(self):
+        """
+        The root of SIP module directories to import.
+
+        :return: [Absolute directory path...]
+        """
+        raise NotImplementedError()
+
     def dump_unused(self, fn=None):
         """
         Usage statistics, to identify unused rules.
