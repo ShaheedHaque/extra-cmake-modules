@@ -36,10 +36,14 @@ import argparse
 import gettext
 import importlib
 import inspect
+import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import textwrap
 import traceback
 from copy import deepcopy
@@ -1505,6 +1509,42 @@ def rules(rules_pkg):
     # Statically prepare the rule logic. This takes the rules provided by the user and turns them into code.
     #
     return rules_pkg.RuleSet()
+
+
+def get_platform_dependencies(for_dir):
+    """
+    Return a dictionary of platform-dependent values for a directory.
+    We presently use CMake to do the heavy lifting.
+
+    :param for_dir:                 The directory. This is expected to contain
+                                    a CMakeLists.txt which, when run, produces
+                                    ${CMAKE_CURRENT_BINARY_DIR}/configure.json.
+                                    This should contain a JSON object. 
+    :return: The JSON object converted into Python, but with any unicode
+             converted to str, and any dict items with value ("$", None) removed.
+    """
+
+    def normalise(obj):
+        """
+        Unicode -> string for JSON loader. We also remove any dictionary items ("$", None).
+        TODO: Python3 shortcircuit?
+        """
+        if isinstance(obj, unicode):
+            obj = str(obj)
+        elif isinstance(obj, dict):
+            obj = {normalise(k): normalise(v) for k,v in obj.items() if v is not None or str(k) != "$"}
+        elif isinstance(obj, list):
+            for i in range(len(obj)):
+                obj[i] = normalise(obj[i])
+        return obj
+
+    tmpdir = tempfile.mkdtemp()
+    try:
+        subprocess.check_call(["cmake", for_dir], cwd=tmpdir)
+        with open(os.path.join(tmpdir, "configure.json"), "rU",) as f:
+            return normalise(json.load(f))
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 def main(argv=None):

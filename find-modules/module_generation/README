@@ -216,3 +216,18 @@ multiple "individual" .sip files which are %Included into a single "module"
 Thus, the sip_generator and module_generator conspire to move all such
 forward declarations into the "module" .sip.
 
+
+Platform-dependent code
+-----------------------
+
+There are several aspects of the system which are platform-dependent. These
+are carefully isolated using CMake; the user is free to implement whatever
+platform-dependent logic is needed in the callouts to CMake:
+
+    * There is a CMakeLists.txt and some supporting .cmake files included
+      in the base code. This is used to locate SIP and Clang components.
+
+    * The rules can make use of CMake to locate header files, libraries and
+      so on; see the example rules supplied and the helper logic in
+      rules_engine.py
+

@@ -46,7 +46,8 @@ import traceback
 from PyQt5.QtCore import PYQT_CONFIGURATION
 
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYQT5_SIPS, PYQT5_INCLUDES, PYQT5_COMPILE_FLAGS, PYKF5_LIBRARIES, PYKF5_RULES_PKG
+from module_generator import PYKF5_RULES_PKG
+import rules_engine
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -64,28 +65,28 @@ FILE_SORT_KEY=str.lower
 
 
 class ModuleCompiler(object):
-    def __init__(self, rules_pkg, compile_flags, includes, imports, libraries, verbose, input, output):
+    def __init__(self, rules_pkg, verbose, input, output):
         """
         Constructor.
 
         :param rules_pkg:           The rules for the project.
-        :param compile_flags:       The compile flags for the file.
-        :param includes:            CXX includes directories to use.
-        :param imports:             SIP module directories to use.
-        :param libraries:           Globs of library files.
         :param verbose:             Debug info.
         :param input:               The source SIP directory.
         :param output:              The Python and shippable SIP output directory.
         """
-        self.package = os.path.basename(rules_pkg)
-        self.compile_flags = compile_flags
-        self.includes = includes
-        self.imports = imports
+        self.rules_pkg = rules_pkg
+        self.compiled_rules = rules_engine.rules(self.rules_pkg)
+        self.package = self.compiled_rules.sip_package()
+        self.compile_flags = self.compiled_rules.cxx_compile_flags()
+        self.imports = self.compiled_rules.sip_imports()
         self.libraries = []
-        for lg in libraries:
-            lg = lg.strip()
+        self.libdirs = set()
+        for lg in self.compiled_rules.cxx_libraries():
             libs = [":" + os.path.basename(l) for l in glob.glob(lg)]
             self.libraries.extend(libs)
+            libdirs = [os.path.dirname(l) for l in glob.glob(lg)]
+            self.libdirs.update(libdirs)
+        self.libdirs = [l for l in self.libdirs]
         self.verbose = verbose
         self.input_sips = input
         self.tmp = os.path.join(output, "tmp")
@@ -96,11 +97,6 @@ class ModuleCompiler(object):
         # package of .sip files and bindings.
         #
         self.output_sips = os.path.join(output, "sip")
-        #
-        # Get the SIP configuration information.
-        #
-        self.sipconfig = sipconfig.Configuration()
-        self.pyqt_sip_flags = PYQT_CONFIGURATION["sip_flags"].split()
 
     def process_tree(self, jobs, selector, omitter):
         """
@@ -148,9 +144,8 @@ class ModuleCompiler(object):
                 if not(selector.search(sip_file) and not omitter.search(sip_file)):
                     continue
                 per_process_args.append((sip_file, ))
-        std_args = (self.input_sips, self.includes, self.imports, self.libraries, self.compile_flags, self.package,
-                    self.output_so, self.output_sips, self.tmp, self.sipconfig, self.pyqt_sip_flags, features,
-                    self.verbose)
+        std_args = (self.input_sips, self.imports, self.libraries, self.libdirs, self.compile_flags, self.package,
+                    self.output_so, self.output_sips, self.tmp, features, self.verbose)
         if jobs == 0:
             #
             # Debug mode.
@@ -188,14 +183,13 @@ def copy_file(input_dir, filename, output_dir):
     shutil.copy(input, output)
 
 
-def process_one(sip_file, input_sips, includes, imports, libraries, compile_flags, package, output_so, output_sips,
-                tmp_dir, self_sipconfig, pyqt_sip_flags, features, verbose):
+def process_one(sip_file, input_sips, imports, libraries, libdirs, compile_flags, package, output_so, output_sips,
+                tmp_dir, features, verbose):
     """
     Run a SIP file.
 
     :param sip_file:            A SIP file name.
     :param input_sips:          Config
-    :param includes:            Config
     :param imports:             Config
     :param libraries:           Config
     :param compile_flags:       The compile flags for the file.
@@ -203,8 +197,6 @@ def process_one(sip_file, input_sips, includes, imports, libraries, compile_flag
     :param output_so:           Config
     :param output_sips:         Config
     :param tmp_dir:             Config
-    :param self_sipconfig:      Config
-    :param pyqt_sip_flags:      Config
     :param features:            Is there a features file?
     :param verbose:             Config
     :return:                    (
@@ -216,6 +208,11 @@ def process_one(sip_file, input_sips, includes, imports, libraries, compile_flag
     # Make sure any errors mention the file that was being processed.
     #
     try:
+        #
+        # Get the SIP configuration information.
+        #
+        self_sipconfig = sipconfig.Configuration()
+        pyqt_sip_flags = PYQT_CONFIGURATION["sip_flags"].split()
         #
         # Read the supplied SIP module for the module name and the included modules.
         #
@@ -292,9 +289,8 @@ def process_one(sip_file, input_sips, includes, imports, libraries, compile_flag
         #
         # Create the Makefile.
         #
-        parsed_includes = open(module_includes, "rU").read().split("\n")
-        parsed_includes = [i for i in parsed_includes if i]
-        includes = parsed_includes + includes
+        includes = open(module_includes, "rU").read().split("\n")
+        includes = [i for i in includes if i]
         self_sipconfig._macros["INCDIR"] = " ".join(includes)
         makefile = sipconfig.SIPModuleMakefile(self_sipconfig, build_file, makefile=make_file)
         makefile.extra_cxxflags = compile_flags
@@ -303,6 +299,7 @@ def process_one(sip_file, input_sips, includes, imports, libraries, compile_flag
         # is better than having to specify them by hand.
         #
         makefile.extra_libs = libraries
+        makefile.extra_lib_dirs = libdirs
         makefile.generate()
         #
         # It is much faster to compile once only, so combine all the .cpp files into one.
@@ -365,19 +362,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default=",".join(PYQT5_INCLUDES),
-                        help=_("Comma-separated C++ header directories for includes"))
-    parser.add_argument("--libraries", default=",".join(PYKF5_LIBRARIES),
-                        help=_("Comma-separated globs of libraries for linking"))
-    parser.add_argument("--compile-flags", default=",".join(PYQT5_COMPILE_FLAGS),
-                        help=_("Comma-separated C++ compiler options to use"))
-    parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
-                        help=_("Comma-separated SIP module directories for imports"))
-    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules (package name is used for output package)"))
+    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
-                        help=_("Regular expression of SIP modules under 'sips' to be processed"))
+                        help=_("Regular expression of SIP modules under 'input' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
-                        help=_("Regular expression of C++ headers under 'sips' NOT to be processed"))
+                        help=_("Regular expression of C++ headers under 'input' NOT to be processed"))
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
     parser.add_argument("input", help=_("SIP input directory to process"))
@@ -393,12 +382,8 @@ def main(argv=None):
         #
         input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        includes = [i.strip() for i in args.includes.split(",")]
-        imports = [i.strip() for i in args.imports.split(",")]
-        libraries = [i.strip() for i in args.libraries.split(",")]
         rules_pkg = os.path.normpath(args.rules_pkg)
-        compile_flags = [i.strip() for i in args.compile_flags.split(",")]
-        d = ModuleCompiler(rules_pkg, compile_flags, includes, imports, libraries, args.verbose, input, output)
+        d = ModuleCompiler(rules_pkg, args.verbose, input, output)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
         # Dump a summary of what we did. Order the results by the name of the source.

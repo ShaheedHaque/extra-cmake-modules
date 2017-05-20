@@ -33,15 +33,11 @@ import errno
 import gettext
 import os
 import inspect
-import json
 import logging
 import multiprocessing
 from multiprocessing.pool import Pool
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 import traceback
 
 from clang import cindex
@@ -63,17 +59,6 @@ _ = _
 
 MODULE_SIP = "mod.sip"
 INCLUDES_EXTRACT = "includes"
-PYQT5_SIPS = ["/usr/share/sip/PyQt5"]
-PYQT5_INCLUDES = [
-    "/usr/include/x86_64-linux-gnu/qt5",
-    "/usr/include/x86_64-linux-gnu/qt5/QtWidgets",
-    "/usr/include/x86_64-linux-gnu/qt5/QtXml",
-    "/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64",
-    "/usr/include/libxml2"
-]
-PYQT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
-PYKF5_INCLUDES = "/usr/include/KF5"
-PYKF5_LIBRARIES = ["/usr/lib/x86_64-linux-gnu/libKF5*.so"]
 PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5")
 FILE_SORT_KEY = str.lower
 
@@ -116,43 +101,37 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, rules_pkg, compile_flags, includes, imports, project_root, output_dir):
+    def __init__(self, rules_pkg, output_dir):
         """
         Constructor.
 
         :param rules_pkg:           The rules for the project.
-        :param compile_flags:       The compile flags for the file.
-        :param includes:            CXX includes directories to use.
-        :param imports:             SIP module directories to use.
-        :param project_root:        The root of files for which to generate SIP.
         :param output_dir:          The destination SIP directory.
         """
         super(ModuleGenerator, self).__init__()
         #
         # Find and load the libclang.
         #
-        exe_clang, sys_includes, lib_clang = find_clang()
+        sys_includes, lib_clang = get_platform_dependencies()
         cindex.Config.set_library_file(lib_clang)
         #
         # Get paths.
         #
-        includes.append(project_root)
-        exploded_includes = list(includes)
-        for i in includes:
+        self.rules_pkg = rules_pkg
+        self.compiled_rules = rules_engine.rules(self.rules_pkg)
+        self.project_root = self.compiled_rules.cxx_source_root()
+        self.package = self.compiled_rules.sip_package()
+        self.includes = self.dedupe_legacy_names(self.compiled_rules.cxx_includes())
+        self.compile_flags = self.compiled_rules.cxx_compile_flags() + ["-isystem" + i for i in sys_includes]
+        exploded_includes = list(self.includes)
+        for i in self.includes:
             for dirpath, dirnames, filenames in os.walk(i):
                 for d in dirnames:
                     d = os.path.join(dirpath, d)
                     if d not in exploded_includes:
                         exploded_includes.append(d)
-        compile_flags = ["-I" + i for i in exploded_includes] + \
-                            ["-isystem" + i for i in sys_includes] + \
-                            compile_flags
-        self.rules_pkg = rules_pkg
-        self.package = os.path.basename(rules_pkg)
-        self.compile_flags = compile_flags
-        self.includes = includes
-        self.imports = imports
-        self.project_root = project_root
+        self.compile_flags += ["-I" + i for i in exploded_includes]
+        self.imports = self.compiled_rules.sip_imports()
         self.output_dir = output_dir
         #
         # One of the problems we want to solve is that for each #include in the transitive fanout for a .h under
@@ -161,8 +140,8 @@ class ModuleGenerator(object):
         #
         # However, this is made tricky because we want to use new-style CamelCase names whereever possible:
         #
-        #   - Under self.imports, we simply walk the directory structure, folding into any non-lower-case-only names when
-        #     possible, and add each xxxmod.sip we find to the available set.
+        #   - Under self.imports, we simply walk the directory structure, folding into any non-lower-case-only names
+        #     when possible, and add each xxxmod.sip we find to the available set.
         #
         #   - Under self.output_dir, of course, the .sip files don't actually exist before we start running. So here,
         #     we walk self.project_root, folding into any non-lower-case-only names when possible, and add the
@@ -182,17 +161,21 @@ class ModuleGenerator(object):
         self.omitter = None
         self.selector = None
 
+    def dedupe_legacy_names(self, names):
+        new_style_names = [n for n in names if n != n.lower() and n.lower() in names]
+        for name in new_style_names:
+            #
+            # _("Ignoring legacy name for {}").format(os.path.join(root, name)))
+            #
+            names.remove(name.lower())
+        return names
+
     def find_existing_module_sips(self, all_sips, root):
         """
         Find all existing module .sip files, folding away any non-lower-case-only duplicates.
         """
         names = sorted(os.listdir(root))
-        forwarding_names = [n for n in names if n != n.lower() and n.lower() in names]
-        for name in forwarding_names:
-            #
-            # _("Ignoring legacy name for {}").format(os.path.join(root, name)))
-            #
-            names.remove(name.lower())
+        self.dedupe_legacy_names(names)
         for name in names:
             srcname = os.path.join(root, name)
             if os.path.isfile(srcname):
@@ -206,12 +189,7 @@ class ModuleGenerator(object):
         Predict all the new module .sip files we *might* create.
         """
         names = sorted(os.listdir(root))
-        forwarding_names = [n for n in names if n != n.lower() and n.lower() in names]
-        for name in forwarding_names:
-            #
-            # _("Ignoring legacy name for {}").format(os.path.join(root, name)))
-            #
-            names.remove(name.lower())
+        self.dedupe_legacy_names(names)
         for name in names:
             srcname = os.path.join(root, name)
             if os.path.isdir(srcname):
@@ -240,52 +218,63 @@ class ModuleGenerator(object):
         self.omitter = omitter
         self.selector = selector
         self.all_features = []
-        compiled_rules = rules_engine.rules(self.rules_pkg)
         attempts = 0
         failures = []
         directories = 0
-        for dirpath, dirnames, filenames in os.walk(self.project_root):
+        sources = self.compiled_rules.cxx_sources()
+        if sources:
+            sources = [s[len(self.project_root):] for s in sources]
+            self.dedupe_legacy_names(sources)
+            sources = [self.project_root + s for s in sources]
             #
-            # Eliminate the duplication of forwarding headers.
+            # If any of the deduped entries points to a legacy path, fix it.
             #
-            forwarding_headers = [h for h in filenames if not h.endswith(".h") and h.lower() + ".h" in filenames]
-            for h in forwarding_headers:
+            for i, source in enumerate(sources):
+                dir, base = os.path.split(source)
+                candidates = [d for d in os.listdir(dir) if d.lower() == base and d != base]
+                if candidates:
+                    sources[i] = os.path.join(dir, candidates[0])
+            sources.sort(key=FILE_SORT_KEY)
+        else:
+            sources = [self.project_root]
+        for source in sources:
+            for dirpath, dirnames, filenames in os.walk(source):
                 #
-                # _("Ignoring legacy header for {}").format(os.path.join(dirpath, h)))
+                # Eliminate the duplication of forwarding headers.
                 #
-                filenames.remove(h.lower() + ".h")
-            #
-            # Eliminate the duplication of forwarding directories.
-            #
-            forwarding_directories = [h for h in dirnames if h != h.lower() and h.lower() in dirnames]
-            for h in forwarding_directories:
+                forwarding_headers = [h for h in filenames if not h.endswith(".h") and h.lower() + ".h" in filenames]
+                for h in forwarding_headers:
+                    #
+                    # _("Ignoring legacy header for {}").format(os.path.join(dirpath, h)))
+                    #
+                    filenames.remove(h.lower() + ".h")
                 #
-                # _("Ignoring legacy directory for {}").format(os.path.join(dirpath, h)))
+                # Eliminate the duplication of forwarding directories.
                 #
-                dirnames.remove(h.lower())
+                self.dedupe_legacy_names(dirnames)
+                #
+                # Use sorted walks.
+                #
+                dirnames.sort(key=FILE_SORT_KEY)
+                filenames.sort(key=FILE_SORT_KEY)
+                a, f = self.process_dir(jobs, dirpath, filenames)
+                attempts += a
+                failures += f
+                if a:
+                    directories += 1
+            feature_list = os.path.join(self.output_dir, "modules.features")
             #
-            # Use sorted walks.
+            # TODO, make sure the entries are unique.
             #
-            dirnames.sort(key=FILE_SORT_KEY)
-            filenames.sort(key=FILE_SORT_KEY)
-            a, f = self.process_dir(jobs, compiled_rules, dirpath, filenames)
-            attempts += a
-            failures += f
-            if a:
-                directories += 1
-        feature_list = os.path.join(self.output_dir, "modules.features")
-        #
-        # TODO, make sure the entries are unique.
-        #
-        with open(feature_list, "w") as f:
-            for feature in self.all_features:
-                f.write("%Feature(name={})\n".format(feature))
-        self.rule_usage.add_local_stats(compiled_rules)
+            with open(feature_list, "w") as f:
+                for feature in self.all_features:
+                    f.write("%Feature(name={})\n".format(feature))
+            self.rule_usage.add_local_stats(self.compiled_rules)
         return attempts, failures, directories
 
     FUNNY_CHARS = "+"
 
-    def process_dir(self, jobs, compiled_rules, dirname, filenames):
+    def process_dir(self, jobs, dirname, filenames):
         """
         Walk over a directory tree and for each file or directory, apply a function.
         """
@@ -302,7 +291,7 @@ class ModuleGenerator(object):
                 per_process_args.append((source, h_file))
         if not per_process_args:
             return attempts, failures
-        std_args = (self.project_root, self.rules_pkg, self.compile_flags, self.includes, self.output_dir)
+        std_args = (self.project_root, self.rules_pkg, self.package, self.compile_flags, self.includes, self.output_dir)
         if jobs == 0:
             #
             # Debug mode.
@@ -432,7 +421,7 @@ class ModuleGenerator(object):
                 "peers": peers,
             }
             body = ""
-            modifying_rule = compiled_rules.modulecode(os.path.basename(full_output), sip)
+            modifying_rule = self.compiled_rules.modulecode(os.path.basename(full_output), sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
             with open(full_output, "w") as f:
@@ -476,7 +465,7 @@ class ModuleGenerator(object):
         return None
 
 
-def process_one(h_file, h_suffix, h_root, rules_pkg, compile_flags, i_paths, output_dir):
+def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_paths, output_dir):
     """
     Walk over a directory tree and for each file or directory, apply a function.
 
@@ -484,6 +473,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, compile_flags, i_paths, out
     :param h_suffix:            Source to be processed, right hand side of name.
     :param h_root:              Config
     :param rules_pkg:           Config
+    :param package:             Config
     :param compile_flags:       Config
     :param i_paths:             Config
     :param output_dir:          Config
@@ -497,7 +487,6 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, compile_flags, i_paths, out
                                     error,
                                 )
     """
-    package = os.path.basename(rules_pkg)
     sip_suffix = None
     all_includes = lambda: []
     direct_includes = []
@@ -689,27 +678,19 @@ def header(output_file, h_file, package):
     return template.format(output_file, package, h_file, datetime.datetime.utcnow().year)
 
 
-def find_clang():
+def get_platform_dependencies():
     """
-    Find clang++, the system include directories and libclang.so.
+    Find the system include directories and libclang.so.
     """
-    tmpdir = tempfile.mkdtemp()
-    try:
-        subprocess.check_call(["cmake", os.path.dirname(os.path.realpath(__file__))], cwd=tmpdir)
-        with open(os.path.join(tmpdir, "configure.json"), "rU") as f:
-            data = json.load(f)
-    finally:
-        shutil.rmtree(tmpdir)
-    exe_clang = data["ClangPP_EXECUTABLE"]
+    data = rules_engine.get_platform_dependencies(os.path.dirname(os.path.realpath(__file__)))
     sys_includes = data["ClangPP_SYS_INCLUDES"].split(";")
     sys_includes = [str(os.path.normpath(i)) for i in sys_includes]
     if not sys_includes:
         raise RuntimeError(_("Cannot find system includes"))
     lib_clang = data["LibClang_LIBRARY"]
-    logger.info(_("Found {}").format(exe_clang))
     logger.info(_("Found {}").format(sys_includes))
     logger.info(_("Found {}").format(lib_clang))
-    return exe_clang, sys_includes, lib_clang
+    return sys_includes, lib_clang
 
 
 def main(argv=None):
@@ -734,23 +715,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--includes", default=",".join(PYQT5_INCLUDES),
-                        help=_("Comma-separated C++ header directories for includes"))
-    parser.add_argument("--compile-flags", default=",".join(PYQT5_COMPILE_FLAGS),
-                        help=_("Comma-separated C++ compiler options to use"))
-    parser.add_argument("--imports", default=",".join(PYQT5_SIPS),
-                        help=_("Comma-separated SIP module directories for imports"))
-    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules (package name is used for output package)"))
+    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
-                        help=_("Regular expression of C++ headers under 'sources' to be processed"))
+                        help=_("Regular expression of C++ headers from 'rules-pkg' to be processed"))
     parser.add_argument("--omit", default="KDELibs4Support", type=lambda s: re.compile(s, re.I),
-                        help=_("Regular expression of C++ headers under 'sources' NOT to be processed"))
+                        help=_("Regular expression of C++ headers from 'rules-pkg' NOT to be processed"))
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
     parser.add_argument("output", help=_("SIP output directory"))
-    parser.add_argument("input", default=PYKF5_INCLUDES, nargs="?", help=_("C++ header directory to process"))
     try:
         args = parser.parse_args(argv[1:])
         if args.verbose:
@@ -760,13 +734,9 @@ def main(argv=None):
         #
         # Generate!
         #
-        includes = [i.strip() for i in args.includes.split(",")]
         rules_pkg = os.path.normpath(args.rules_pkg)
-        compile_flags = [i.strip() for i in args.compile_flags.split(",")]
-        imports = [i.strip() for i in args.imports.split(",")]
-        input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        d = ModuleGenerator(rules_pkg, compile_flags, includes, imports, input, output)
+        d = ModuleGenerator(rules_pkg, output)
         attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

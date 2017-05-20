@@ -34,6 +34,7 @@ SIP binding customisation for PyKF5. This modules describes:
 """
 
 from __future__ import print_function
+import os
 
 from clang.cindex import AccessSpecifier
 
@@ -427,4 +428,81 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=Syndication.function_rules,
             typedef_rules=Syndication.typedef_rules,
             modulecode=Syndication.modulecode)
+        self.pd_cache = None
 
+    def _fill_cache(self):
+        if self.pd_cache is None:
+            self.pd_cache = rules_engine.get_platform_dependencies(os.path.dirname(os.path.realpath(__file__)))
+
+    def _update_dir_set(self, result, key1, key2):
+        self._fill_cache()
+        for component, data in self.pd_cache[key1].items():
+            dirlist = data[key2].split(";")
+            dirlist = [os.path.normpath(i) for i in dirlist if i]
+            result.update(dirlist)
+
+    def cxx_source_root(self):
+        """
+        The root of C++ header directories to process to generate SIP: .
+        """
+        self._fill_cache()
+        return self.pd_cache["CXX_SOURCE_ROOT"]
+
+    def cxx_sources(self):
+        """
+        The individual C++ header subdirectories to process.
+        """
+        source_root = self.cxx_source_root() + os.path.sep
+        result = set()
+        self._update_dir_set(result, "CXX_SOURCES", "INCLUDE_DIRS")
+        #
+        # We exclude anything which is not under the source root: those are dependencies!
+        #
+        result = [i for i in result if i.startswith(source_root)]
+        result = sorted(result)
+        return result
+
+    def cxx_includes(self):
+        """
+        Where are the .h files we will need to include?
+
+        :return:
+        """
+        source_root = self.cxx_source_root() + os.path.sep
+        result = set()
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "INCLUDE_DIRS")
+        #
+        # We include anything which is not under the source root: those are dependencies too!
+        #
+        self._update_dir_set(result, "CXX_SOURCES", "INCLUDE_DIRS")
+        result = [i for i in result if not i.startswith(source_root)]
+        result = sorted(result)
+        return result
+
+    def cxx_compile_flags(self):
+        QT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
+        return QT5_COMPILE_FLAGS
+
+    def cxx_libraries(self):
+        result = set()
+        self._update_dir_set(result, "CXX_SOURCES", "LIBRARIES")
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "LIBRARIES")
+        result = [i for i in result]
+        result = sorted(result)
+        return result
+
+    def sip_package(self):
+        self._fill_cache()
+        return self.pd_cache["SIP_PACKAGE"]
+
+    def sip_imports(self):
+        """
+        SIP module directories to use.
+        """
+        self._fill_cache()
+        result = set()
+        dirlist = self.pd_cache["SIP_DEPENDENCIES"].split(";")
+        result.update(dirlist)
+        result = [i for i in result if i]
+        result = sorted(result)
+        return result
