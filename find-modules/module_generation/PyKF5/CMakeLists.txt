@@ -62,23 +62,23 @@ set(CXX_SOURCES
         KF5Activities
         KF5ActivitiesStats
         KF5Akonadi
-#        KF5AkonadiCalendar
-#        KF5AkonadiContact
+        KF5AkonadiCalendar
+        KF5AkonadiContact
         KF5AkonadiMime
         KF5AkonadiNotes
-#        KF5AkonadiSearch
+        KF5AkonadiSearch
         KF5AkonadiSocialUtils
-#        KF5AlarmCalendar
+        KF5AlarmCalendar
         KF5Archive
         KF5Attica
         KF5Auth
         KF5BalooWidgets
-#        KF5Blog
+        KF5Blog
         KF5BluezQt
         KF5Bookmarks
-#        KF5CalendarCore
-#        KF5CalendarSupport
-#        KF5CalendarUtils
+        KF5CalendarCore
+        KF5CalendarSupport
+        KF5CalendarUtils
         KF5Codecs
         KF5Completion
         KF5ComposerEditorNG
@@ -88,16 +88,16 @@ set(CXX_SOURCES
         KF5CoreAddons
         KF5Crash
         KF5DBusAddons
-#        KF5Declarative
+        KF5Declarative
         KF5DesignerPlugin
         KF5DNSSD
         KF5DocTools
         KF5Emoticons
-#        KF5EventViews
+        KF5EventViews
         KF5FileMetaData
         KF5FollowupReminder
         KF5FrameworkIntegration
-#        KF5GAPI
+        KF5GAPI
         KF5GlobalAccel
         KF5Gpgmepp
         KF5GrantleeTheme
@@ -126,7 +126,7 @@ set(CXX_SOURCES
         KF5KDGantt2
         KF5KExiv2
         KF5KFace
-#        KF5KGeoMap
+        KF5KGeoMap
         KF5KHtml
         KF5KIO
         KF5Kipi
@@ -153,17 +153,17 @@ set(CXX_SOURCES
         KF5NewStuffQuick
         KF5Notifications
         KF5NotifyConfig
-#        KF5Package
+        KF5Package
         KF5Parts
         KF5People
         KF5PimCommon
         KF5PimTextEdit
-#        KF5Plasma
-#        KF5PlasmaQuick
+        KF5Plasma
+        KF5PlasmaQuick
         KF5Plotting
         KF5Prison
         KF5Pty
-#        KF5Runner
+        KF5Runner
         KF5Sane
         KF5Screen
         KF5SendLater
@@ -192,7 +192,8 @@ set(CXX_DEPENDENCIES
 #
 # Find the list of targets for a KDE component.
 #
-function(get_kf5_targets component file_glob)
+function(get_kf5_targets component)
+    set(file_glob  ${${component}_DIR}/*.cmake)
     file(GLOB target_files ${file_glob})
     foreach(f ${target_files})
         file(STRINGS ${f} targets REGEX "^ *add_library\\(.*\\) *")
@@ -292,8 +293,10 @@ function(get_targets_info dict component targets)
     set(includes "${includes}" PARENT_SCOPE)
 endfunction(get_targets_info)
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+find_package(ECM REQUIRED NO_MODULE)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${ECM_MODULE_PATH})
 find_package(PyQt REQUIRED)
+include(FeatureSummary)
 #
 # Write the values we found as a JSON blob.
 #
@@ -306,7 +309,7 @@ file(WRITE "${dict}" "{\n")
 file(APPEND "${dict}" "\"CXX_SOURCES\": {\n")
 foreach(component ${CXX_SOURCES})
     find_package(${component} REQUIRED)
-    get_kf5_targets(${component} ${${component}_DIR}/${component}*.cmake)
+    get_kf5_targets(${component})
     get_targets_info(${dict} ${component} "${targets}")
     #
     # Find the source root.

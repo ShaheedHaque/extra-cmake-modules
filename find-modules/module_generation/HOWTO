@@ -23,6 +23,7 @@ Ubuntu/Debian "sudo apt install"
     kdoctools-dev                       # For kconfigwidgets
     qtdeclarative5-dev                  # For ki18n
     libqt5x11extras5-dev                # For kjobwidgets
+    libmarble-dev                       # For KGeoMap
     #
     # Regression test packages.
     #
