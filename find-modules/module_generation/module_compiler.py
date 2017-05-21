@@ -134,7 +134,7 @@ class ModuleCompiler(object):
             dirnames.sort(key=FILE_SORT_KEY)
             filenames.sort(key=FILE_SORT_KEY)
             for filename in filenames:
-                if filename != os.path.basename(dirpath) + MODULE_SIP:
+                if filename != os.path.basename(dirpath) + MODULE_SIP and filename != self.package + MODULE_SIP:
                     continue
                 sip_file = os.path.join(dirpath, filename)
                 sip_file = sip_file[len(self.input_sips) + len(os.path.sep):]
@@ -238,7 +238,8 @@ def process_one(sip_file, input_sips, imports, libraries, libdirs, compile_flags
         module_path = module_name.replace(".", os.path.sep)
         tmp_dir = os.path.join(tmp_dir, module_path)
         output_so = os.path.join(output_so, os.path.dirname(module_path))
-        assert module_name.startswith(package + "."),_("Expected {} to be part of {}").format(module_name, package)
+        assert module_name.startswith(package + ".") or module_name == package, \
+            _("Expected {} to be part of {}").format(module_name, package)
         output_sips = os.path.join(output_sips, package)
         for dir in [tmp_dir, output_so, output_sips]:
             try:

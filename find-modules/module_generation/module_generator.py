@@ -206,13 +206,13 @@ class ModuleGenerator(object):
                 sip = sip.replace(funny, "_")
             self.include_to_import_cache[module_dir.lower()] = sip
 
-    def process_tree(self, jobs, omitter, selector):
+    def process_tree(self, jobs, selector, omitter):
         """
         Run a set of SIP modules, but don't throw any errors.
         
         :param jobs:                How many jobs to run in parallel? 0 for serial inline (debug) mode.
-        :param omitter:             A regular expression which sets the files from project_root NOT to be processed.
         :param selector:            A regular expression which limits the files from project_root to be processed.
+        :param omitter:             A regular expression which sets the files from project_root NOT to be processed.
         :return: (attempts, [failures])
         """
         self.omitter = omitter
@@ -352,13 +352,20 @@ class ModuleGenerator(object):
         #
         if sip_files:
             h_dir = dirname[len(self.project_root) + len(os.path.sep):]
-            #
-            # Remove funny characters: the results must be Python-valid names.
-            #
-            for funny in ModuleGenerator.FUNNY_CHARS:
-                h_dir = h_dir.replace(funny, "_")
-            module = h_dir.replace(os.path.sep, ".")
-            output_file = os.path.join(h_dir, os.path.basename(h_dir) + MODULE_SIP)
+            if h_dir:
+                #
+                # Remove funny characters: the results must be Python-valid names.
+                #
+                for funny in ModuleGenerator.FUNNY_CHARS:
+                    h_dir = h_dir.replace(funny, "_")
+                module = h_dir.replace(os.path.sep, ".")
+                output_file = os.path.join(h_dir, os.path.basename(h_dir) + MODULE_SIP)
+            else:
+                #
+                # Header files at the top level...
+                #
+                module = self.package
+                output_file = os.path.join(h_dir, self.package + MODULE_SIP)
             #
             # Write the header and the body.
             #
@@ -369,7 +376,10 @@ class ModuleGenerator(object):
                 if e.errno != errno.EEXIST:
                     raise
             logger.info(_("Creating {}").format(full_output))
-            decl = "%Module(name={}.{})\n".format(self.package, module)
+            if h_dir:
+                decl = "%Module(name={}.{})\n".format(self.package, module)
+            else:
+                decl = "%Module(name={})\n".format(module)
             decl += """
 %ModuleHeaderCode
 #pragma GCC visibility push(default)
@@ -401,6 +411,7 @@ class ModuleGenerator(object):
             # Add all include paths actually used by the compiler.
             #
             decl += "%Extract(id={})\n".format(INCLUDES_EXTRACT)
+            decl += "{}\n".format(dirname)
             for include in sorted(all_include_roots, key=FILE_SORT_KEY):
                 decl += "{}\n".format(include)
             decl += "%End\n"
@@ -737,7 +748,7 @@ def main(argv=None):
         rules_pkg = os.path.normpath(args.rules_pkg)
         output = os.path.normpath(args.output)
         d = ModuleGenerator(rules_pkg, output)
-        attempts, failures, directories = d.process_tree(args.jobs, args.omit, args.select)
+        attempts, failures, directories = d.process_tree(args.jobs, args.select, args.omit)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):
                 usage_count = d.rule_usage[rule]
