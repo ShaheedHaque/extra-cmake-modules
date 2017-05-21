@@ -88,7 +88,7 @@ class RuleSet(rules_engine.RuleSet):
             modulecode=modulecode, typecode=typecode)
 
     def cxx_source_root(self):
-        return SCRIPT_DIR
+        return os.path.join(os.path.dirname(SCRIPT_DIR), "sources")
 
     def cxx_sources(self):
         return []
