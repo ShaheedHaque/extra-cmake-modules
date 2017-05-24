@@ -164,7 +164,14 @@ class HeldAs(object):
         if self.is_mapped_type:
             self.sip_t = "sipFindType(cxx{name}S)"
         else:
-            self.sip_t = "sipType_" + base_cxx_t.replace("::", "_")
+            #
+            # Primitive types don't need help from a sipType_xxx.
+            #
+            base_held_as = HeldAs.categorise(base_cxx_t, None)
+            if base_held_as in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+                self.sip_t = base_held_as
+            else:
+                self.sip_t = "sipType_" + base_cxx_t.replace("::", "_")
         self.category = HeldAs.categorise(cxx_t, clang_kind)
 
     def cxx_to_py_template(self):
@@ -188,8 +195,10 @@ class HeldAs(object):
         :param clang_kind:                  The clang kind or None.
         :return: the storage type of the object.
         """
-        if cxx_t.endswith(("*", "&")):
+        if cxx_t.endswith("*"):
             return HeldAs.POINTER
+        elif cxx_t.endswith("&"):
+            return HeldAs.categorise(cxx_t[:-1].strip(), clang_kind)
         elif cxx_t == HeldAs.VOID:
             return HeldAs.VOID
         #
@@ -225,6 +234,10 @@ class HeldAs(object):
                 raise AssertionError(_("Unexpected {} for {}").format(clang_kind, cxx_t))
         if "<" in cxx_t:
             return HeldAs.OBJECT
+        if "char" in cxx_t:
+            return HeldAs.BYTE
+        if "float" in cxx_t or "double" in cxx_t:
+            return HeldAs.FLOAT
         if "int" in cxx_t or "long" in cxx_t or cxx_t == "bool":
             return HeldAs.INTEGER
         return HeldAs.OBJECT
@@ -258,6 +271,11 @@ class HeldAs(object):
         }
     }
 """
+            elif self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+                #
+                # Primitive types don't need help from a sipType_xxx.
+                #
+                pass
             else:
                 code += """    const sipTypeDef *gen{name}T = {sip_t};
 """
@@ -390,12 +408,10 @@ class FunctionParameterHelper(HeldAs):
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
         code = ""
-        if self.category == HeldAs.OBJECT or self.cxx_t.endswith("&"):
+        if self.category == HeldAs.OBJECT:
             aN = "*" + aN
-        elif is_out_paramter:
+        elif is_out_paramter and not self.cxx_t.endswith("&"):
             aN = "&" + aN
-        else:
-            aN = aN
         return code, aN
 
     def py_parameter(self, type, name, default, annotations):
@@ -438,11 +454,32 @@ class FunctionReturnHelper(HeldAs):
 """,
     }
 
+    cxx_to_py_ptr_templates = {
+        HeldAs.BYTE:
+            """    {name} = {cxx_i};
+    return PyString_FromStringAndSize((char *)({name}), 1);
+""",
+        HeldAs.INTEGER:
+            """    {name} = {cxx_i};
+#if PY_MAJOR_VERSION >= 3
+    return PyLong_FromLong((long)*({name}));
+#else
+    return PyInt_FromLong((long)*({name}));
+#endif
+""",
+        HeldAs.FLOAT:
+            """    {name} = {cxx_i};
+    return PyFloat_FromDouble((double)*({name}));
+""",
+    }
+
     def cxx_to_py_template(self):
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.FLOAT, HeldAs.POINTER]:
+            return self.cxx_to_py_ptr_templates[self.sip_t]
         return self.cxx_to_py_templates[self.category]
 
     def py_fn_result(self, is_constructor):
-        if not is_constructor and self.category == HeldAs.OBJECT:
+        if not is_constructor and self.category == HeldAs.OBJECT and not self.cxx_t.endswith("&"):
             return self.cxx_t + " *"
         return self.cxx_t
 

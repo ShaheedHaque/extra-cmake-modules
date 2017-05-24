@@ -162,13 +162,50 @@ class GenerateMappedHelper(HeldAs):
 """,
     }
 
+    cxx_to_py_ptr_templates = {
+        HeldAs.BYTE:
+            """        PyObject *{name} = PyString_FromStringAndSize((char *)({cxx_i}), 1);
+""",
+        HeldAs.INTEGER:
+            """#if PY_MAJOR_VERSION >= 3
+        PyObject *{name} = PyLong_FromLong((long)*({cxx_i}));
+#else
+        PyObject *{name} = PyInt_FromLong((long)*({cxx_i}));
+#endif
+""",
+        HeldAs.FLOAT:
+            """        PyObject *{name} = PyFloat_FromDouble((double)*({cxx_i}));
+""",
+    }
+
+    py_to_cxx_ptr_templates = {
+        HeldAs.BYTE:
+            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyString_AsString({name});
+""",
+        HeldAs.INTEGER:
+            """
+#if PY_MAJOR_VERSION >= 3
+        Cxx{name}T cxx{name} = (Cxx{name}T)PyLong_AsLong(*({name}));
+#else
+        Cxx{name}T cxx{name} = (Cxx{name}T)PyInt_AsLong(*({name}));
+#endif
+""",
+        HeldAs.FLOAT:
+            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyFloat_AsDouble(*({name}));
+""",
+    }
+
     def __init__(self, entry, clang_kind):
         super(GenerateMappedHelper, self).__init__(entry["type"], clang_kind, entry["base_type"])
 
     def cxx_to_py_template(self):
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+            return self.cxx_to_py_ptr_templates[self.sip_t]
         return self.cxx_to_py_templates[self.category]
 
     def py_to_cxx_template(self):
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+            return self.py_to_cxx_ptr_templates[self.sip_t]
         return self.py_to_cxx_templates[self.category]
 
     def decrement_python_reference(self, name):
@@ -196,8 +233,34 @@ class GenerateMappedHelper(HeldAs):
             }
 """,
         }
-        options[HeldAs.OBJECT] = options[HeldAs.POINTER]
-        code = options[self.category]
+        ptr_options = {
+            HeldAs.BYTE:
+                """if (!PyString_Check({name})) {
+                {extra}return 0;
+            }
+""",
+            HeldAs.INTEGER:
+                """#if PY_MAJOR_VERSION >= 3
+            if (!PyLong_Check({name})) {
+                {extra}return 0;
+            }
+#else
+            if (!PyInt_Check({name})) {
+                {extra}return 0;
+            }
+#endif
+""",
+            HeldAs.FLOAT:
+                """if (!PyFloat_Check({name})) {
+                {extra}return 0;
+            }
+""",
+        }
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+            code = ptr_options[self.sip_t]
+        else:
+            options[HeldAs.OBJECT] = options[HeldAs.POINTER]
+            code = options[self.category]
         code = code.replace("{name}", name)
         code = code.replace("{extra}", extra)
         return code
@@ -210,8 +273,11 @@ class GenerateMappedHelper(HeldAs):
                 """        sipReleaseType((void *)cxx{name}, gen{name}T, {name}State);
 """,
         }
-        options[HeldAs.OBJECT] = options[HeldAs.POINTER]
-        code = options[self.category]
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+            code = ""
+        else:
+            options[HeldAs.OBJECT] = options[HeldAs.POINTER]
+            code = options[self.category]
         code = code.replace("{name}", name)
         return code
 
