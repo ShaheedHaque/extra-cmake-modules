@@ -119,6 +119,28 @@ def base_type(parameter_text):
     return parameter_text
 
 
+def initialise_cxx_decl(sip):
+    """
+    Initialise a C++ declaration.
+
+    :param sip:
+    :return: Any annotations we found.
+    """
+    annotations = []
+    sip["cxx_parameters"] = []
+    for p in sip["parameters"]:
+        a = ANNOTATIONS_RE.search(p)
+        if a:
+            a = a.group()
+            p = ANNOTATIONS_RE.sub("", p)
+        else:
+            a = ""
+        annotations.append(a)
+        sip["cxx_parameters"].append(p)
+    sip["cxx_fn_result"] = sip["fn_result"]
+    return annotations
+
+
 class HeldAs(object):
     """
     Items are held either as integral values, pointer values or objects. The
@@ -661,21 +683,7 @@ class FunctionWithTemplatesExpander(object):
                                     decl            Optional. Name of the function.
                                     foo             dd
         """
-        #
-        # Initialise a C++ declaration.
-        #
-        annotations = []
-        sip["cxx_parameters"] = []
-        for p in sip["parameters"]:
-            a = ANNOTATIONS_RE.search(p)
-            if a:
-                a = a.group()
-                p = ANNOTATIONS_RE.sub("", p)
-            else:
-                a = ""
-            annotations.append(a)
-            sip["cxx_parameters"].append(p)
-        sip["cxx_fn_result"] = sip["fn_result"]
+        annotations = initialise_cxx_decl(sip)
         #
         # Deal with function result.
         #
