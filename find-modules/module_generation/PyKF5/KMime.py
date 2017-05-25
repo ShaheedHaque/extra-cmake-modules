@@ -22,10 +22,28 @@ SIP binding customisation for PyKF5.KMime. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
+import PyQt_templates
+import rules_engine
+
 
 def _delete_duplicate_content(filename, sip, entry):
     if sip["name"] == "KMimeMessage":
         sip["decl"] = ""
+
+
+def parameter_in_out(container, function, parameter, sip, matcher):
+    rules_engine.parameter_out(container, function, parameter, sip, matcher)
+    rules_engine.parameter_in(container, function, parameter, sip, matcher)
+
+
+def parameter_out(container, function, parameter, sip, matcher):
+    rules_engine.parameter_out(container, function, parameter, sip, matcher)
+    if sip["decl"].startswith("QPair"):
+        PyQt_templates.qpair_parameter(container, function, parameter, sip, matcher)
+    elif sip["decl"].startswith("QVector"):
+        PyQt_templates.list_parameter(container, function, parameter, sip, matcher)
+    elif sip["decl"].startswith("QMap"):
+        PyQt_templates.dict_parameter(container, function, parameter, sip, matcher)
 
 
 def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
@@ -36,6 +54,14 @@ def parameter_fully_qualify(container, function, parameter, sip, matcher):
     sip["init"] = sip["init"].replace("<", "<KMime::MDN::")
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    if sip["name"] == "KMime.KMime":
+        del sip["mapped_types"]["QMap<QString, QString>"]
+
+
 def parameter_rules():
     return [
         #
@@ -43,6 +69,8 @@ def parameter_rules():
         # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038989.html
         #
         ["KMime::HeaderParsing", "parseGenericQuotedString", "(open|close)Char", ".*", ".*", parameter_rewrite_quotes],
+        ["KMime::HeaderParsing", "parse.*", "scursor", ".*", ".*", parameter_in_out],
+        ["KMime::HeaderParsing", "parse.*", "result", ".*", ".*", parameter_out],
         #
         # Fully-qualify default values.
         #
@@ -54,5 +82,8 @@ def modulecode():
     return {
         "kmime_message.h": {
             "code": _delete_duplicate_content
+        },
+        "KMimemod.sip": {
+            "code": module_fix_mapped_types
         },
     }
