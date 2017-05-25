@@ -39,7 +39,7 @@ import os
 from clang.cindex import AccessSpecifier
 
 import rules_engine
-from PyQt_templates import function_uses_templates, typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
+from PyQt_templates import function_uses_templates, dict_typecode, list_typecode, set_typecode, \
     qpair_parameter, qshareddatapointer_parameter
 import common_methodcode
 import common_modulecode
@@ -244,11 +244,11 @@ def typedef_rules():
         #
         # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", "QHash<.*>", typecode_cfttc_dict],
-        [".*", ".*", ".*", "QList<.*>", typecode_cfttc_list],
-        [".*", ".*", ".*", "QMap<.*>", typecode_cfttc_dict],
-        [".*", ".*", ".*", "QSet<.*>", typecode_cfttc_set],
-        [".*", ".*", ".*", "QVector<.*>", typecode_cfttc_list],
+        [".*", ".*", ".*", "QHash<.*>", dict_typecode],
+        [".*", ".*", ".*", "QList<.*>", list_typecode],
+        [".*", ".*", ".*", "QMap<.*>", dict_typecode],
+        [".*", ".*", ".*", "QSet<.*>", set_typecode],
+        [".*", ".*", ".*", "QVector<.*>", list_typecode],
         #
         # Rewrite uid_t, gid_t as int.
         #
