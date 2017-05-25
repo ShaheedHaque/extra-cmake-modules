@@ -30,9 +30,18 @@ SIP binding customisation for tests.
 import os
 
 import rules_engine
-
+import builtin_rules
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def fn_cxx_decl(container, function, sip, matcher):
+    builtin_rules.initialise_cxx_decl(sip)
+
+
+def parameter_in_out(container, function, parameter, sip, matcher):
+    rules_engine.parameter_out(container, function, parameter, sip, matcher)
+    rules_engine.parameter_in(container, function, parameter, sip, matcher)
 
 
 def container_rules():
@@ -44,11 +53,16 @@ def forward_declaration_rules():
 
 
 def function_rules():
-    return []
+    return [
+        ["Sample1_1", "markedInOutCxxDecl", ".*", ".*", ".*", fn_cxx_decl],
+    ]
 
 
 def parameter_rules():
-    return []
+    return [
+        ["Sample1_1", "markedInOut.*", "scursor", ".*", ".*", parameter_in_out],
+        ["Sample1_1", "markedInOut.*", "result", ".*", ".*", rules_engine.parameter_out],
+    ]
 
 
 def typedef_rules():

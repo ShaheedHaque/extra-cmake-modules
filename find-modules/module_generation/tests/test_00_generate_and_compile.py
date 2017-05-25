@@ -52,7 +52,7 @@ class Test:
 
     @classmethod
     def teardown_class(cls):
-        shutil.rmtree(TMP_DIR)
+        pass#shutil.rmtree(TMP_DIR)
 
     def test_00_generate(self):
         """
