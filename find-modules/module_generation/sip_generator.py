@@ -1283,7 +1283,7 @@ def main(argv=None):
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
     parser.add_argument("libclang", help=_("libclang library to use for parsing"))
-    parser.add_argument("rules", help=_("Project rules"))
+    parser.add_argument("rules", help=_("Project rules package"))
     parser.add_argument("source", help=_("C++ header to process"))
     parser.add_argument("output", help=_("output filename to write"))
     try:

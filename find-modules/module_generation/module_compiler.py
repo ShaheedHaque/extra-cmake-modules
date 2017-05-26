@@ -363,7 +363,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--rules-pkg", default=PYKF5_RULES_PKG, help=_("Package of project rules"))
+    parser.add_argument("--rules", default=PYKF5_RULES_PKG, help=_("Project rules package"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of SIP modules under 'input' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
@@ -383,7 +383,7 @@ def main(argv=None):
         #
         input = os.path.normpath(args.input)
         output = os.path.normpath(args.output)
-        rules_pkg = os.path.normpath(args.rules_pkg)
+        rules_pkg = os.path.normpath(args.rules)
         d = ModuleCompiler(rules_pkg, args.verbose, input, output)
         attempts, failures = d.process_tree(args.jobs, args.select, args.omit)
         #
