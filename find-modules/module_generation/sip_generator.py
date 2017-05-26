@@ -39,7 +39,7 @@ import re
 import sys
 import traceback
 from clang import cindex
-from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind, TranslationUnit
+from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind
 
 import rules_engine
 
@@ -65,6 +65,7 @@ TEMPLATE_KINDS = [
                      CursorKind.TYPE_REF, CursorKind.TEMPLATE_REF, CursorKind.NAMESPACE_REF
                  ] + EXPR_KINDS
 
+
 def clang_diagnostic_to_logging_diagnostic(lvl):
     """
 
@@ -87,10 +88,10 @@ def clang_diagnostic_to_logging_diagnostic(lvl):
 
     """
     return (logging.NOTSET,
-        logging.INFO,
-        logging.WARNING,
-        logging.ERROR,
-        logging.CRITICAL)[lvl]
+            logging.INFO,
+            logging.WARNING,
+            logging.ERROR,
+            logging.CRITICAL)[lvl]
 
 
 def diagnostic_word(lvl):
@@ -172,13 +173,13 @@ class SipGenerator(object):
             #
             loc = diag.location
             msg = "{}:{}[{}] {}".format(loc.file, loc.line, loc.column, diag.spelling)
-            if (diag.spelling == "#pragma once in main file"):
+            if diag.spelling == "#pragma once in main file":
                 continue
             if msg in self.diagnostics:
                 continue
             self.diagnostics.add(msg)
             logger.log(clang_diagnostic_to_logging_diagnostic(diag.severity),
-                "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
+                       "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
         if self.dump_includes:
             for include in sorted(set(self.tu.get_includes())):
                 logger.debug(_("Used includes {}").format(include.include.name))
@@ -240,16 +241,16 @@ class SipGenerator(object):
         def is_copy_constructor(member):
             if member.kind != CursorKind.CONSTRUCTOR:
                 return False
-            numParams = 0
-            hasSelfType = False
+            num_params = 0
+            has_self_type = False
             for child in member.get_children():
-                numParams += 1
+                num_params += 1
                 if child.kind == CursorKind.PARM_DECL:
-                    paramType = child.type.spelling
-                    paramType = paramType.split("::")[-1]
-                    paramType = paramType.replace("const", "").replace("&", "").strip()
-                    hasSelfType = paramType == container.displayname
-            return numParams == 1 and hasSelfType
+                    param_type = child.type.spelling
+                    param_type = param_type.split("::")[-1]
+                    param_type = param_type.replace("const", "").replace("&", "").strip()
+                    has_self_type = param_type == container.displayname
+            return num_params == 1 and has_self_type
 
         def has_parameter_default(parameter):
             for member in parameter.get_children():
@@ -260,12 +261,12 @@ class SipGenerator(object):
         def is_default_constructor(member):
             if member.kind != CursorKind.CONSTRUCTOR:
                 return False
-            numParams = 0
+            num_params = 0
             for parameter in member.get_children():
-                if (has_parameter_default(parameter)):
+                if has_parameter_default(parameter):
                     break
-                numParams += 1
-            return numParams == 0
+                num_params += 1
+            return num_params == 0
 
         sip = {
             "name": container.displayname,
@@ -333,7 +334,8 @@ class SipGenerator(object):
                 # There should be only one child...
                 #
                 typedef_children = list(member.get_children())
-                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL, CursorKind.STRUCT_DECL,
+                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL,
+                                                                               CursorKind.STRUCT_DECL,
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
                     if child.kind == CursorKind.ENUM_DECL:
@@ -364,7 +366,7 @@ class SipGenerator(object):
                 template_type_parameters.append(member.type.spelling + " " + member.displayname)
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified()
-                if member.access_specifier !=  AccessSpecifier.PRIVATE:
+                if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     module_code.update(tmp)
                 elif self.dump_privates:
@@ -518,11 +520,10 @@ class SipGenerator(object):
         if access_specifier_text == "Q_OBJECT":
             return access_specifier, is_signal
         pad = " " * ((level - 1) * 4)
-        if (access_specifier_text in ("Q_SIGNALS:", "signals:")):
+        if access_specifier_text in ("Q_SIGNALS:", "signals:"):
             access_specifier = access_specifier_text
             is_signal = True
-        elif (access_specifier_text in ("public Q_SLOTS:", "public slots:",
-                                      "protected Q_SLOTS:", "protected slots:")):
+        elif access_specifier_text in ("public Q_SLOTS:", "public slots:", "protected Q_SLOTS:", "protected slots:"):
             access_specifier = access_specifier_text
         elif member.access_specifier == AccessSpecifier.PRIVATE:
             access_specifier = "private:"
@@ -789,7 +790,7 @@ class SipGenerator(object):
         def _get_param_type(parameter):
             result = parameter.type.get_declaration().type
 
-            if result.kind != TypeKind.ENUM and result.kind != TypeKind.TYPEDEF and parameter.type.kind == TypeKind.LVALUEREFERENCE:
+            if result.kind not in [TypeKind.ENUM, TypeKind.TYPEDEF] and parameter.type.kind == TypeKind.LVALUEREFERENCE:
                 if parameter.type.get_pointee().get_declaration().type.kind != TypeKind.INVALID:
                     return parameter.type.get_pointee().get_declaration().type
                 return parameter.type.get_pointee()
@@ -797,12 +798,12 @@ class SipGenerator(object):
             if parameter.type.get_declaration().type.kind == TypeKind.INVALID:
                 return parameter.type
 
-            if (parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF):
-                isQFlags = False
+            if parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF:
+                is_q_flags = False
                 for member in parameter.type.get_declaration().get_children():
                     if member.kind == CursorKind.TEMPLATE_REF and member.spelling == "QFlags":
-                        isQFlags = True
-                    if isQFlags and member.kind == CursorKind.TYPE_REF:
+                        is_q_flags = True
+                    if is_q_flags and member.kind == CursorKind.TYPE_REF:
                         result = member.type
                         break
             return result
@@ -819,7 +820,7 @@ class SipGenerator(object):
                 if parameter_type.spelling.startswith("const "):
                     return parameter_type.spelling[6:] + "()"
                 return parameter_type.spelling + "()"
-            if not "::" in parameter_type.spelling:
+            if "::" not in parameter_type.spelling:
                 return text
             #
             # SIP wants things fully qualified. Without creating a full AST, we can only hope to cover the common
@@ -1258,7 +1259,8 @@ class SipGenerator(object):
     def _report_ignoring(parent, child, text=None):
         if not text:
             text = child.displayname or child.spelling
-        logger.debug(_("Ignoring {} {} child {}").format(parent.kind.name, parent.spelling, SipGenerator.describe(child, text)))
+        logger.debug(_("Ignoring {} {} child {}").format(parent.kind.name, parent.spelling,
+                                                         SipGenerator.describe(child, text)))
 
 
 def main(argv=None):
