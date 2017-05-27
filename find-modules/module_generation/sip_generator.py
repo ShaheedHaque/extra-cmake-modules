@@ -656,6 +656,16 @@ class SipGenerator(object):
             sip["fn_result"] = ""
         else:
             sip["fn_result"] = function.result_type.get_canonical().spelling
+            #
+            # If the result is a function pointer, the canonical spelling is likely to be
+            # a problem for SIP. Working out if we have such a case seems hand: the approach
+            # now is the following heuristic...
+            #
+            #   - We have a pointer AND
+            #   - We see what looks like the thing Clang seems to use for a function pointer
+            #
+            if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find("(*)") != -1:
+                sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
         modifying_rule = self.compiled_rules.function_rules().apply(container, function, sip)
@@ -988,14 +998,15 @@ class SipGenerator(object):
         else:
             sip["decl"] = typedef.underlying_typedef_type.get_canonical().spelling
             #
-            # Working out if a typedef is for a function pointer seems hard. The recourse right now is the following
-            # heuristic...
+            # If the typedef is for a function pointer, the canonical spelling is likely to be
+            # a problem for SIP. Working out if we have such a case seems hand: the approach
+            # now is the following heuristic...
             #
             #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
             #   (
             #   - The typedef has a result OR
             #   - We found some arguments OR
-            #   - We see what looks like the thing clang seems to use for a function pointer
+            #   - We see what looks like the thing Clang seems to use for a function pointer
             #   )
             #
             if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find("(*)") != -1:
