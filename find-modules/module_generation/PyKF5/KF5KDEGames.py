@@ -102,6 +102,10 @@ def function_rules():
         ["KGamePropertyHandler", "signalSendMessage", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
         ["KMessageClient", "(forward|serverMessage)Received", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
         ["KMessageServer", "messageReceived", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Suppress template stuff for now.
+        #
+        ["KGameProperty", "operator.*|typeinfo|value", ".*", ".*", ".*", rules_engine.function_discard],
     ]
 
 

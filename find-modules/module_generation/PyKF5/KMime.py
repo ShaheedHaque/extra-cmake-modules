@@ -62,6 +62,15 @@ def module_fix_mapped_types(filename, sip, entry):
         del sip["mapped_types"]["QMap<QString, QString>"]
 
 
+def container_rules():
+    return [
+        #
+        # Duplicate template stuff.
+        #
+        ["kmime_newsarticle.h", "Akonadi", ".*", ".*", ".*", rules_engine.container_discard],
+    ]
+
+
 def parameter_rules():
     return [
         #

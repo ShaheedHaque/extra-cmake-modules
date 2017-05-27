@@ -268,13 +268,41 @@ class SipGenerator(object):
                 num_params += 1
             return num_params == 0
 
+        def nameless_template_parameters_get(tokens, template_parameters):
+            """
+            Fix the issue that nameless template parameters go missing.
+            """
+            assert tokens[1].spelling == "<"
+            tokens = tokens[2:]
+            tmp = []
+            non_missing_parameter = 0
+            for token in tokens:
+                if token.extent.end.offset <= template_parameters[non_missing_parameter][1].start.offset:
+                    if token.kind == TokenKind.IDENTIFIER:
+                        #
+                        # We found a nameless template parameter.
+                        #
+                        tmp.append("__{}".format(len(tmp)))
+                elif token.extent.end.offset == template_parameters[non_missing_parameter][1].end.offset:
+                    #
+                    # Consume a non-nameless template parameter.
+                    #
+                    tmp.append(template_parameters[non_missing_parameter][0])
+                    non_missing_parameter += 1
+            #
+            # Consume any remaining non-nameless template parameters.
+            #
+            template_parameters = [i[0] for i in template_parameters if i[0]]
+            tmp.extend(template_parameters[non_missing_parameter:])
+            return tmp
+
         sip = {
-            "name": container.displayname,
+            "name": container.spelling,
             "annotations": set()
         }
         body = ""
         base_specifiers = []
-        template_type_parameters = []
+        template_parameters = []
         had_copy_constructor = False
         had_const_member = False
         module_code = {}
@@ -361,9 +389,25 @@ class SipGenerator(object):
                 #
                 base_specifiers.append(member.type.get_canonical().spelling)
             elif member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
-                template_type_parameters.append(member.displayname)
+                template_parameters.append((member.spelling, member.extent))
             elif member.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
-                template_type_parameters.append(member.type.spelling + " " + member.displayname)
+                #
+                # Weird: nameless template parameters don't show up as members:
+                #
+                # - Given "template <T, int U, typename V>", we get called for "int U" and "typename V", and not T.
+                # - Given "template <T, int U, V>" we get called for "int U" and ">", and not T or V.
+                # - Even container.displayname gets terribly confused!
+                #
+                # We'll fix this up later. For now, just record the point before which any
+                # nameless template must have ended or after which any must start.
+                #
+                if member.spelling:
+                    template_parameters.append((member.spelling, member.extent))
+                else:
+                    #
+                    # This is the case that given "template <T, int U, V>" we get called for ">".
+                    #
+                    template_parameters.append((None, SourceRange.from_locations(member.location, member.location)))
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified()
                 if member.access_specifier != AccessSpecifier.PRIVATE:
@@ -415,7 +459,11 @@ class SipGenerator(object):
             container_type = "namespace " + sip["name"]
         elif container.kind in [CursorKind.CLASS_DECL, CursorKind.CLASS_TEMPLATE,
                                 CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
-            container_type = "class " + sip["name"].split("<", 1)[0]
+            container_type = "class " + sip["name"]
+            if template_parameters:
+                tokens = SourceRange.from_locations(container.extent.start, template_parameters[-1][1].start)
+                tokens = list(self.tu.get_tokens(extent=tokens))
+                template_parameters = nameless_template_parameters_get(tokens, template_parameters)
         elif container.kind == CursorKind.STRUCT_DECL:
             if not sip["name"]:
                 sip["name"] = "__struct{}".format(container.extent.start.line)
@@ -428,7 +476,7 @@ class SipGenerator(object):
             raise AssertionError(
                 _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
         sip["decl"] = container_type
-        sip["template_parameters"] = template_type_parameters
+        sip["template_parameters"] = template_parameters
         sip["base_specifiers"] = base_specifiers
 
         pad = " " * (level * 4)
@@ -462,6 +510,16 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["body"] = body
+        #
+        # Sigh. Clang seems to replace template parameter N of the form "T" in
+        # various places with "type-parameter-0-N"...
+        #
+        if template_parameters:
+            for i, p in enumerate(template_parameters):
+                i = "type-parameter-0-{}".format(i)
+                sip["body"] = sip["body"].replace(i, p)
+                for j, b in enumerate(sip["base_specifiers"]):
+                    sip["base_specifiers"][j] = b.replace(i, p)
         modifying_rule = self.compiled_rules.container_rules().apply(container, sip)
         if sip["name"]:
             decl = ""
@@ -493,7 +551,7 @@ class SipGenerator(object):
             if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
                 body += pad + "private:\n"
                 body += pad + "    " + trace_generated_for(container, self._container_get, "non-copyable type handling")
-                body += pad + "    {}(const {} &);\n".format(sip["name"], container.type.get_canonical().spelling)
+                body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
             body += pad + "};\n"
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
@@ -575,6 +633,11 @@ class SipGenerator(object):
             "annotations": set(),
             "is_signal": is_signal,
         }
+        #
+        # Constructors for templated classes end up with spurious template parameters.
+        #
+        if function.kind == CursorKind.CONSTRUCTOR:
+            sip["name"] = sip["name"].split("<")[0]
         parameters = []
         parameter_modifying_rules = []
         template_parameters = []

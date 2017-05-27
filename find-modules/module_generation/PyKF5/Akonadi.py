@@ -282,6 +282,10 @@ def container_rules():
         # SIP does not seem to be able to handle empty containers.
         #
         ["Akonadi::AkonadiCore", "Monitor|Protocol", ".*", ".*", ".*", rules_engine.container_discard],
+        #
+        # We cannot handle templated containers which are this complicated.
+        #
+        ["Akonadi::Internal", ".*", ".+", ".*", ".*", rules_engine.container_discard],
     ]
 
 

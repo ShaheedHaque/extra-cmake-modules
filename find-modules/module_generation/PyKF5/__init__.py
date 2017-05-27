@@ -146,11 +146,11 @@ def _variable_discard_protected(container, variable, sip, matcher):
 
 def container_rules():
     return [
-        [".*", "(QMetaTypeId|QTypeInfo)<.*>", ".*", ".*", ".*", rules_engine.container_discard],
+        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
         #
-        # SIP does not seem to be able to handle templated containers.
+        # SIP cannot handle templated containers with a base which is a template parameter.
         #
-        [".*", ".*<.*", ".*", ".*", ".*", rules_engine.container_discard],
+        ["kimagecache.h", "KSharedPixmapCacheMixin", ".+", ".*", ".*", rules_engine.container_discard],
         #
         # SIP does not seem to be able to handle templated base classes.
         #
@@ -388,6 +388,7 @@ class RuleSet(rules_engine.RuleSet):
             variable_rules=KLDAP.variable_rules,
             typedef_rules=KLDAP.typedef_rules)
         self.add_rules(
+            container_rules=KMime.container_rules,
             parameter_rules=KMime.parameter_rules,
             modulecode=KMime.modulecode)
         self.add_rules(
