@@ -846,10 +846,7 @@ class SipGenerator(object):
         r"<.*\(.*\)>",                                      # Brackets "()" inside template "<>".
                                                             #   std::function<bool(const KPluginMetaData &)>()
         re.I)
-    UNHANDLED_DEFAULT_EXPRESSION = re.compile(
-        r"\(.*\).*\||\|.*\(.*\)",                           # "|"-op outside "()".
-                                                            #   LookUpMode(exactOnly) | defaultOnly
-        re.I)
+    QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)", re.I)
 
     def _fn_get_parameter_default(self, function, parameter):
         """
@@ -906,6 +903,31 @@ class SipGenerator(object):
             #       Option1                     parents::Option1
             #       Flag1|Flag3                 parents::Flag1|parents::Flag3
             #       FlagsType(Flag1|Flag3)      parents::FlagsType(parents::Flag1|parents::Flag3)
+            #       LookUpMode(exactOnly) | defaultOnly
+            #                                   parents::LookUpMode(parents::exactOnly) | parents::defaultOnly
+            #
+            qflags = "QFlags"
+            if parameter_type.kind == TypeKind.ENUM or parameter_type.spelling.startswith(qflags):
+                #
+                # Prefix any identifier with the prefix of the enum.
+                #
+                if parameter_type.kind == TypeKind.ENUM:
+                    prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
+                else:
+                    prefix = parameter_type.spelling[len(qflags) + 1:-1].rsplit("::", 1)[0] + "::"
+                tmp = ""
+                match = SipGenerator.QUALIFIED_ID.search(text)
+                while match:
+                    tmp += match.string[:match.start()]
+                    id = match.expand("\\1")
+                    if id == qflags:
+                        tmp += id
+                    else:
+                        tmp += prefix + id
+                    text = text[match.end():]
+                    match = SipGenerator.QUALIFIED_ID.search(text)
+                tmp += text
+                return tmp
             #
             #   - Other stuff:
             #
@@ -920,18 +942,14 @@ class SipGenerator(object):
                 logger.warn(_("Default for {} has unhandled type {}").format(SipGenerator.describe(parameter),
                                                                              parameter_type.spelling))
                 return text
-            if SipGenerator.UNHANDLED_DEFAULT_EXPRESSION.search(text):
-                logger.warn(_("Default for {} has unhandled expression {}").format(SipGenerator.describe(parameter),
-                                                                                   text))
-                return text
             prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
             tmp = re.split("[(|)]", text)
             if text.endswith(")"):
                 tmp = tmp[:-1]
-            tmp = [(word.rsplit("::", 1)[1] if "::" in word else word) for word in tmp]
+            tmp = [word.rsplit("::", 1)[-1] for word in tmp]
             tmp = [prefix + word if word else "" for word in tmp]
             result = tmp[0]
-            if len(tmp) > 1 or parameter_type.kind != TypeKind.ENUM:
+            if len(tmp) > 1:
                 if text.endswith(")"):
                     result += "(" + "|".join(tmp[1:]) + ")"
                 else:
@@ -940,7 +958,10 @@ class SipGenerator(object):
 
         for member in parameter.get_children():
             if member.kind.is_expression():
-
+                #
+                # Get the text after the "=". Macro expansion can make relying on tokens fraught...and
+                # member.get_tokens() simply does not always return anything.
+                #
                 possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
                 text = ""
                 bracket_level = 0
@@ -971,7 +992,7 @@ class SipGenerator(object):
                 #
                 # SIP does not like outer brackets as in "(QHash<QColor,QColor>())". Get rid of them.
                 #
-                if text.startswith("("):
+                while text.startswith("("):
                     text = text[1:-1]
                 #
                 # Use some heuristics to format the default value as SIP wants in most cases.
