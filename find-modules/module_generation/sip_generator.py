@@ -64,6 +64,16 @@ EXPR_KINDS = [
 TEMPLATE_KINDS = [
                      CursorKind.TYPE_REF, CursorKind.TEMPLATE_REF, CursorKind.NAMESPACE_REF
                  ] + EXPR_KINDS
+#
+# All Qt-specific logic is driven from these identifiers. Setting them to
+# nonsense values would effectively disable all Qt-specific logic.
+#
+QFLAGS = "QFlags"
+Q_NULLPTR = "Q_NULLPTR"
+Q_OBJECT = "Q_OBJECT"
+Q_SIGNALS = "Q_SIGNALS"
+Q_SLOTS = "Q_SLOTS"
+QScopedPointer = "QScopedPointer"
 
 
 def clang_diagnostic_to_logging_diagnostic(lvl):
@@ -410,7 +420,7 @@ class SipGenerator(object):
                     template_parameters.append((None, SourceRange.from_locations(member.location, member.location)))
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified() or \
-                                   member.type.spelling.startswith("QScopedPointer")
+                                   member.type.spelling.startswith(QScopedPointer)
                 if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     module_code.update(tmp)
@@ -576,13 +586,14 @@ class SipGenerator(object):
         access_specifier = ""
         is_signal = False
         access_specifier_text = self._read_source(member.extent)
-        if access_specifier_text == "Q_OBJECT":
+        if access_specifier_text == Q_OBJECT:
             return access_specifier, is_signal
         pad = " " * ((level - 1) * 4)
-        if access_specifier_text in ("Q_SIGNALS:", "signals:"):
+        if access_specifier_text in (Q_SIGNALS + ":", "signals:"):
             access_specifier = access_specifier_text
             is_signal = True
-        elif access_specifier_text in ("public Q_SLOTS:", "public slots:", "protected Q_SLOTS:", "protected slots:"):
+        elif access_specifier_text in ("public " + Q_SLOTS + ":", "public slots:", "protected " + Q_SLOTS + ":",
+                                       "protected slots:"):
             access_specifier = access_specifier_text
         elif member.access_specifier == AccessSpecifier.PRIVATE:
             access_specifier = "private:"
@@ -872,7 +883,7 @@ class SipGenerator(object):
             if parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF:
                 is_q_flags = False
                 for member in parameter.type.get_declaration().get_children():
-                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == "QFlags":
+                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == QFLAGS:
                         is_q_flags = True
                     if is_q_flags and member.kind == CursorKind.TYPE_REF:
                         result = member.type
@@ -880,7 +891,7 @@ class SipGenerator(object):
             return result
 
         def _get_param_value(text, parameter):
-            if text in ["", "0", "nullptr", "Q_NULLPTR"]:
+            if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
             parameter_type = _get_param_type(parameter)
             if text == "{}":
@@ -907,21 +918,20 @@ class SipGenerator(object):
             #       LookUpMode(exactOnly) | defaultOnly
             #                                   parents::LookUpMode(parents::exactOnly) | parents::defaultOnly
             #
-            qflags = "QFlags"
-            if parameter_type.kind == TypeKind.ENUM or parameter_type.spelling.startswith(qflags):
+            if parameter_type.kind == TypeKind.ENUM or parameter_type.spelling.startswith(QFLAGS):
                 #
                 # Prefix any identifier with the prefix of the enum.
                 #
                 if parameter_type.kind == TypeKind.ENUM:
                     prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
                 else:
-                    prefix = parameter_type.spelling[len(qflags) + 1:-1].rsplit("::", 1)[0] + "::"
+                    prefix = parameter_type.spelling[len(QFLAGS) + 1:-1].rsplit("::", 1)[0] + "::"
                 tmp = ""
                 match = SipGenerator.QUALIFIED_ID.search(text)
                 while match:
                     tmp += match.string[:match.start()]
                     id = match.expand("\\1")
-                    if id == qflags:
+                    if id == QFLAGS:
                         tmp += id
                     else:
                         tmp += prefix + id
