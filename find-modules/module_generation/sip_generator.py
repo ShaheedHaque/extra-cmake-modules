@@ -409,7 +409,8 @@ class SipGenerator(object):
                     #
                     template_parameters.append((None, SourceRange.from_locations(member.location, member.location)))
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
-                had_const_member = had_const_member or member.type.is_const_qualified()
+                had_const_member = had_const_member or member.type.is_const_qualified() or \
+                                   member.type.spelling.startswith("QScopedPointer")
                 if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     module_code.update(tmp)
