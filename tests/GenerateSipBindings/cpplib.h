@@ -338,7 +338,7 @@ public:
   EXPORT typedef int TypdefVisible;
   NO_EXPORT int TypedefInvisible;
   typedef TemplateDerivative TypedefSimpleClass;
-  class DerivativeViaTypedef : ObscureSyntax::TypedefSimpleClass
+  class DerivativeViaTypedef : public ObscureSyntax::TypedefSimpleClass
   {
   };
   //

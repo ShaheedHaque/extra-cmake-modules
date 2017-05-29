@@ -212,6 +212,13 @@ class SipGenerator(object):
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(h_name, modifying_rule)
             body += sip["decl"] + sip["code"]
+            #
+            # Support any global externs.
+            #
+            body = """
+%ModuleHeaderCode
+#include <{}>
+%End\n""".format(include_filename) + body
         return body, module_code, self.tu.get_includes
 
     def skippable_attribute(self, parent, member, text, sip):
