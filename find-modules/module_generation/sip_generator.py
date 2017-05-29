@@ -39,7 +39,7 @@ import re
 import sys
 import traceback
 from clang import cindex
-from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind, TranslationUnit
+from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind
 
 import rules_engine
 
@@ -64,6 +64,17 @@ EXPR_KINDS = [
 TEMPLATE_KINDS = [
                      CursorKind.TYPE_REF, CursorKind.TEMPLATE_REF, CursorKind.NAMESPACE_REF
                  ] + EXPR_KINDS
+#
+# All Qt-specific logic is driven from these identifiers. Setting them to
+# nonsense values would effectively disable all Qt-specific logic.
+#
+QFLAGS = "QFlags"
+Q_NULLPTR = "Q_NULLPTR"
+Q_OBJECT = "Q_OBJECT"
+Q_SIGNALS = "Q_SIGNALS"
+Q_SLOTS = "Q_SLOTS"
+QScopedPointer = "QScopedPointer"
+
 
 def clang_diagnostic_to_logging_diagnostic(lvl):
     """
@@ -87,10 +98,10 @@ def clang_diagnostic_to_logging_diagnostic(lvl):
 
     """
     return (logging.NOTSET,
-        logging.INFO,
-        logging.WARNING,
-        logging.ERROR,
-        logging.CRITICAL)[lvl]
+            logging.INFO,
+            logging.WARNING,
+            logging.ERROR,
+            logging.CRITICAL)[lvl]
 
 
 def diagnostic_word(lvl):
@@ -172,13 +183,13 @@ class SipGenerator(object):
             #
             loc = diag.location
             msg = "{}:{}[{}] {}".format(loc.file, loc.line, loc.column, diag.spelling)
-            if (diag.spelling == "#pragma once in main file"):
+            if diag.spelling == "#pragma once in main file":
                 continue
             if msg in self.diagnostics:
                 continue
             self.diagnostics.add(msg)
             logger.log(clang_diagnostic_to_logging_diagnostic(diag.severity),
-                "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
+                       "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
         if self.dump_includes:
             for include in sorted(set(self.tu.get_includes())):
                 logger.debug(_("Used includes {}").format(include.include.name))
@@ -240,16 +251,16 @@ class SipGenerator(object):
         def is_copy_constructor(member):
             if member.kind != CursorKind.CONSTRUCTOR:
                 return False
-            numParams = 0
-            hasSelfType = False
+            num_params = 0
+            has_self_type = False
             for child in member.get_children():
-                numParams += 1
+                num_params += 1
                 if child.kind == CursorKind.PARM_DECL:
-                    paramType = child.type.spelling
-                    paramType = paramType.split("::")[-1]
-                    paramType = paramType.replace("const", "").replace("&", "").strip()
-                    hasSelfType = paramType == container.displayname
-            return numParams == 1 and hasSelfType
+                    param_type = child.type.spelling
+                    param_type = param_type.split("::")[-1]
+                    param_type = param_type.replace("const", "").replace("&", "").strip()
+                    has_self_type = param_type == container.displayname
+            return num_params == 1 and has_self_type
 
         def has_parameter_default(parameter):
             for member in parameter.get_children():
@@ -260,20 +271,48 @@ class SipGenerator(object):
         def is_default_constructor(member):
             if member.kind != CursorKind.CONSTRUCTOR:
                 return False
-            numParams = 0
+            num_params = 0
             for parameter in member.get_children():
-                if (has_parameter_default(parameter)):
+                if has_parameter_default(parameter):
                     break
-                numParams += 1
-            return numParams == 0
+                num_params += 1
+            return num_params == 0
+
+        def nameless_template_parameters_get(tokens, template_parameters):
+            """
+            Fix the issue that nameless template parameters go missing.
+            """
+            assert tokens[1].spelling == "<"
+            tokens = tokens[2:]
+            tmp = []
+            non_missing_parameter = 0
+            for token in tokens:
+                if token.extent.end.offset <= template_parameters[non_missing_parameter][1].start.offset:
+                    if token.kind == TokenKind.IDENTIFIER:
+                        #
+                        # We found a nameless template parameter.
+                        #
+                        tmp.append("__{}".format(len(tmp)))
+                elif token.extent.end.offset == template_parameters[non_missing_parameter][1].end.offset:
+                    #
+                    # Consume a non-nameless template parameter.
+                    #
+                    tmp.append(template_parameters[non_missing_parameter][0])
+                    non_missing_parameter += 1
+            #
+            # Consume any remaining non-nameless template parameters.
+            #
+            template_parameters = [i[0] for i in template_parameters if i[0]]
+            tmp.extend(template_parameters[non_missing_parameter:])
+            return tmp
 
         sip = {
-            "name": container.displayname,
+            "name": container.spelling,
             "annotations": set()
         }
         body = ""
         base_specifiers = []
-        template_type_parameters = []
+        template_parameters = []
         had_copy_constructor = False
         had_const_member = False
         module_code = {}
@@ -333,7 +372,8 @@ class SipGenerator(object):
                 # There should be only one child...
                 #
                 typedef_children = list(member.get_children())
-                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL, CursorKind.STRUCT_DECL,
+                if len(typedef_children) == 1 and typedef_children[0].kind in [CursorKind.ENUM_DECL,
+                                                                               CursorKind.STRUCT_DECL,
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
                     if child.kind == CursorKind.ENUM_DECL:
@@ -359,12 +399,29 @@ class SipGenerator(object):
                 #
                 base_specifiers.append(member.type.get_canonical().spelling)
             elif member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
-                template_type_parameters.append(member.displayname)
+                template_parameters.append((member.spelling, member.extent))
             elif member.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
-                template_type_parameters.append(member.type.spelling + " " + member.displayname)
+                #
+                # Weird: nameless template parameters don't show up as members:
+                #
+                # - Given "template <T, int U, typename V>", we get called for "int U" and "typename V", and not T.
+                # - Given "template <T, int U, V>" we get called for "int U" and ">", and not T or V.
+                # - Even container.displayname gets terribly confused!
+                #
+                # We'll fix this up later. For now, just record the point before which any
+                # nameless template must have ended or after which any must start.
+                #
+                if member.spelling:
+                    template_parameters.append((member.spelling, member.extent))
+                else:
+                    #
+                    # This is the case that given "template <T, int U, V>" we get called for ">".
+                    #
+                    template_parameters.append((None, SourceRange.from_locations(member.location, member.location)))
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
-                had_const_member = had_const_member or member.type.is_const_qualified()
-                if member.access_specifier !=  AccessSpecifier.PRIVATE:
+                had_const_member = had_const_member or member.type.is_const_qualified() or \
+                                   member.type.spelling.startswith(QScopedPointer)
+                if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     module_code.update(tmp)
                 elif self.dump_privates:
@@ -413,7 +470,11 @@ class SipGenerator(object):
             container_type = "namespace " + sip["name"]
         elif container.kind in [CursorKind.CLASS_DECL, CursorKind.CLASS_TEMPLATE,
                                 CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
-            container_type = "class " + sip["name"].split("<", 1)[0]
+            container_type = "class " + sip["name"]
+            if template_parameters:
+                tokens = SourceRange.from_locations(container.extent.start, template_parameters[-1][1].start)
+                tokens = list(self.tu.get_tokens(extent=tokens))
+                template_parameters = nameless_template_parameters_get(tokens, template_parameters)
         elif container.kind == CursorKind.STRUCT_DECL:
             if not sip["name"]:
                 sip["name"] = "__struct{}".format(container.extent.start.line)
@@ -426,7 +487,7 @@ class SipGenerator(object):
             raise AssertionError(
                 _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
         sip["decl"] = container_type
-        sip["template_parameters"] = template_type_parameters
+        sip["template_parameters"] = template_parameters
         sip["base_specifiers"] = base_specifiers
 
         pad = " " * (level * 4)
@@ -460,6 +521,16 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["body"] = body
+        #
+        # Sigh. Clang seems to replace template parameter N of the form "T" in
+        # various places with "type-parameter-0-N"...
+        #
+        if template_parameters:
+            for i, p in enumerate(template_parameters):
+                i = "type-parameter-0-{}".format(i)
+                sip["body"] = sip["body"].replace(i, p)
+                for j, b in enumerate(sip["base_specifiers"]):
+                    sip["base_specifiers"][j] = b.replace(i, p)
         modifying_rule = self.compiled_rules.container_rules().apply(container, sip)
         if sip["name"]:
             decl = ""
@@ -491,7 +562,7 @@ class SipGenerator(object):
             if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
                 body += pad + "private:\n"
                 body += pad + "    " + trace_generated_for(container, self._container_get, "non-copyable type handling")
-                body += pad + "    {}(const {} &);\n".format(sip["name"], container.type.get_canonical().spelling)
+                body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
             body += pad + "};\n"
             if sip["module_code"]:
                 module_code.update(sip["module_code"])
@@ -515,14 +586,14 @@ class SipGenerator(object):
         access_specifier = ""
         is_signal = False
         access_specifier_text = self._read_source(member.extent)
-        if access_specifier_text == "Q_OBJECT":
+        if access_specifier_text == Q_OBJECT:
             return access_specifier, is_signal
         pad = " " * ((level - 1) * 4)
-        if (access_specifier_text in ("Q_SIGNALS:", "signals:")):
+        if access_specifier_text in (Q_SIGNALS + ":", "signals:"):
             access_specifier = access_specifier_text
             is_signal = True
-        elif (access_specifier_text in ("public Q_SLOTS:", "public slots:",
-                                      "protected Q_SLOTS:", "protected slots:")):
+        elif access_specifier_text in ("public " + Q_SLOTS + ":", "public slots:", "protected " + Q_SLOTS + ":",
+                                       "protected slots:"):
             access_specifier = access_specifier_text
         elif member.access_specifier == AccessSpecifier.PRIVATE:
             access_specifier = "private:"
@@ -574,6 +645,11 @@ class SipGenerator(object):
             "annotations": set(),
             "is_signal": is_signal,
         }
+        #
+        # Constructors for templated classes end up with spurious template parameters.
+        #
+        if function.kind == CursorKind.CONSTRUCTOR:
+            sip["name"] = sip["name"].split("<")[0]
         parameters = []
         parameter_modifying_rules = []
         template_parameters = []
@@ -655,6 +731,16 @@ class SipGenerator(object):
             sip["fn_result"] = ""
         else:
             sip["fn_result"] = function.result_type.get_canonical().spelling
+            #
+            # If the result is a function pointer, the canonical spelling is likely to be
+            # a problem for SIP. Working out if we have such a case seems hand: the approach
+            # now is the following heuristic...
+            #
+            #   - We have a pointer AND
+            #   - We see what looks like the thing Clang seems to use for a function pointer
+            #
+            if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find("(*)") != -1:
+                sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
         modifying_rule = self.compiled_rules.function_rules().apply(container, function, sip)
@@ -772,10 +858,7 @@ class SipGenerator(object):
         r"<.*\(.*\)>",                                      # Brackets "()" inside template "<>".
                                                             #   std::function<bool(const KPluginMetaData &)>()
         re.I)
-    UNHANDLED_DEFAULT_EXPRESSION = re.compile(
-        r"\(.*\).*\||\|.*\(.*\)",                           # "|"-op outside "()".
-                                                            #   LookUpMode(exactOnly) | defaultOnly
-        re.I)
+    QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)", re.I)
 
     def _fn_get_parameter_default(self, function, parameter):
         """
@@ -789,7 +872,7 @@ class SipGenerator(object):
         def _get_param_type(parameter):
             result = parameter.type.get_declaration().type
 
-            if result.kind != TypeKind.ENUM and result.kind != TypeKind.TYPEDEF and parameter.type.kind == TypeKind.LVALUEREFERENCE:
+            if result.kind not in [TypeKind.ENUM, TypeKind.TYPEDEF] and parameter.type.kind == TypeKind.LVALUEREFERENCE:
                 if parameter.type.get_pointee().get_declaration().type.kind != TypeKind.INVALID:
                     return parameter.type.get_pointee().get_declaration().type
                 return parameter.type.get_pointee()
@@ -797,18 +880,18 @@ class SipGenerator(object):
             if parameter.type.get_declaration().type.kind == TypeKind.INVALID:
                 return parameter.type
 
-            if (parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF):
-                isQFlags = False
+            if parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF:
+                is_q_flags = False
                 for member in parameter.type.get_declaration().get_children():
-                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == "QFlags":
-                        isQFlags = True
-                    if isQFlags and member.kind == CursorKind.TYPE_REF:
+                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == QFLAGS:
+                        is_q_flags = True
+                    if is_q_flags and member.kind == CursorKind.TYPE_REF:
                         result = member.type
                         break
             return result
 
         def _get_param_value(text, parameter):
-            if text in ["", "0", "nullptr", "Q_NULLPTR"]:
+            if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
             parameter_type = _get_param_type(parameter)
             if text == "{}":
@@ -819,7 +902,7 @@ class SipGenerator(object):
                 if parameter_type.spelling.startswith("const "):
                     return parameter_type.spelling[6:] + "()"
                 return parameter_type.spelling + "()"
-            if not "::" in parameter_type.spelling:
+            if "::" not in parameter_type.spelling:
                 return text
             #
             # SIP wants things fully qualified. Without creating a full AST, we can only hope to cover the common
@@ -832,6 +915,30 @@ class SipGenerator(object):
             #       Option1                     parents::Option1
             #       Flag1|Flag3                 parents::Flag1|parents::Flag3
             #       FlagsType(Flag1|Flag3)      parents::FlagsType(parents::Flag1|parents::Flag3)
+            #       LookUpMode(exactOnly) | defaultOnly
+            #                                   parents::LookUpMode(parents::exactOnly) | parents::defaultOnly
+            #
+            if parameter_type.kind == TypeKind.ENUM or parameter_type.spelling.startswith(QFLAGS):
+                #
+                # Prefix any identifier with the prefix of the enum.
+                #
+                if parameter_type.kind == TypeKind.ENUM:
+                    prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
+                else:
+                    prefix = parameter_type.spelling[len(QFLAGS) + 1:-1].rsplit("::", 1)[0] + "::"
+                tmp = ""
+                match = SipGenerator.QUALIFIED_ID.search(text)
+                while match:
+                    tmp += match.string[:match.start()]
+                    id = match.expand("\\1")
+                    if id == QFLAGS:
+                        tmp += id
+                    else:
+                        tmp += prefix + id
+                    text = text[match.end():]
+                    match = SipGenerator.QUALIFIED_ID.search(text)
+                tmp += text
+                return tmp
             #
             #   - Other stuff:
             #
@@ -846,18 +953,14 @@ class SipGenerator(object):
                 logger.warn(_("Default for {} has unhandled type {}").format(SipGenerator.describe(parameter),
                                                                              parameter_type.spelling))
                 return text
-            if SipGenerator.UNHANDLED_DEFAULT_EXPRESSION.search(text):
-                logger.warn(_("Default for {} has unhandled expression {}").format(SipGenerator.describe(parameter),
-                                                                                   text))
-                return text
             prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
             tmp = re.split("[(|)]", text)
             if text.endswith(")"):
                 tmp = tmp[:-1]
-            tmp = [(word.rsplit("::", 1)[1] if "::" in word else word) for word in tmp]
+            tmp = [word.rsplit("::", 1)[-1] for word in tmp]
             tmp = [prefix + word if word else "" for word in tmp]
             result = tmp[0]
-            if len(tmp) > 1 or parameter_type.kind != TypeKind.ENUM:
+            if len(tmp) > 1:
                 if text.endswith(")"):
                     result += "(" + "|".join(tmp[1:]) + ")"
                 else:
@@ -866,7 +969,10 @@ class SipGenerator(object):
 
         for member in parameter.get_children():
             if member.kind.is_expression():
-
+                #
+                # Get the text after the "=". Macro expansion can make relying on tokens fraught...and
+                # member.get_tokens() simply does not always return anything.
+                #
                 possible_extent = SourceRange.from_locations(parameter.extent.start, function.extent.end)
                 text = ""
                 bracket_level = 0
@@ -897,7 +1003,7 @@ class SipGenerator(object):
                 #
                 # SIP does not like outer brackets as in "(QHash<QColor,QColor>())". Get rid of them.
                 #
-                if text.startswith("("):
+                while text.startswith("("):
                     text = text[1:-1]
                 #
                 # Use some heuristics to format the default value as SIP wants in most cases.
@@ -987,14 +1093,15 @@ class SipGenerator(object):
         else:
             sip["decl"] = typedef.underlying_typedef_type.get_canonical().spelling
             #
-            # Working out if a typedef is for a function pointer seems hard. The recourse right now is the following
-            # heuristic...
+            # If the typedef is for a function pointer, the canonical spelling is likely to be
+            # a problem for SIP. Working out if we have such a case seems hand: the approach
+            # now is the following heuristic...
             #
             #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
             #   (
             #   - The typedef has a result OR
             #   - We found some arguments OR
-            #   - We see what looks like the thing clang seems to use for a function pointer
+            #   - We see what looks like the thing Clang seems to use for a function pointer
             #   )
             #
             if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find("(*)") != -1:
@@ -1258,7 +1365,8 @@ class SipGenerator(object):
     def _report_ignoring(parent, child, text=None):
         if not text:
             text = child.displayname or child.spelling
-        logger.debug(_("Ignoring {} {} child {}").format(parent.kind.name, parent.spelling, SipGenerator.describe(child, text)))
+        logger.debug(_("Ignoring {} {} child {}").format(parent.kind.name, parent.spelling,
+                                                         SipGenerator.describe(child, text)))
 
 
 def main(argv=None):
@@ -1283,7 +1391,7 @@ def main(argv=None):
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
     parser.add_argument("libclang", help=_("libclang library to use for parsing"))
-    parser.add_argument("rules", help=_("Project rules"))
+    parser.add_argument("rules", help=_("Project rules package"))
     parser.add_argument("source", help=_("C++ header to process"))
     parser.add_argument("output", help=_("output filename to write"))
     try:

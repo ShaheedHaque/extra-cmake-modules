@@ -23,7 +23,7 @@ SIP binding customisation for PyKF5.KLDAP. This modules describes:
 """
 
 import rules_engine
-from PyQt_templates import typecode_cfttc_list
+from PyQt_templates import list_typecode
 
 
 def function_fully_qualify(container, function, sip, matcher):
@@ -41,7 +41,7 @@ def parameter_rewrite_vector(container, function, parameter, sip, matcher):
 def typedef_list_typecode(container, typedef, sip, matcher):
     sip["types"] = ["KLDAP::LdapOperation::ModOp"]
     sip["base_types"] = ["KLDAP::LdapOperation::ModOp"]
-    typecode_cfttc_list(container, typedef, sip, matcher)
+    list_typecode(container, typedef, sip, matcher)
 
 
 def variable_fully_qualify(container, variable, sip, matcher):

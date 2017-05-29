@@ -39,7 +39,7 @@ import os
 from clang.cindex import AccessSpecifier
 
 import rules_engine
-from PyQt_templates import function_uses_templates, typecode_cfttc_dict, typecode_cfttc_list, typecode_cfttc_set, \
+from PyQt_templates import function_uses_templates, dict_typecode, list_typecode, set_typecode, \
     qpair_parameter, qshareddatapointer_parameter
 import common_methodcode
 import common_modulecode
@@ -146,11 +146,11 @@ def _variable_discard_protected(container, variable, sip, matcher):
 
 def container_rules():
     return [
-        [".*", "(QMetaTypeId|QTypeInfo)<.*>", ".*", ".*", ".*", rules_engine.container_discard],
+        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
         #
-        # SIP does not seem to be able to handle templated containers.
+        # SIP cannot handle templated containers with a base which is a template parameter.
         #
-        [".*", ".*<.*", ".*", ".*", ".*", rules_engine.container_discard],
+        ["kimagecache.h", "KSharedPixmapCacheMixin", ".+", ".*", ".*", rules_engine.container_discard],
         #
         # SIP does not seem to be able to handle templated base classes.
         #
@@ -244,11 +244,11 @@ def typedef_rules():
         #
         # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", "QHash<.*>", typecode_cfttc_dict],
-        [".*", ".*", ".*", "QList<.*>", typecode_cfttc_list],
-        [".*", ".*", ".*", "QMap<.*>", typecode_cfttc_dict],
-        [".*", ".*", ".*", "QSet<.*>", typecode_cfttc_set],
-        [".*", ".*", ".*", "QVector<.*>", typecode_cfttc_list],
+        [".*", ".*", ".*", "QHash<.*>", dict_typecode],
+        [".*", ".*", ".*", "QList<.*>", list_typecode],
+        [".*", ".*", ".*", "QMap<.*>", dict_typecode],
+        [".*", ".*", ".*", "QSet<.*>", set_typecode],
+        [".*", ".*", ".*", "QVector<.*>", list_typecode],
         #
         # Rewrite uid_t, gid_t as int.
         #
@@ -388,6 +388,7 @@ class RuleSet(rules_engine.RuleSet):
             variable_rules=KLDAP.variable_rules,
             typedef_rules=KLDAP.typedef_rules)
         self.add_rules(
+            container_rules=KMime.container_rules,
             parameter_rules=KMime.parameter_rules,
             modulecode=KMime.modulecode)
         self.add_rules(

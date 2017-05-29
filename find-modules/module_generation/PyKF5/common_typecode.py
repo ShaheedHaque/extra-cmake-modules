@@ -48,7 +48,7 @@ SIP binding custom type-related code for PyKF5.
 """
 
 from builtin_rules import HeldAs
-from PyQt_templates import typecode_cfttc_list
+from PyQt_templates import list_typecode
 
 
 _plasma_qobject_ctscc = """
@@ -1356,21 +1356,21 @@ def code():
 },
 # ./soprano/pluginmanager.sip
 "QList<const Soprano::Backend*>": { #QList<const Soprano::Backend*>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "Soprano::Backend",
         "HeldAs": HeldAs.POINTER,
     },
 },
 "QList<const Soprano::Parser*>": { #QList<const Soprano::Parser*>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "Soprano::Parser",
         "HeldAs": HeldAs.POINTER,
     },
 },
 "QList<const Soprano::Serializer*>": { #QList<const Soprano::Serializer*>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "Soprano::Serializer",
         "HeldAs": HeldAs.POINTER,
@@ -1502,7 +1502,7 @@ def code():
 },
 # ./kdecore/kmimetype.sip
 "QList<KMimeType::Ptr>": { #QList<KMimeType::Ptr>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "KMimeType",
         "ptr": "KMimeType::Ptr",
@@ -2325,7 +2325,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./dnssd/remoteservice.sip
 "QList<DNSSD::RemoteService::Ptr>": { #QList<DNSSD::RemoteService::Ptr>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "DNSSD::RemoteService",
         "ptr": "DNSSD::RemoteService::Ptr",
@@ -2850,7 +2850,7 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 },
 # ./kdeui/kwidgetitemdelegate.sip
 "QList<QEvent::Type>": { #QList<QEvent::Type>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "QEvent::Type",
         "HeldAs": HeldAs.INTEGER,
@@ -2933,7 +2933,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kstandardaction.sip
 "QList<KStandardAction::StandardAction>": { #QList<KStandardAction::StandardAction>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "KStandardAction::StandardAction",
         "HeldAs": HeldAs.INTEGER,
@@ -2982,7 +2982,7 @@ static void kdeui_UpdatePyArgv(PyObject *argvlist, int argc, char **argv)
 },
 # ./kdeui/kwindowsystem.sip
 "QList<WId>": { #QList<WId>
-    "code": typecode_cfttc_list,
+    "code": list_typecode,
     "value": {
         "type": "WId",
         "HeldAs": HeldAs.INTEGER,

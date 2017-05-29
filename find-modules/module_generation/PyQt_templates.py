@@ -1076,36 +1076,64 @@ def function_uses_templates(container, function, sip, matcher):
     builtin_rules.function_uses_templates(container, function, sip, matcher)
 
 
-def typecode_cfttc_dict(container, typedef, sip, matcher):
+def dict_parameter(container, function, parameter, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create %MappedType expansions for C++ types with two template arguments
-    into Python dicts.
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
     """
     template = DictExpander()
-    template.expand_typedef(typecode_cfttc_dict, typedef, sip)
+    template.expand_parameter(dict_parameter, parameter, sip)
 
 
-def typecode_cfttc_list(container, typedef, sip, matcher):
+def dict_typecode(container, typedef, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create %MappedType expansions fpr C++ types with one template argument
-    into Python lists.
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    template = DictExpander()
+    template.expand_typedef(dict_typecode, typedef, sip)
+
+
+def list_parameter(container, function, parameter, sip, matcher):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    C++ types with one template argument into Python lists.
     """
     template = ListExpander()
-    template.expand_typedef(typecode_cfttc_list, typedef, sip)
+    template.expand_parameter(list_parameter, parameter, sip)
 
 
-def typecode_cfttc_set(container, typedef, sip, matcher):
+def list_typecode(container, typedef, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create %MappedType expansions for C++ types with one template argument
-    into Python sets.
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    template = ListExpander()
+    template.expand_typedef(list_typecode, typedef, sip)
+
+
+def set_parameter(container, function, parameter, sip, matcher):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
     """
     template = SetExpander()
-    template.expand_typedef(typecode_cfttc_set, typedef, sip)
+    template.expand_parameter(set_parameter, parameter, sip)
+
+
+def set_typecode(container, typedef, sip, matcher):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    template = SetExpander()
+    template.expand_typedef(set_typecode, typedef, sip)
 
 
 def qpair_parameter(container, function, parameter, sip, matcher):
     """
-    A ParameterDb-compatible function used to create a %MappedType for a QPair<> (using a 2-tuple).
+    A ParameterDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
     """
     handler = QPairExpander()
     handler.expand_parameter(qpair_parameter, parameter, sip)
@@ -1113,7 +1141,8 @@ def qpair_parameter(container, function, parameter, sip, matcher):
 
 def qpair_typecode(container, typedef, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create a %MappedType for a QPair<> (using a 2-tuple).
+    A TypeCodeDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
     """
     template = QPairExpander()
     template.expand_typedef(qpair_typecode, typedef, sip)
@@ -1121,7 +1150,8 @@ def qpair_typecode(container, typedef, sip, matcher):
 
 def qshareddatapointer_parameter(container, function, parameter, sip, matcher):
     """
-    A ParameterDb-compatible function used to create a %MappedType for a QSharedDataPointer<>.
+    A ParameterDb-compatible function used to create a %MappedType for a
+    QSharedDataPointer<>.
     """
     handler = QSharedDataPointerExpander()
     handler.expand_parameter(qshareddatapointer_parameter, parameter, sip)
@@ -1129,7 +1159,8 @@ def qshareddatapointer_parameter(container, function, parameter, sip, matcher):
 
 def qshareddatapointer_typecode(container, typedef, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create a %MappedType for a QSharedDataPointer<>.
+    A TypeCodeDb-compatible function used to create a %MappedType for a 
+    QSharedDataPointer<>.
     """
     handler = QSharedDataPointerExpander()
     handler.expand_typedef(qshareddatapointer_parameter, typedef, sip)

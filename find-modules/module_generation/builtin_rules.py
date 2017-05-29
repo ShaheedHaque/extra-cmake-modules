@@ -119,6 +119,28 @@ def base_type(parameter_text):
     return parameter_text
 
 
+def initialise_cxx_decl(sip):
+    """
+    Initialise a C++ declaration.
+
+    :param sip:
+    :return: Any annotations we found.
+    """
+    annotations = []
+    sip["cxx_parameters"] = []
+    for p in sip["parameters"]:
+        a = ANNOTATIONS_RE.search(p)
+        if a:
+            a = a.group()
+            p = ANNOTATIONS_RE.sub("", p)
+        else:
+            a = ""
+        annotations.append(a)
+        sip["cxx_parameters"].append(p)
+    sip["cxx_fn_result"] = sip["fn_result"]
+    return annotations
+
+
 class HeldAs(object):
     """
     Items are held either as integral values, pointer values or objects. The
@@ -538,23 +560,24 @@ class FunctionWithTemplatesExpander(object):
         if function.kind == CursorKind.CONSTRUCTOR:
             fn = fqn(container, "")[:-2].replace("::", "_")
             callsite = """    Py_BEGIN_ALLOW_THREADS
-    sipCpp = new sip{fn}({});
+    sipCpp = new sip{fn}({args});
     Py_END_ALLOW_THREADS
 """
             callsite = callsite.replace("{fn}", fn)
-            code += callsite.format(", ".join(sip_stars))
+            callsite = callsite.replace("{args}", ", ".join(sip_stars))
+            code += callsite
         else:
             fn = function.spelling
             if function.is_static_method() or not in_class(function):
                 fn = fqn(container, fn)
-                callsite = """    cxxvalue = {fn}({});
+                callsite = """    cxxvalue = {fn}({args});
 """
             elif function.access_specifier == AccessSpecifier.PROTECTED:
                 if function.is_virtual_method():
                     callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
-    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
+    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({args}) : sipCpp->{fn}({args});
 #else
-    cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{});
+    cxxvalue = sipCpp->sipProtectVirt_{fn}(sipSelfWasArg{sep}{args});
 #endif
 """
                     if parameters:
@@ -564,21 +587,21 @@ class FunctionWithTemplatesExpander(object):
                     callsite = callsite.replace("{qn}", fqn(container, ""))
                 else:
                     callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
-    cxxvalue = sipCpp->{fn}({});
+    cxxvalue = sipCpp->{fn}({args});
 #else
-    cxxvalue = sipCpp->sipProtect_{fn}({});
+    cxxvalue = sipCpp->sipProtect_{fn}({args});
 #endif
 """
             else:
                 if function.is_virtual_method():
-                    callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({}) : sipCpp->{fn}({});
+                    callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({args}) : sipCpp->{fn}({args});
 """
                     callsite = callsite.replace("{qn}", fqn(container, ""))
                 else:
-                    callsite = """    cxxvalue = sipCpp->{fn}({});
+                    callsite = """    cxxvalue = sipCpp->{fn}({args});
 """
             callsite = callsite.replace("{fn}", fn)
-            callsite = callsite.replace("{}", ", ".join(sip_stars))
+            callsite = callsite.replace("{args}", ", ".join(sip_stars))
             callsite = """    Py_BEGIN_ALLOW_THREADS
 """ + callsite + """    Py_END_ALLOW_THREADS
 """
@@ -661,21 +684,7 @@ class FunctionWithTemplatesExpander(object):
                                     decl            Optional. Name of the function.
                                     foo             dd
         """
-        #
-        # Initialise a C++ declaration.
-        #
-        annotations = []
-        sip["cxx_parameters"] = []
-        for p in sip["parameters"]:
-            a = ANNOTATIONS_RE.search(p)
-            if a:
-                a = a.group()
-                p = ANNOTATIONS_RE.sub("", p)
-            else:
-                a = ""
-            annotations.append(a)
-            sip["cxx_parameters"].append(p)
-        sip["cxx_fn_result"] = sip["fn_result"]
+        annotations = initialise_cxx_decl(sip)
         #
         # Deal with function result.
         #

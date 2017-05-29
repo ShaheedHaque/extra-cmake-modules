@@ -64,6 +64,7 @@ class Test:
         select = re.compile(".*", re.I)
         attempts, failures, directories = d.process_tree(jobs=0, selector=select, omitter=omit)
         print("Summary: {} processing errors for {} files in {} modules".format(len(failures), attempts, directories))
+        assert len(failures) == 0
 
     def test_10_compile(self):
         """
@@ -75,3 +76,4 @@ class Test:
         select = re.compile(".*", re.I)
         attempts, failures = d.process_tree(jobs=0, selector=select, omitter=omit)
         print("Summary: {} processing errors for {} modules".format(len(failures), attempts))
+        assert len(failures) == 0
