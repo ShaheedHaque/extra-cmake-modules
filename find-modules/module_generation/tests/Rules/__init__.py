@@ -35,8 +35,53 @@ import builtin_rules
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
+def container_discard_templated_bases(container, sip, matcher):
+    sip["base_specifiers"] = []
+
+
+def container_emit_modulecode(container, sip, matcher):
+    container_discard_templated_bases(container, sip, matcher)
+    sip["module_code"][sip["name"]] = """
+%ModuleHeaderCode
+#define ModuleCodeTypeCheck 1
+%End
+"""
+
+
+def function_emit_modulecode(container, function, sip, matcher):
+    sip["module_code"][sip["name"]] = """
+%ModuleHeaderCode
+#define ModuleCodeFunctionCheck 1
+%End
+"""
+    sip["code"] = """
+%MethodCode
+#ifndef ModuleCodeTypeCheck
+#error Could not find ModuleCodeTypeCheck
+#endif
+#ifndef ModuleCodeTypedefCheck
+#error Could not find ModuleCodeTypedefCheck
+#endif
+#ifndef ModuleCodeFunctionCheck
+#error Could not find ModuleCodeFunctionCheck
+#endif
+#ifndef ModuleCodeParameterCheck
+#error Could not find ModuleCodeParameterCheck
+#endif
+%End
+"""
+
+
 def fn_cxx_decl(container, function, sip, matcher):
     builtin_rules.initialise_cxx_decl(sip)
+
+
+def parameter_emit_modulecode(container, function, parameter, sip, matcher):
+    sip["module_code"][sip["name"]] = """
+%ModuleHeaderCode
+#define ModuleCodeParameterCheck 1
+%End
+"""
 
 
 def parameter_in_out(container, function, parameter, sip, matcher):
@@ -44,16 +89,56 @@ def parameter_in_out(container, function, parameter, sip, matcher):
     rules_engine.parameter_in(container, function, parameter, sip, matcher)
 
 
+def typedef_emit_modulecode(container, typedef, sip, matcher):
+    sip["module_code"][sip["name"]] = """
+%ModuleHeaderCode
+#define ModuleCodeTypedefCheck 1
+%End
+"""
+
+
+def methodGenerator(function, sip, entry):
+    sip["code"] = """
+        %MethodCode
+            sipRes = {} + myAcumulate(a0);
+        %End
+    """.format(entry["param"])
+
+
 def container_rules():
-    return []
+    return [
+        #
+        # Discard Qt metatype system.
+        #
+        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
+        [".*", "Shared", ".*", ".*", ".*", rules_engine.discard_QSharedData_base],
+        [".*", "TemplateDerivative", ".*", ".*", ".*", container_discard_templated_bases],
+        [".*", "ModuleCodeType", ".*", ".*", ".*", container_emit_modulecode],
+    ]
 
 
 def forward_declaration_rules():
-    return []
+    return [
+        [".*", "ExternalFwdDecl", ".*", rules_engine.mark_forward_declaration_external],
+    ]
 
 
 def function_rules():
     return [
+        #
+        # Discard functions emitted by QOBJECT.
+        #
+        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # SIP does not support operator=.
+        #
+        [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # TODO: Temporarily remove any functions which require std templates.
+        #
+        [".*", ".*", ".*", ".*", ".*std::function.*", rules_engine.function_discard],
+        [".*", ".*", ".*", ".*", ".*std::numeric_limits.*", rules_engine.function_discard],
+        ["TypedefUser", "setTagPattern", ".*", ".*", ".*", rules_engine.function_discard],
         ["Sample1_1", "markedInOutCxxDecl", ".*", ".*", ".*", fn_cxx_decl],
     ]
 
@@ -74,15 +159,91 @@ def unexposed_rules():
 
 
 def variable_rules():
-    return []
+    return [
+        #
+        # Discard variable emitted by QOBJECT.
+        #
+        [".*", "staticMetaObject", ".*", rules_engine.variable_discard],
+    ]
 
 
 def methodcode():
-    return {}
+    return {
+        "SomeNS": {
+            "customMethod": {
+                "code": """
+                %MethodCode
+                    sipRes = myAcumulate(a0);
+                %End
+                """
+            }
+        },
+        "ObscureSyntax": {
+            "defaultsAndParameterTemplate": {
+                "code": """
+                    %MethodCode
+                    sipRes = ObscureSyntax::INCORRECT;
+                    if ((*a0 == Qt::MatchWrap) &&
+                        (*a1 == Qt::MatchFlags(Qt::MatchStartsWith | Qt::MatchWrap)) &&
+                        (*a2 == (Qt::MatchStartsWith | Qt::MatchWrap)) &&
+                        (a3 == 1) &&
+                        (a4 == 2) &&
+                        (a5 == 2) &&
+                        (a6 == ObscureSyntax::INCORRECT) &&
+                        (a7 == MyObject::Val2) &&
+                        (a8.isEmpty()) &&
+                        (a9 != NULL)) {
+                        sipRes = ObscureSyntax::CORRECT;
+                    }
+                    %End
+                    """,
+                "cxx_decl": [
+                    "Qt::MatchFlags flagsOne",
+                    "Qt::MatchFlags flagsMultiple",
+                    "int simple",
+                    "int complex",
+                    "int brackets",
+                    "LocalEnum anEnum",
+                    "QMap<const char *, int> chachacha"
+                ],
+                "cxx_fn_result": "int",
+            },
+            "returnTemplate": {
+                "code": """
+                    %MethodCode
+                    sipRes = sipCpp->returnTemplate();
+                    sipRes->insert("foo", ObscureSyntax::CORRECT);
+                    %End
+                    """,
+                "cxx_decl": [
+                ],
+                "cxx_fn_result": "QMap<const char *, int> *",
+            },
+        },
+        "cpplib.h": {
+            "anotherCustomMethod": {
+                "code": methodGenerator,
+                "param": 42
+            }
+        }
+    }
 
 
 def modulecode():
-    return {}
+    return {
+        "cpplib.h": {
+            "code": """
+%ModuleHeaderCode
+int myAcumulate(const QList<int> *list);
+%End\n
+%ModuleCode
+int myAcumulate(const QList<int> *list) {
+    return std::accumulate(list->begin(), list->end(), 0);
+}
+%End\n"""
+        }
+
+    }
 
 
 def typecode():
@@ -100,6 +261,18 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=function_rules, parameter_rules=parameter_rules, typedef_rules=typedef_rules,
             unexposed_rules=unexposed_rules, variable_rules=variable_rules, methodcode=methodcode,
             modulecode=modulecode, typecode=typecode)
+        self.pd_cache = None
+
+    def _fill_cache(self):
+        if self.pd_cache is None:
+            self.pd_cache = rules_engine.get_platform_dependencies(os.path.dirname(os.path.realpath(__file__)))
+
+    def _update_dir_set(self, result, key1, key2):
+        self._fill_cache()
+        for component, data in self.pd_cache[key1].items():
+            dirlist = data[key2].split(";")
+            dirlist = [os.path.normpath(i) for i in dirlist if i]
+            result.update(dirlist)
 
     def cxx_source_root(self):
         return os.path.join(os.path.dirname(SCRIPT_DIR), "sources")
@@ -108,16 +281,38 @@ class RuleSet(rules_engine.RuleSet):
         return []
 
     def cxx_includes(self):
-        return []
+        source_root = self.cxx_source_root() + os.path.sep
+        result = set()
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "INCLUDE_DIRS")
+        #
+        # We include anything which is not under the source root: those are dependencies too!
+        #
+        self._update_dir_set(result, "CXX_SOURCES", "INCLUDE_DIRS")
+        result = [i for i in result if not i.startswith(source_root)]
+        result = sorted(result)
+        return result
 
     def cxx_compile_flags(self):
-        return ["-fPIC", "-std=gnu++14"]
+        QT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
+        return QT5_COMPILE_FLAGS
 
     def cxx_libraries(self):
-        return []
+        result = set()
+        self._update_dir_set(result, "CXX_SOURCES", "LIBRARIES")
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "LIBRARIES")
+        result = [i for i in result]
+        result = sorted(result)
+        return result
 
     def sip_package(self):
-        return "PySample"
+        self._fill_cache()
+        return self.pd_cache["SIP_PACKAGE"]
 
     def sip_imports(self):
-        return []
+        self._fill_cache()
+        result = set()
+        dirlist = self.pd_cache["SIP_DEPENDENCIES"].split(";")
+        result.update(dirlist)
+        result = [i for i in result if i]
+        result = sorted(result)
+        return result

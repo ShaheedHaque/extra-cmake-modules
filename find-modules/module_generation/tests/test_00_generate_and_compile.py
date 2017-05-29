@@ -60,7 +60,7 @@ class Test:
         """
         rules_pkg = os.path.join(SCRIPT_DIR, "Rules")
         d = module_generator.ModuleGenerator(rules_pkg, BUILD_DIR)
-        omit = re.compile("=Nothing=", re.I)
+        omit = re.compile(".*cpp$", re.I)
         select = re.compile(".*", re.I)
         attempts, failures, directories = d.process_tree(jobs=0, selector=select, omitter=omit)
         print("Summary: {} processing errors for {} files in {} modules".format(len(failures), attempts, directories))

@@ -135,17 +135,16 @@ def _typedef_rewrite_without_colons(container, typedef, sip, matcher):
     sip["decl"] = sip["decl"].strip(":")
 
 
-def _variable_discard(container, variable, sip, matcher):
-    sip["name"] = ""
-
-
 def _variable_discard_protected(container, variable, sip, matcher):
     if variable.access_specifier in [AccessSpecifier.PROTECTED, AccessSpecifier.PRIVATE]:
-        _variable_discard(container, variable, sip, matcher)
+        rules_engine.variable_discard(container, variable, sip, matcher)
 
 
 def container_rules():
     return [
+        #
+        # Discard Qt metatype system.
+        #
         [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
         #
         # SIP cannot handle templated containers with a base which is a template parameter.
@@ -285,7 +284,7 @@ def variable_rules():
         #
         # Discard variable emitted by QOBJECT.
         #
-        [".*", "staticMetaObject", ".*", _variable_discard],
+        [".*", "staticMetaObject", ".*", rules_engine.variable_discard],
         #
         # Discard "private" variables (check they are protected!).
         #
