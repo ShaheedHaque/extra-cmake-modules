@@ -411,7 +411,6 @@ class ModuleGenerator(object):
             # Add all include paths actually used by the compiler.
             #
             decl += "%Extract(id={})\n".format(INCLUDES_EXTRACT)
-            decl += "{}\n".format(dirname)
             for include in sorted(all_include_roots, key=FILE_SORT_KEY):
                 decl += "{}\n".format(include)
             decl += "%End\n"
@@ -556,7 +555,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
         #
         # First the %Import...
         #
-        tmp = []
+        tmp = set()
         for include in direct_includes:
             #
             # Deal with oddities such as a/b/c/../x, or repeated separators.
@@ -564,30 +563,36 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
             include = os.path.normpath(include)
             for i_path in i_paths:
                 if include.startswith(i_path):
-                    if include not in tmp:
-                        tmp.append(include)
+                    tmp.add(include)
                     break
-        direct_includes = tmp
+        direct_includes = list(tmp)
         #
-        # Now the -I<path>...start with the current file.
+        # Now the -I<path>...starting with the current file, construct a directory of sets keyed
+        # by all possible include paths.
         #
-        i_paths = list(i_paths)
-        tmp = {h_root: [os.path.dirname(h_suffix)]}
+        tmp = {h_root: set()}
+        tmp[h_root].add(os.path.dirname(h_suffix))
+        for i_path in i_paths:
+            tmp.setdefault(i_path, set())
         for include in all_includes():
             #
-            # Deal with oddities such as a/b/c/../x, or repeated separators.
+            # Deal with oddities such as a/b/c/../x, or repeated separators. Then, under the
+            # matching include path, add the suffix of the actual include file.
             #
             include = include.include.name
             include = os.path.normpath(include)
-            for i_path in i_paths:
+            for i_path in tmp:
                 if include.startswith(i_path):
                     trimmed_include = include[len(i_path) + len(os.path.sep):]
                     trimmed_include = os.path.dirname(trimmed_include)
-                    tmp.setdefault(i_path, [])
-                    if trimmed_include not in tmp[i_path]:
-                        tmp[i_path].append(trimmed_include)
+                    tmp[i_path].add(trimmed_include)
                     break
+        #
+        # Now, construct a new version of i_paths that has *everything*.
+        #
+        i_paths = set()
         for i_path, trimmed_includes in tmp.items():
+            i_paths.add(i_path)
             for trimmed_include in trimmed_includes:
                 while trimmed_include:
                     #
@@ -595,9 +600,9 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
                     # all possible lengths.
                     #
                     possible_i_path = os.path.join(i_path, trimmed_include)
-                    if possible_i_path not in i_paths:
-                        i_paths.append(possible_i_path)
+                    i_paths.add(possible_i_path)
                     trimmed_include = os.path.dirname(trimmed_include)
+        i_paths = list(i_paths)
         if result:
             #
             # Remove funny characters: the results must be Python-valid names.
