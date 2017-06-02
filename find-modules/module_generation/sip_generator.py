@@ -156,8 +156,8 @@ class SipGenerator(object):
         Actually convert the given source header file into its SIP equivalent.
         This is the main entry point for this class.
 
-        :param h_file:              The source (header) file of interest.
-        :param include_filename:    The (header) to generate in the sip file.
+        :param h_file:              The source header file of interest.
+        :param include_filename:    The short header to include in the sip file.
         :returns: A (body, module_code, includes). The body is the SIP text
                 corresponding to the h_file, it can be a null string indicating
                 there was nothing that could be generated. The module_code is
@@ -245,8 +245,9 @@ class SipGenerator(object):
         Generate the (recursive) translation for a class or namespace.
 
         :param container:           A class or namespace.
-        :param h_file:              Name of header file being processed.
         :param level:               Recursion level controls indentation.
+        :param h_file:              The source header file of interest.
+        :param include_filename:    The short header to include in the sip file.
         :return:                    A string.
         """
         def in_class(item):
@@ -398,7 +399,7 @@ class SipGenerator(object):
                         typedef = "/* union */ struct {}\n".format(member.type.spelling)
                     body = body.replace(original, typedef, 1)
                 else:
-                    decl, tmp = self._typedef_get(container, member, level + 1)
+                    decl, tmp = self._typedef_get(container, member, level + 1, h_file, include_filename)
                     module_code.update(tmp)
             elif member.kind == CursorKind.CXX_BASE_SPECIFIER:
                 #
@@ -1018,13 +1019,15 @@ class SipGenerator(object):
                 return _get_param_value(text, parameter)
         return ""
 
-    def _typedef_get(self, container, typedef, level):
+    def _typedef_get(self, container, typedef, level, h_file, include_filename):
         """
         Generate the translation for a typedef.
 
         :param container:           A class or namespace.
         :param typedef:             The typedef object.
         :param level:               Recursion level controls indentation.
+        :param h_file:              The source header file of interest.
+        :param include_filename:    The short header to include in the sip file.
         :return:                    A string.
         """
         sip = {
@@ -1055,7 +1058,7 @@ class SipGenerator(object):
                     struct = child.type.get_declaration()
                     decl = "__struct{}".format(struct.extent.start.line)
                 else:
-                    decl, tmp = self._container_get(child, level, None)
+                    decl, tmp = self._container_get(child, level, h_file, include_filename)
                     module_code.update(tmp)
                 args.append(decl)
             elif child.kind == CursorKind.UNION_DECL:
@@ -1066,7 +1069,7 @@ class SipGenerator(object):
                     union = child.type.get_declaration()
                     decl = "__union{}".format(union.extent.start.line)
                 else:
-                    decl, tmp = self._container_get(child, level, None)
+                    decl, tmp = self._container_get(child, level, h_file, include_filename)
                     module_code.update(tmp)
                 args.append(decl)
             elif child.kind == CursorKind.PARM_DECL:
