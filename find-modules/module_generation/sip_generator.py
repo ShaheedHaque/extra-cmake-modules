@@ -74,6 +74,10 @@ Q_OBJECT = "Q_OBJECT"
 Q_SIGNALS = "Q_SIGNALS"
 Q_SLOTS = "Q_SLOTS"
 QScopedPointer = "QScopedPointer"
+#
+# Function pointers are a tricky area. We need to detect them by text matching.
+#
+FUNC_PTR = "(*)"
 
 
 def clang_diagnostic_to_logging_diagnostic(lvl):
@@ -682,7 +686,7 @@ class SipGenerator(object):
                     #
                     # Except that function pointers need special consideration. See elsewhere too...
                     #
-                    fn_ptr = type_spelling.find("(*)")
+                    fn_ptr = type_spelling.find(FUNC_PTR)
                     if fn_ptr == -1:
                         decl = "{}* {}".format(the_type.get_pointee().spelling, parameter)
                     else:
@@ -747,7 +751,7 @@ class SipGenerator(object):
             #   - We have a pointer AND
             #   - We see what looks like the thing Clang seems to use for a function pointer
             #
-            if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find("(*)") != -1:
+            if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find(FUNC_PTR) != -1:
                 sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
@@ -1114,11 +1118,11 @@ class SipGenerator(object):
             #   - We see what looks like the thing Clang seems to use for a function pointer
             #   )
             #
-            if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find("(*)") != -1:
+            if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find(FUNC_PTR) != -1:
                 if typedef.result_type.kind != TypeKind.INVALID:
                     sip["fn_result"] = typedef.result_type.spelling
                 else:
-                    sip["fn_result"] = sip["decl"].split("(*)", 1)[0]
+                    sip["fn_result"] = sip["decl"].split(FUNC_PTR, 1)[0]
                 args = [spelling for spelling, name in args]
                 sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
         modifying_rule = self.compiled_rules.typedef_rules().apply(container, typedef, sip)
@@ -1289,6 +1293,11 @@ class SipGenerator(object):
                 decl = "/* union */ struct __struct" + words[-2]
             else:
                 decl = words[1] + " __" + words[1] + words[-2]
+        elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
+            #
+            # Keep the typedef.
+            #
+            decl = variable.type.spelling
         sip["decl"] = decl
         #
         # Before the rules have run, add/remove any prefix.
