@@ -898,8 +898,8 @@ class SipGenerator(object):
                     if member.kind == CursorKind.TEMPLATE_REF and member.spelling == QFLAGS:
                         is_q_flags = True
                     if is_q_flags and member.kind == CursorKind.TYPE_REF:
-                        result = member.type
-                        break
+                        return member.type
+                return result.get_canonical()
             return result
 
         def _get_param_value(text, parameter):
