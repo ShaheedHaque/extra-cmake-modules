@@ -383,9 +383,7 @@ class RuleSet(rules_engine.RuleSet):
             typecode=KJobWidgets.typecode)
         self.add_rules(
             function_rules=KLDAP.function_rules,
-            parameter_rules=KLDAP.parameter_rules,
-            variable_rules=KLDAP.variable_rules,
-            typedef_rules=KLDAP.typedef_rules)
+            variable_rules=KLDAP.variable_rules)
         self.add_rules(
             container_rules=KMime.container_rules,
             parameter_rules=KMime.parameter_rules,
