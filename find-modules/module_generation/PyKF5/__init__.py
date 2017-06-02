@@ -56,6 +56,7 @@ import KConfigGui
 import KConfigWidgets
 import KContacts
 import KCrash
+import KdepimDBusInterfaces
 import KF5KDEGames
 import KGeoMap
 import kio
@@ -357,6 +358,8 @@ class RuleSet(rules_engine.RuleSet):
             typecode=KCoreAddons.typecode)
         self.add_rules(
             parameter_rules=KCrash.parameter_rules)
+        self.add_rules(
+            modulecode=KdepimDBusInterfaces.modulecode)
         self.add_rules(
             forward_declaration_rules=KF5KDEGames.forward_declaration_rules,
             container_rules=KF5KDEGames.container_rules,

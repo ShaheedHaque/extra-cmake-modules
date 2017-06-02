@@ -60,6 +60,12 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     if sip["name"] == "KMime.KMime":
         del sip["modulecode"]["QMap<QString, QString>"]
+        sip["code"] = """
+%If (!KMime_KMime_KMimemod)
+class KConfigGroup /*External */;
+class KCoreConfigSkeleton /*External */;
+%End
+"""
 
 
 def container_rules():

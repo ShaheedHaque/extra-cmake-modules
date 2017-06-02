@@ -77,6 +77,10 @@ def module_fix_mapped_types(filename, sip, entry):
 //
 class Akonadi::Protocol::Command /External/;
 class Akonadi::ServerManagerPrivate /External/;
+%If (!AkonadiCore_AkonadiCoremod)
+class KConfigGroup /*External */;
+class KCoreConfigSkeleton /*External */;
+%End
 %ModuleHeaderCode
 #include <akonadi/private/protocol_p.h>
 %End
@@ -291,8 +295,6 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        ["entityorderproxymodel.h", "KConfigGroup", ".*", rules_engine.mark_forward_declaration_external],
-        ["specialcollections.h", "KCoreConfigSkeleton", ".*", rules_engine.mark_forward_declaration_external],
         ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rules_engine.mark_forward_declaration_external],
         ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rules_engine.mark_forward_declaration_external],
         ["collectionview.h", "KXMLGUIClient", ".*", rules_engine.mark_forward_declaration_external],
@@ -457,9 +459,40 @@ def modulecode():
     "AkonadiCoremod.sip": {
         "code": module_fix_mapped_types,
         },
+    "Debugmod.sip": {
+        "code":
+            """
+            %If (!AkonadiSearch_Debug_Debugmod)
+            class KConfigGroup /*External */;
+            class KCoreConfigSkeleton /*External */;
+            %End
+            """
+        },
+    "PIMmod.sip": {
+        "code":
+            """
+            %If (!AkonadiSearch_PIM_PIMmod)
+            class KConfigGroup /*External */;
+            class KCoreConfigSkeleton /*External */;
+            %End
+            """
+        },
+    "SocialUtilsmod.sip": {
+        "code":
+            """
+            %If (!Akonadi_SocialUtils_SocialUtilsmod)
+            class KConfigGroup /*External */;
+            class KCoreConfigSkeleton /*External */;
+            %End
+            """
+        },
     "AkonadiXmlmod.sip": {
         "code":
             """
+            %If (!AkonadiXml_AkonadiXmlmod)
+            class KConfigGroup /*External */;
+            class KCoreConfigSkeleton /*External */;
+            %End
             %ModuleHeaderCode
             #include <akonadi/private/protocol_p.h>
             %End
