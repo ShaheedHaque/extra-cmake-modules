@@ -686,11 +686,15 @@ class SipGenerator(object):
                     #
                     # Except that function pointers need special consideration. See elsewhere too...
                     #
-                    fn_ptr = type_spelling.find(FUNC_PTR)
-                    if fn_ptr == -1:
+                    if type_spelling.find(FUNC_PTR) == -1:
                         decl = "{}* {}".format(the_type.get_pointee().spelling, parameter)
                     else:
-                        decl = "{}(*{}){}".format(type_spelling[:fn_ptr], parameter, type_spelling[fn_ptr + 3:])
+                        named_func_ptr = "(*{})".format(parameter)
+                        decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
+                elif the_type.kind == TypeKind.MEMBERPOINTER:
+                    func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
+                    named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, parameter)
+                    decl = type_spelling.replace(func_ptr, named_func_ptr, 1)
                 else:
                     decl = "{} {}".format(type_spelling, parameter)
                     decl = decl.replace("* ", "*").replace("& ", "&")
@@ -752,6 +756,8 @@ class SipGenerator(object):
             #   - We see what looks like the thing Clang seems to use for a function pointer
             #
             if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find(FUNC_PTR) != -1:
+                sip["fn_result"] = function.result_type.spelling
+            elif function.result_type.get_canonical().kind == TypeKind.MEMBERPOINTER:
                 sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
@@ -1295,7 +1301,12 @@ class SipGenerator(object):
                 decl = words[1] + " __" + words[1] + words[-2]
         elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
             #
-            # Keep the typedef.
+            # Keep any typedef.
+            #
+            decl = variable.type.spelling
+        elif variable.type.kind == TypeKind.MEMBERPOINTER:
+            #
+            # Keep any typedef.
             #
             decl = variable.type.spelling
         sip["decl"] = decl
