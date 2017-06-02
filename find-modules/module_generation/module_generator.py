@@ -311,7 +311,7 @@ class ModuleGenerator(object):
             results = [r.get() for r in results]
         results = {result[0]: result[1:] for result in results}
         import_sips = set()
-        mapped_types = {}
+        modulecode = {}
         all_include_roots = set()
         sip_files = []
         for source in sorted(results.keys(), key=FILE_SORT_KEY):
@@ -324,7 +324,7 @@ class ModuleGenerator(object):
                 failures.append((source, e))
             self.rule_usage.add_remote_stats(rule_usage)
             if sip_file:
-                mapped_types.update(tmp)
+                modulecode.update(tmp)
                 sip_files.append(sip_file)
                 #
                 # Create something which the SIP compiler can process that includes what appears to be the
@@ -427,7 +427,7 @@ class ModuleGenerator(object):
             sip = {
                 "name": module,
                 "decl": decl,
-                "mapped_types": mapped_types,
+                "modulecode": modulecode,
                 "peers": peers,
             }
             body = ""
@@ -439,7 +439,7 @@ class ModuleGenerator(object):
                 f.write(body)
                 f.write(sip["decl"])
                 #
-                # The mapped_types dictionary ensures there can be no duplicates, even if multiple sip files might have
+                # The modulecode dictionary ensures there can be no duplicates, even if multiple sip files might have
                 # contributed the same item. By emitting it here, it can provide declare-before-use (needed for
                 # %Exceptions).
                 #
@@ -447,8 +447,8 @@ class ModuleGenerator(object):
                 # used to eliminate the duplicates.
                 #
                 f.write("\n")
-                for mt in sorted(mapped_types):
-                    f.write(mapped_types[mt])
+                for mc in sorted(sip["modulecode"]):
+                    f.write(modulecode[mc])
                 f.write("\n")
                 f.write(sip["peers"])
                 f.write(sip["code"])
@@ -490,7 +490,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
     :return:                    (
                                     source,
                                     sip_suffix,
-                                    dict(mapped_types),
+                                    dict(modulecode),
                                     [direct includes from h_file],
                                     [-I paths needed by h_file],
                                     dict(rule_usage),
@@ -500,7 +500,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
     sip_suffix = None
     all_includes = lambda: []
     direct_includes = []
-    result, mapped_types, rule_usage = "", {}, {},
+    result, modulecode, rule_usage = "", {}, {},
     #
     # Make sure any errors mention the file that was being processed.
     #
@@ -522,7 +522,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
                         if match:
                             result += "{} = {}\n".format(match.group("name"), match.group("value"))
         else:
-            result, mapped_types, all_includes = generator.create_sip(h_file, h_suffix)
+            result, modulecode, all_includes = generator.create_sip(h_file, h_suffix)
             direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
         if result:
             pass
@@ -542,7 +542,7 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
                 #    - The forwarding SIP's .so binding needs the legacy SIP's .so on the system, doubling the
                 #      number of libraries (and adding to overall confusion, and the case-sensitivity issue).
                 #
-                result, mapped_types, all_includes = generator.create_sip(direct_includes[0], h_suffix)
+                result, modulecode, all_includes = generator.create_sip(direct_includes[0], h_suffix)
                 direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
         #
         # From the set of includes, we want two things:
@@ -654,8 +654,8 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
         # Tracebacks cannot be pickled for use by multiprocessing.
         #
         e = (e.__class__, str(e), traceback.format_exc())
-        return h_file, sip_suffix, mapped_types, direct_includes, i_paths, rule_usage, e
-    return h_file, sip_suffix, mapped_types, direct_includes, i_paths, rule_usage, None
+        return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, e
+    return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, None
 
 
 def header(output_file, h_file, package):

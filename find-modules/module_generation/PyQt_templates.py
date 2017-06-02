@@ -404,7 +404,7 @@ class AbstractExpander(object):
         trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
         code = self.expand_generic(template_type, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
-        sip["module_code"][mapped_type] = code
+        sip["modulecode"][mapped_type] = code
 
     def expand_typedef(self, fn, cursor, sip):
         """
@@ -484,7 +484,7 @@ class AbstractExpander(object):
         trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
         code = self.expand_generic(parent.spelling, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
-        sip["module_code"][mapped_type] = code
+        sip["modulecode"][mapped_type] = code
 
 
 class DictExpander(AbstractExpander):

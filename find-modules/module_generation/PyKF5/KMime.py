@@ -59,13 +59,13 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KMime.KMime":
-        del sip["mapped_types"]["QMap<QString, QString>"]
+        del sip["modulecode"]["QMap<QString, QString>"]
 
 
 def container_rules():
     return [
         #
-        # Duplicate template stuff.
+        # Duplicate Akonadi::SuperClass.
         #
         ["kmime_newsarticle.h", "Akonadi", ".*", ".*", ".*", rules_engine.container_discard],
     ]

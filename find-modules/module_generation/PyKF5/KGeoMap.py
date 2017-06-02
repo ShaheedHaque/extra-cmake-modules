@@ -26,7 +26,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["mapped_types"]["QList<int>"]
+    del sip["modulecode"]["QList<int>"]
 
 
 def modulecode():

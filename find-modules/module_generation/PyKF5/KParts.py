@@ -26,8 +26,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if "QExplicitlySharedDataPointer<KService>" in sip["mapped_types"]:
-        del sip["mapped_types"]["QExplicitlySharedDataPointer<KService>"]
+    if "QExplicitlySharedDataPointer<KService>" in sip["modulecode"]:
+        del sip["modulecode"]["QExplicitlySharedDataPointer<KService>"]
         sip["code"] = """
 class KIO::Job /External/;
 class KXmlGuiWindow /External/;

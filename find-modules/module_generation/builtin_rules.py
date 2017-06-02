@@ -767,7 +767,7 @@ def container_rewrite_std_exception(container, sip, matcher):
     container_rewrite_exception(container, sip, matcher)
     sip_name = std_exception.replace("::", "_")
     py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
-    sip["module_code"][std_exception] = """%Exception {}(SIP_Exception) /PyName={}/
+    sip["modulecode"][std_exception] = """%Exception {}(SIP_Exception) /PyName={}/
 {{
 %TypeHeaderCode
 #include <exception>

@@ -103,7 +103,7 @@ def handle_mapped_types(cursor, sip):
     if mapped_type:
         name = "{}:{}[{}]".format(cursor.spelling, os.path.basename(cursor.extent.start.file.name),
                                   cursor.extent.start.line)
-        sip["module_code"][name] = "%MappedType " + sip["decl"] + "\n{" + sip["code"] + "};\n"
+        sip["modulecode"][name] = "%MappedType " + sip["decl"] + "\n{" + sip["code"] + "};\n"
         sip["code"] = ""
 
 
@@ -339,7 +339,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
                                     sip["decl"],
                                     ", ".join(sip["base_specifiers"]))
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
@@ -411,7 +411,7 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
         matcher, rule = self._match(parents, sip["name"],
                                     ", ".join(sip["template_parameters"]))
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, sip, matcher)
@@ -494,7 +494,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"],
                                     ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         sip.setdefault("cxx_parameters", "")
         sip.setdefault("cxx_fn_result", "")
         if matcher:
@@ -574,7 +574,7 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         parents = _parents(function)
         matcher, rule = self._match(parents, function.spelling, sip["name"], sip["decl"], sip["init"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, function, parameter, sip, matcher)
@@ -648,7 +648,7 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
         parents = _parents(typedef)
         matcher, rule = self._match(parents, sip["name"], sip["fn_result"], sip["decl"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, typedef, sip, matcher)
@@ -717,7 +717,7 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
         parents = _parents(unexposed)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, unexposed, sip, matcher)
@@ -787,7 +787,7 @@ class VariableRuleDb(AbstractCompiledRuleDb):
         parents = _parents(variable)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
             rule.fn(container, variable, sip, matcher)
@@ -994,7 +994,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("cxx_parameters", "")
         sip.setdefault("cxx_fn_result", "")
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if entry:
             before = deepcopy(sip)
             if callable(entry["code"]):
@@ -1115,7 +1115,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         """
         entry = self._get(container, sip["name"])
         sip.setdefault("code", "")
-        sip.setdefault("module_code", {})
+        sip.setdefault("modulecode", {})
         if entry:
             before = deepcopy(sip)
             if callable(entry["code"]):
@@ -1226,9 +1226,9 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
                 #
                 # Module-level support.
                 #
-                tmp = sip.get("mapped_types", None)
+                tmp = sip.get("modulecode", None)
                 if tmp:
-                    sip["mapped_types"] = entry.get("mapped_types", tmp)
+                    sip["modulecode"] = entry.get("modulecode", tmp)
                 tmp = sip.get("peers", None)
                 if tmp:
                     sip["peers"] = entry.get("peers", tmp)

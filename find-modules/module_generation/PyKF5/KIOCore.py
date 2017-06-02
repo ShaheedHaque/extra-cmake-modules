@@ -72,9 +72,9 @@ def module_fix_mapped_types(filename, sip, entry):
     # duplicates is horrid, but much less painful than the alternative.
     #
     duplicated = "QList<QPair<QString, unsigned short> >"
-    tmp = sip["mapped_types"][duplicated]
+    tmp = sip["modulecode"][duplicated]
     tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
-    sip["mapped_types"][duplicated] = tmp
+    sip["modulecode"][duplicated] = tmp
     #
     # Random stuff.
     #

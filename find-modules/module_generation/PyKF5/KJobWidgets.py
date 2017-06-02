@@ -35,7 +35,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["mapped_types"]["QPair<QString, QString>"]
+    del sip["modulecode"]["QPair<QString, QString>"]
 
 
 def modulecode():

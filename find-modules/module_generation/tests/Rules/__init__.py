@@ -41,7 +41,7 @@ def container_discard_templated_bases(container, sip, matcher):
 
 def container_emit_modulecode(container, sip, matcher):
     container_discard_templated_bases(container, sip, matcher)
-    sip["module_code"][sip["name"]] = """
+    sip["modulecode"][sip["name"]] = """
 %ModuleHeaderCode
 #define ModuleCodeTypeCheck 1
 %End
@@ -49,7 +49,7 @@ def container_emit_modulecode(container, sip, matcher):
 
 
 def function_emit_modulecode(container, function, sip, matcher):
-    sip["module_code"][sip["name"]] = """
+    sip["modulecode"][sip["name"]] = """
 %ModuleHeaderCode
 #define ModuleCodeFunctionCheck 1
 %End
@@ -77,7 +77,7 @@ def fn_cxx_decl(container, function, sip, matcher):
 
 
 def parameter_emit_modulecode(container, function, parameter, sip, matcher):
-    sip["module_code"][sip["name"]] = """
+    sip["modulecode"][sip["name"]] = """
 %ModuleHeaderCode
 #define ModuleCodeParameterCheck 1
 %End
@@ -90,7 +90,7 @@ def parameter_in_out(container, function, parameter, sip, matcher):
 
 
 def typedef_emit_modulecode(container, typedef, sip, matcher):
-    sip["module_code"][sip["name"]] = """
+    sip["modulecode"][sip["name"]] = """
 %ModuleHeaderCode
 #define ModuleCodeTypedefCheck 1
 %End

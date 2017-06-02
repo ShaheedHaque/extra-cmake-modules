@@ -54,7 +54,7 @@ def _typedef_add_collections(container, typedef, sip, matcher):
         trace = trace_generated_for(typedef, _typedef_add_collections, {"value": value_h.category})
         code = handler.expand_generic(qt_type, {"value": value_h})
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
-        sip["module_code"][mapped_type] = code
+        sip["modulecode"][mapped_type] = code
 
 
 def _variable_array_to_star(container, variable, sip, matcher):
@@ -66,8 +66,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["mapped_types"]["QSharedPointer<type-parameter-0-0>"]
-    del sip["mapped_types"]["QSharedPointer<type-parameter-1-0>"]
+    del sip["modulecode"]["QSharedPointer<type-parameter-0-0>"]
+    del sip["modulecode"]["QSharedPointer<type-parameter-1-0>"]
     sip["code"] = """
 //
 // Solve the problem that the following are not part of the public API:
