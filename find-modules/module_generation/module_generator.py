@@ -301,8 +301,9 @@ class ModuleGenerator(object):
             #
             # Was this file selected?
             #
-            if self.selector.search(h_file) and not self.omitter.search(h_file):
-                per_process_args.append((source, h_file))
+            if self.compiled_rules.cxx_selector.search(h_file) and not self.compiled_rules.cxx_omitter.search(h_file):
+                if self.selector.search(h_file) and not self.omitter.search(h_file):
+                    per_process_args.append((source, h_file))
         if not per_process_args:
             return attempts, failures
         std_args = (self.project_root, self.rules_pkg, self.package, self.compile_flags, self.includes, self.output_dir)
@@ -349,7 +350,7 @@ class ModuleGenerator(object):
                 # For each include, add the corresponding SIP module to the set to be %Import'd.
                 #
                 for include in direct_includes:
-                    if self.omitter.search(include):
+                    if self.compiled_rules.cxx_omitter.search(include) or self.omitter.search(include):
                         continue
                     if include.endswith(("_export.h", "_version.h")):
                         continue
@@ -748,7 +749,7 @@ def main(argv=None):
     parser.add_argument("--rules", default=PYKF5_RULES_PKG, help=_("Project rules package"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers from 'rules-pkg' to be processed"))
-    parser.add_argument("--omit", default="KDELibs4Support", type=lambda s: re.compile(s, re.I),
+    parser.add_argument("--omit", default="=Nothing=", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers from 'rules-pkg' NOT to be processed"))
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
