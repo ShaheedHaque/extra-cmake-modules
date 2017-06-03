@@ -186,6 +186,7 @@ set(CXX_SOURCES
         KF5XmlRpcClient)
 
 set(CXX_DEPENDENCIES
+        Qt5Core
         Qt5Widgets
         Qt5Xml)
 
@@ -231,7 +232,7 @@ function(get_target_property_recursive target property)
     get_target_property(values ${target} ${property})
     if(values STREQUAL "values-NOTFOUND")
         # Skip
-        message(STATUS "Warning: Target ${target} has no property ${property}")
+        # message(STATUS "Warning: Target ${target} has no property ${property}")
     else()
         foreach(value ${values})
             string(FIND ${value} "$<TARGET_PROPERTY:" found)
