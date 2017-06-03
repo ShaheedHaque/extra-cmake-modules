@@ -1444,6 +1444,24 @@ class RuleSet(object):
         """
         raise NotImplementedError()
 
+    @property
+    def cxx_selector(self):
+        """
+        Regex of items to include.
+
+        :return: regex.
+        """
+        return re.compile(".*")
+
+    @property
+    def cxx_omitter(self):
+        """
+        Regex of items to omit.
+
+        :return: regex.
+        """
+        return re.compile("=Nothing=")
+
     def sip_package(self):
         """
         The name of the SIP/Python package to create.

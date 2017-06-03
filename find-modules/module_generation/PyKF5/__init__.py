@@ -36,6 +36,7 @@ SIP binding customisation for PyKF5. This modules describes:
 from __future__ import print_function
 from importlib import import_module
 import os
+import re
 
 from clang.cindex import AccessSpecifier
 
@@ -377,6 +378,14 @@ class RuleSet(rules_engine.RuleSet):
         result = [i for i in result]
         result = sorted(result)
         return result
+
+    @property
+    def cxx_selector(self):
+        return re.compile(".*")
+
+    @property
+    def cxx_omitter(self):
+        return re.compile("KDELibs4Support|ksslcertificatemanager_p.h")
 
     def sip_package(self):
         self._fill_cache()
