@@ -31,6 +31,7 @@ import argparse
 import datetime
 import errno
 import gettext
+import glob
 import os
 import inspect
 import logging
@@ -231,32 +232,45 @@ class ModuleGenerator(object):
             #
             for i, source in enumerate(sources):
                 dir, base = os.path.split(source)
-                candidates = [d for d in os.listdir(dir) if d.lower() == base and d != base]
-                if candidates:
-                    sources[i] = os.path.join(dir, candidates[0])
+                candidates = os.listdir(dir)
+                self.dedupe_legacy_names(candidates)
+                candidates = [c for c in candidates if c.lower() == base.lower()]
+                sources[i] = os.path.join(dir, candidates[0])
             sources.sort(key=FILE_SORT_KEY)
         else:
             sources = [self.project_root]
         for source in sources:
-            for dirpath, dirnames, filenames in os.walk(source):
-                #
-                # Eliminate the duplication of forwarding headers.
-                #
-                forwarding_headers = [h for h in filenames if not h.endswith(".h") and h.lower() + ".h" in filenames]
-                for h in forwarding_headers:
+            if os.path.isdir(source):
+                for dirpath, dirnames, filenames in os.walk(source):
                     #
-                    # _("Ignoring legacy header for {}").format(os.path.join(dirpath, h)))
+                    # Eliminate the duplication of forwarding headers.
                     #
-                    filenames.remove(h.lower() + ".h")
+                    forwarding_headers = [h for h in filenames if not h.endswith(".h") and h.lower() + ".h" in filenames]
+                    for h in forwarding_headers:
+                        #
+                        # _("Ignoring legacy header for {}").format(os.path.join(dirpath, h)))
+                        #
+                        filenames.remove(h.lower() + ".h")
+                    #
+                    # Eliminate the duplication of forwarding directories.
+                    #
+                    self.dedupe_legacy_names(dirnames)
+                    #
+                    # Use sorted walks.
+                    #
+                    dirnames.sort(key=FILE_SORT_KEY)
+                    filenames.sort(key=FILE_SORT_KEY)
+                    a, f = self.process_dir(jobs, dirpath, filenames)
+                    attempts += a
+                    failures += f
+                    if a:
+                        directories += 1
+            else:
                 #
-                # Eliminate the duplication of forwarding directories.
+                # Assume it is a single-directory glob.
                 #
-                self.dedupe_legacy_names(dirnames)
-                #
-                # Use sorted walks.
-                #
-                dirnames.sort(key=FILE_SORT_KEY)
-                filenames.sort(key=FILE_SORT_KEY)
+                dirpath = os.path.dirname(source)
+                filenames = [os.path.basename(f) for f in glob.iglob(source) if os.path.isfile(f)]
                 a, f = self.process_dir(jobs, dirpath, filenames)
                 attempts += a
                 failures += f

@@ -344,6 +344,12 @@ class RuleSet(rules_engine.RuleSet):
         # We exclude anything which is not under the source root: those are dependencies!
         #
         result = [i for i in result if i.startswith(source_root)]
+        #
+        # Include KIOCore/kio/job_base.h.
+        #
+        for source in result:
+            if source.endswith("KIOCore"):
+                result.append(os.path.join(source, "kio", "job_base.h"))
         result = sorted(result)
         return result
 
