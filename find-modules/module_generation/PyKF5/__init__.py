@@ -34,6 +34,7 @@ SIP binding customisation for PyKF5. This modules describes:
 """
 
 from __future__ import print_function
+from importlib import import_module
 import os
 
 from clang.cindex import AccessSpecifier
@@ -44,39 +45,6 @@ from PyQt_templates import function_uses_templates, dict_typecode, list_typecode
 import common_methodcode
 import common_modulecode
 import common_typecode
-import Akonadi
-import KAuth
-import KBookmarks
-import KCalCore
-import KCoreAddons
-import KCodecs
-import KCompletion
-import KConfigCore
-import KConfigGui
-import KConfigWidgets
-import KContacts
-import KCrash
-import KdepimDBusInterfaces
-import KF5KDEGames
-import KGeoMap
-import kio
-import KIOCore
-import KItemViews
-import KI18n
-import KJobWidgets
-import KLDAP
-import KMime
-import KNotifyConfig
-import KNotifications
-import KParts
-import KService
-import KStyle
-import KUnitConversion
-import KWidgetsAddons
-import KXmlGui
-import MessageCore
-import Sonnet
-import Syndication
 
 
 RE_QSHAREDPTR = "(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
@@ -305,130 +273,52 @@ class RuleSet(rules_engine.RuleSet):
             function_rules=function_rules, parameter_rules=parameter_rules, typedef_rules=typedef_rules,
             unexposed_rules=unexposed_rules, variable_rules=variable_rules,
             methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
-        self.add_rules(
-            container_rules=Akonadi.container_rules,
-            forward_declaration_rules=Akonadi.forward_declaration_rules,
-            function_rules=Akonadi.function_rules,
-            parameter_rules=Akonadi.parameter_rules,
-            typedef_rules=Akonadi.typedef_rules,
-            variable_rules=Akonadi.variable_rules,
-            typecode=Akonadi.typecode,
-            modulecode=Akonadi.modulecode)
-        self.add_rules(
-            function_rules=KAuth.function_rules,
-            modulecode=KAuth.modulecode)
-        self.add_rules(
-            container_rules=KBookmarks.container_rules,
-            function_rules=KBookmarks.function_rules,
-            variable_rules=KBookmarks.variable_rules,
-            modulecode=KBookmarks.modulecode,
-            typecode=KBookmarks.typecode)
-        self.add_rules(
-            typedef_rules=KCalCore.typedef_rules)
-        self.add_rules(
-            container_rules=KCodecs.container_rules,
-            function_rules=KCodecs.function_rules)
-        self.add_rules(
-            container_rules=KCompletion.container_rules,
-            function_rules=KCompletion.function_rules,
-            parameter_rules=KCompletion.parameter_rules)
-        self.add_rules(
-            container_rules=KConfigCore.container_rules,
-            function_rules=KConfigCore.function_rules,
-            typedef_rules=KConfigCore.typedef_rules,
-            modulecode=KConfigCore.modulecode,
-            methodcode=KConfigCore.methodcode,
-            typecode=KConfigCore.typecode)
-        self.add_rules(
-            container_rules=KConfigGui.container_rules,
-            modulecode=KConfigGui.modulecode)
-        self.add_rules(
-            function_rules=KConfigWidgets.function_rules,
-            parameter_rules=KConfigWidgets.parameter_rules,
-            typecode=KConfigWidgets.typecode,
-            modulecode=KConfigWidgets.modulecode)
-        self.add_rules(
-            function_rules=KContacts.function_rules,
-            typecode=KContacts.typecode,
-            modulecode=KContacts.modulecode)
-        self.add_rules(
-            container_rules=KCoreAddons.container_rules,
-            function_rules=KCoreAddons.function_rules,
-            parameter_rules=KCoreAddons.parameter_rules,
-            typecode=KCoreAddons.typecode)
-        self.add_rules(
-            parameter_rules=KCrash.parameter_rules)
-        self.add_rules(
-            modulecode=KdepimDBusInterfaces.modulecode)
-        self.add_rules(
-            forward_declaration_rules=KF5KDEGames.forward_declaration_rules,
-            container_rules=KF5KDEGames.container_rules,
-            function_rules=KF5KDEGames.function_rules,
-            parameter_rules=KF5KDEGames.parameter_rules,
-            modulecode=KF5KDEGames.modulecode)
-        self.add_rules(
-            modulecode=KGeoMap.modulecode)
-        self.add_rules(
-            container_rules=KIOCore.container_rules,
-            function_rules=KIOCore.function_rules,
-            typedef_rules=KIOCore.typedef_rules,
-            modulecode=KIOCore.modulecode,
-            typecode=KIOCore.typecode)
-        self.add_rules(
-            function_rules=KItemViews.function_rules)
-        self.add_rules(
-            variable_rules=kio.variable_rules)
-        self.add_rules(
-            container_rules=KI18n.container_rules,
-            function_rules=KI18n.function_rules)
-        self.add_rules(
-            modulecode=KJobWidgets.modulecode,
-            typecode=KJobWidgets.typecode)
-        self.add_rules(
-            function_rules=KLDAP.function_rules,
-            variable_rules=KLDAP.variable_rules)
-        self.add_rules(
-            container_rules=KMime.container_rules,
-            parameter_rules=KMime.parameter_rules,
-            modulecode=KMime.modulecode)
-        self.add_rules(
-            forward_declaration_rules=KNotifyConfig.forward_declaration_rules)
-        self.add_rules(
-            function_rules=KNotifications.function_rules,
-            typecode=KNotifications.typecode,
-            modulecode=KNotifications.modulecode)
-        self.add_rules(
-            modulecode=KParts.modulecode)
-        self.add_rules(
-            container_rules=KService.container_rules,
-            function_rules=KService.function_rules,
-            typedef_rules=KService.typedef_rules,
-            typecode=KService.typecode,
-            modulecode=KService.modulecode)
-        self.add_rules(
-            function_rules=KStyle.function_rules)
-        self.add_rules(
-            function_rules=KUnitConversion.function_rules)
-        self.add_rules(
-            forward_declaration_rules=KWidgetsAddons.forward_declaration_rules,
-            function_rules=KWidgetsAddons.function_rules,
-            parameter_rules=KWidgetsAddons.parameter_rules,
-            modulecode=KWidgetsAddons.modulecode,
-            typecode=KWidgetsAddons.typecode)
-        self.add_rules(
-            function_rules=KXmlGui.function_rules,
-            parameter_rules=KXmlGui.parameter_rules,
-            modulecode=KXmlGui.modulecode,
-            methodcode=KXmlGui.methodcode)
-        self.add_rules(
-            typedef_rules=MessageCore.typedef_rules)
-        self.add_rules(
-            function_rules=Sonnet.function_rules,
-            modulecode = Sonnet.modulecode)
-        self.add_rules(
-            function_rules=Syndication.function_rules,
-            typedef_rules=Syndication.typedef_rules,
-            modulecode=Syndication.modulecode)
+        for rules_module in [
+            "Akonadi",
+            "KAuth",
+            "KBookmarks",
+            "KCoreAddons",
+            "KCodecs",
+            "KCompletion",
+            "KConfigCore",
+            "KConfigGui",
+            "KConfigWidgets",
+            "KContacts",
+            "KCrash",
+            "KdepimDBusInterfaces",
+            "KF5KDEGames",
+            "KGeoMap",
+            "kio",
+            "KIOCore",
+            "KItemViews",
+            "KI18n",
+            "KJobWidgets",
+            "KLDAP",
+            "KMime",
+            "KNotifyConfig",
+            "KNotifications",
+            "KParts",
+            "KService",
+            "KStyle",
+            "KUnitConversion",
+            "KWidgetsAddons",
+            "KXmlGui",
+            "MessageCore",
+            "Sonnet",
+            "Syndication",
+        ]:
+            rules_module = import_module("." + rules_module, self.__module__)
+            self.add_rules(
+                container_rules=getattr(rules_module, "container_rules", None),
+                forward_declaration_rules=getattr(rules_module, "forward_declaration_rules", None),
+                function_rules=getattr(rules_module, "function_rules", None),
+                parameter_rules=getattr(rules_module, "parameter_rules", None),
+                typedef_rules=getattr(rules_module, "typedef_rules", None),
+                unexposed_rules=getattr(rules_module, "unexposed_rules", None),
+                variable_rules=getattr(rules_module, "variable_rules", None),
+                methodcode=getattr(rules_module, "methodcode", None),
+                modulecode=getattr(rules_module, "modulecode", None),
+                typecode=getattr(rules_module, "typecode", None))
         self.pd_cache = None
 
     def _fill_cache(self):
