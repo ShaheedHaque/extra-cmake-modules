@@ -1522,29 +1522,6 @@ def code():
 %End
 """
 },
-# ./kdecore/kprotocolinfo.sip
-"kprotocolinfo.h::KProtocolInfo": { #KProtocolInfo : KSycocaEntry
-"code":
-"""
-%ConvertToSubClassCode
-    // CTSCC for subclasses of 'KSycocaEntry'
-    sipType = NULL;
-
-    if (dynamic_cast<KProtocolInfo*>(sipCpp))
-        sipType = sipType_KProtocolInfo;
-    else if (dynamic_cast<KService*>(sipCpp))
-        sipType = sipType_KService;
-    else if (dynamic_cast<KServiceGroup*>(sipCpp))
-        sipType = sipType_KServiceGroup;
-    else if (dynamic_cast<KServiceType*>(sipCpp))
-        {
-        sipType = sipType_KServiceType;
-        if (dynamic_cast<KMimeType*>(sipCpp))
-            sipType = sipType_KMimeType;
-        }
-%End
-"""
-},
 # ./kdecore/kcmdlineargs.sip
 "KCmdLineOptions": { #KCmdLineOptions
 "code":
