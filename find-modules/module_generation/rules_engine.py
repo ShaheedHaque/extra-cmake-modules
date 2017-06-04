@@ -1616,7 +1616,17 @@ def get_platform_dependencies(for_dir):
 
     tmpdir = tempfile.mkdtemp()
     try:
-        subprocess.check_call(["cmake", for_dir], cwd=tmpdir)
+        cmd = ["cmake", for_dir]
+        try:
+            p = subprocess.Popen(cmd, cwd=tmpdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        except:
+            logger.error(_("Unable to run {}").format(cmd))
+            raise
+        stdout, stderr = p.communicate()
+        level = logging.ERROR if p.returncode else logging.DEBUG
+        logger.log(level, _("CMake output:\n{}").format(stdout))
+        if p.returncode:
+            raise subprocess.CalledProcessError(p.returncode, cmd, stdout)
         with open(os.path.join(tmpdir, "configure.json"), "rU",) as f:
             return normalise(json.load(f))
     finally:
