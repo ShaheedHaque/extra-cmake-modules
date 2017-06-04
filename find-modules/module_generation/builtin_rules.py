@@ -155,6 +155,9 @@ class HeldAs(object):
     FLOAT = "FLOAT"
     POINTER = "POINTER"
     OBJECT = "OBJECT"
+    RE_BYTE = re.compile("^char\W|\Wchar\W|\Wchar$|^char$")
+    RE_INTEGER = re.compile("^(short|int|long)\W|\W(short|int|long)\W|\W(short|int|long)$|^(short|int|long)$|^bool$")
+    RE_FLOAT = re.compile("^(float|double)\W|\W(float|double)\W|\W(float|double)$|^(float|double)$")
     #
     # Clang primitive classifications corresponding to Python types.
     #
@@ -256,11 +259,14 @@ class HeldAs(object):
                 raise AssertionError(_("Unexpected {} for {}").format(clang_kind, cxx_t))
         if "<" in cxx_t:
             return HeldAs.OBJECT
-        if "char" in cxx_t:
+        if HeldAs.RE_BYTE.search(cxx_t):
             return HeldAs.BYTE
-        if "float" in cxx_t or "double" in cxx_t:
+        #
+        # Must check for FLOAT before INTEGER in case of "long double" etc.
+        #
+        if HeldAs.RE_FLOAT.search(cxx_t):
             return HeldAs.FLOAT
-        if "int" in cxx_t or "long" in cxx_t or cxx_t == "bool":
+        if HeldAs.RE_INTEGER.search(cxx_t):
             return HeldAs.INTEGER
         return HeldAs.OBJECT
 
