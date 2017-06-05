@@ -1529,6 +1529,18 @@ def unexposed_discard(container, unexposed, sip, matcher):
     sip["name"] = ""
 
 
+def container_discard_QSharedData_base(container, sip, matcher):
+    sip["base_specifiers"].remove("QSharedData")
+
+
+def container_mark_forward_declaration_external(container, sip, matcher):
+    sip["annotations"].add("External")
+
+
+def container_mark_abstract(container, sip, matcher):
+    sip["annotations"].add("Abstract")
+
+
 def parameter_in(container, function, parameter, sip, matcher):
     sip["annotations"].add("In")
 
@@ -1559,18 +1571,6 @@ def parameter_strip_class_enum(container, function, parameter, sip, matcher):
 def function_discard_impl(container, function, sip, matcher):
     if function.extent.start.column == 1:
         sip["name"] = ""
-
-
-def discard_QSharedData_base(container, sip, matcher):
-    sip["base_specifiers"].remove("QSharedData")
-
-
-def mark_forward_declaration_external(container, sip, matcher):
-    sip["annotations"].add("External")
-
-
-def container_mark_abstract(container, sip, matcher):
-    sip["annotations"].add("Abstract")
 
 
 def rules(rules_pkg):

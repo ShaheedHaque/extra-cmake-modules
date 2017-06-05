@@ -295,9 +295,9 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rules_engine.mark_forward_declaration_external],
-        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rules_engine.mark_forward_declaration_external],
-        ["collectionview.h", "KXMLGUIClient", ".*", rules_engine.mark_forward_declaration_external],
+        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["collectionview.h", "KXMLGUIClient", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
 

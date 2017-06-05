@@ -31,17 +31,9 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
-def _discard_QSharedData(container, sip, matcher):
-    sip["base_specifiers"].remove("QSharedData")
-
-
-def _mark_abstract(container, sip, matcher):
-    sip["annotations"].add("Abstract")
-
-
 def _mark_abstract_and_discard_QSharedData(container, sip, matcher):
-    _mark_abstract(container, sip, matcher)
-    _discard_QSharedData(container, sip, matcher)
+    rules_engine.container_mark_abstract(container, sip, matcher)
+    rules_engine.container_discard_QSharedData_base(container, sip, matcher)
 
 
 def _function_fixup_template_params(container, function, sip, matcher):
@@ -162,8 +154,8 @@ def module_fix_mapped_types(filename, sip, entry):
 def container_rules():
     return [
         ["kconfigbackend.h", "KConfigBackend", ".*", ".*", ".*", _mark_abstract_and_discard_QSharedData],
-        ["kconfigbase.h", "KConfigBase", ".*", ".*", ".*", _mark_abstract],
-        ["ksharedconfig.h", "KSharedConfig", ".*", ".*", ".*QSharedData.*", _discard_QSharedData],
+        ["kconfigbase.h", "KConfigBase", ".*", ".*", ".*", rules_engine.container_mark_abstract],
+        ["ksharedconfig.h", "KSharedConfig", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
         #
         # Emit templated containers.
         #

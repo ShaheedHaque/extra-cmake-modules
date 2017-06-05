@@ -37,7 +37,7 @@ def parameter_rewrite_template(container, function, parameter, sip, matcher):
 
 def forward_declaration_rules():
     return [
-        ["kdatepicker.h", "KDateTable", ".*", rules_engine.mark_forward_declaration_external],
+        ["kdatepicker.h", "KDateTable", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
 

@@ -53,11 +53,11 @@ def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
 
 def forward_declaration_rules():
     return [
-        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rules_engine.mark_forward_declaration_external],
-        ["kgame.h", "KRandomSequence", ".*", rules_engine.mark_forward_declaration_external],
-        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rules_engine.mark_forward_declaration_external],
-        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rules_engine.mark_forward_declaration_external],
-        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rules_engine.mark_forward_declaration_external],
+        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["kgame.h", "KRandomSequence", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
 

@@ -27,6 +27,6 @@ import rules_engine
 
 def forward_declaration_rules():
     return [
-        ["knotifyconfigwidget.h", "KNotifyConfigElement", ".*", rules_engine.mark_forward_declaration_external],
+        ["knotifyconfigwidget.h", "KNotifyConfigElement", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
