@@ -27,6 +27,25 @@ import os
 import rules_engine
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    sip["code"] = """
+%If (!KCalCore_KCalCore_KCalCoremod)
+class KTimeZone;
+class KTimeZoneBackend;
+class KTimeZoneData;
+class KTimeZoneSource;
+struct icalcomponent_impl;
+struct _icaltimezone;
+struct KCalCore::_MSSystemTime;
+struct KCalCore::_MSTimeZone;
+class KDateTime;
+class KDateTime::Spec;
+//struct VObject; Uncommenting this causes SIP to crash.
+class QLatin1String /External/;
+%End
+"""
+
+
 def typedef_duplicate_discard(container, typedef, sip, matcher):
     """
     There are multiple definitions like this:
@@ -40,7 +59,33 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
         rules_engine.typedef_discard(container, typedef, sip, matcher)
 
 
+def container_rules():
+    return [
+        #
+        # Duplicate Akonadi::SuperClass.
+        #
+        ["(event|journal|todo).h", "Akonadi", ".*", ".*", ".*", rules_engine.container_discard],
+    ]
+
+
+def function_rules():
+    return [
+        #
+        # Delete non-const.
+        #
+        ["KCalCore::Attendee", "customProperties", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+    ]
+
+
 def typedef_rules():
     return [
         ["KCalCore", "Date(Time|)List", ".*", ".*", typedef_duplicate_discard],
     ]
+
+
+def modulecode():
+    return {
+        "KCalCoremod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }

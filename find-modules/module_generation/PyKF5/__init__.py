@@ -278,6 +278,7 @@ class RuleSet(rules_engine.RuleSet):
             "Akonadi",
             "KAuth",
             "KBookmarks",
+            "KCalCore",
             "KCoreAddons",
             "KCodecs",
             "KCompletion",
