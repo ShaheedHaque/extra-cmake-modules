@@ -302,6 +302,7 @@ class RuleSet(rules_engine.RuleSet):
             "KParts",
             "KService",
             "KStyle",
+            "KTextEditor",
             "KUnitConversion",
             "KWidgetsAddons",
             "KXmlGui",
