@@ -1513,32 +1513,6 @@ extern void updatePyArgv(PyObject *argvlist,int argc,char **argv);
 %End
 """
 },
-# ./kdecore/ksharedconfig.sip
-"ksharedconfig.h::KSharedConfigPtr": { #KSharedConfigPtr
-"code":
-"""
-%ConvertFromTypeCode
-    if (!sipCpp)
-        return NULL;
-
-    KSharedConfigPtr kcpp = *sipCpp;
-    KSharedConfig *ksc    = kcpp.data ();
-    ksc->ref.ref();
-    PyObject *pyKsc       = sipConvertFromInstance(ksc, sipClass_KSharedConfig, sipTransferObj);
-    return pyKsc;
-%End
-%ConvertToTypeCode
-    if (sipIsErr == NULL)
-        return 1;
-
-    int state;
-    KSharedConfig* ksc = (KSharedConfig *)sipConvertToInstance(sipPy, sipClass_KSharedConfig, sipTransferObj, SIP_NOT_NONE, &state, sipIsErr);
-    *sipCppPtr = new KSharedConfigPtr (ksc);
-    ksc->ref.deref();
-    return sipGetState(sipTransferObj);
-%End
-"""
-},
 # ./kdecore/kconfig.sip
 "kconfig.h::KConfig": { #KConfig : KConfigBase
 "code":
