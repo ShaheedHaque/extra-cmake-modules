@@ -304,8 +304,7 @@ class RuleSet(rules_engine.RuleSet):
             "KdepimDBusInterfaces",
             "KF5KDEGames",
             "KGeoMap",
-            "kio",
-            "KIOCore",
+            "KIO",
             "KItemViews",
             "KI18n",
             "KItemModels",
@@ -368,6 +367,11 @@ class RuleSet(rules_engine.RuleSet):
         for source in result:
             if source.endswith("KIOCore"):
                 result.append(os.path.join(source, "kio", "job_base.h"))
+                break
+        #
+        # KF5KIO is missing .../kio.
+        #
+        result.append(os.path.join(source_root, "kio"))
         result = sorted(result)
         return result
 
