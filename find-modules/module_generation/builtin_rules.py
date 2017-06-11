@@ -226,6 +226,8 @@ class HeldAs(object):
             return HeldAs.categorise(cxx_t[:-1].strip(), clang_kind)
         elif cxx_t == HeldAs.VOID:
             return HeldAs.VOID
+        elif cxx_t.startswith("type-parameter-"):
+            return HeldAs.OBJECT
         #
         # The clang type should be authoritative.
         #
@@ -1149,8 +1151,8 @@ def function_rules():
         #
         # Handle functions with templated return types and/or templated parameters.
         #
-        [".*", ".*", ".*", "[A-Za-z0-9_]+<.*>", ".*", function_uses_templates],
-        [".*", ".*", ".*", ".*", ".*[A-Za-z0-9_]+<.*>.*", function_uses_templates],
+        [".*", ".*", ".*", "[A-Za-z0-9_:]+<.*>", ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*", ".*[A-Za-z0-9_:]+<.*>.*", function_uses_templates],
     ]
 
 

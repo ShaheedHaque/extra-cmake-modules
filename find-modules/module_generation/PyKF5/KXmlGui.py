@@ -29,6 +29,16 @@ def _parameter_remove_qualifier(container, function, parameter, sip, matcher):
     sip["init"] = sip["init"].split(":")[-1]
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<QKeySequence>"]
+    sip["code"] = """
+%Import(name=QtXml/QtXmlmod.sip)
+"""
+
+
 def function_rules():
     return [
         ["KMainWindow", "k_func", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
@@ -60,10 +70,7 @@ def modulecode():
             "decl": ""
         },
         "KXmlGuimod.sip": {
-            "code":
-                """
-                %Import(name=QtXml/QtXmlmod.sip)
-                """
+            "code": module_fix_mapped_types,
         },
     }
 

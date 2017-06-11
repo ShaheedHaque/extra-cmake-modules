@@ -29,6 +29,16 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<T>"]
+    for duplicated in ["QList<QUrl>", "QList<QVariant>"]:
+        tmp = sip["modulecode"][duplicated]
+        tmp = "%If (!KCoreAddons_KCoreAddonsmod)\n" + tmp + "%End\n"
+        sip["modulecode"][duplicated] = tmp
+
 def container_rules():
     return [
         #
@@ -155,4 +165,12 @@ def typecode():
                 %End
                 """
         },
+    }
+
+
+def modulecode():
+    return {
+        "KCoreAddonsmod.sip": {
+            "code": module_fix_mapped_types,
+            },
     }

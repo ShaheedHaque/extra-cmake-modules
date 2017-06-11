@@ -40,15 +40,25 @@ import re
 
 from clang.cindex import AccessSpecifier
 
+import PyQt_templates
+from PyQt_templates import function_uses_templates
 import rules_engine
-from PyQt_templates import function_uses_templates, dict_typecode, list_typecode, set_typecode, \
-    qpair_parameter, qshareddatapointer_parameter
 import common_methodcode
 import common_modulecode
 import common_typecode
 
 
-RE_QSHAREDPTR = "(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
+RE_DICT_TYPEDEF = "(QHash|QMap)<(.*)>"
+RE_LIST_TYPEDEF = "(QList|QVector)<(.*)>"
+RE_SET_TYPEDEF = "QSet<(.*)>"
+RE_QPAIR_TYPEDEF = "QPair<(.*)>"
+RE_QSHAREDPTR_TYPEDEF = "(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
+
+RE_DICT_PARAMETER = "(const )?" + RE_DICT_TYPEDEF + ".*"
+RE_LIST_PARAMETER = "(const )?" + RE_LIST_TYPEDEF + ".*"
+RE_SET_PARAMETER = "(const )?" + RE_SET_TYPEDEF + ".*"
+RE_QPAIR_PARAMETER = "(const )?" + RE_QPAIR_TYPEDEF + ".*"
+RE_QSHAREDPTR_PARAMETER = "(const )?" + RE_QSHAREDPTR_TYPEDEF + ".*"
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -152,8 +162,8 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", RE_QSHAREDPTR, ".*", function_uses_templates],
-        [".*", ".*", ".*", ".*", ".*" + RE_QSHAREDPTR + ".*", function_uses_templates],
+        [".*", ".*", ".*", RE_QSHAREDPTR_PARAMETER, ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*", ".*" + RE_QSHAREDPTR_PARAMETER + ".*", function_uses_templates],
         #
         # This class has inline implementations in the header file.
         #
@@ -201,10 +211,13 @@ def parameter_rules():
         #
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
         #
-        # Create %MappedTypes.
+        # Supplement Qt templates with %MappedTypes.
         #
-        [".*", ".*", ".*", "(const )?QPair<.*>.*", ".*", qpair_parameter],
-        [".*", ".*", ".*", RE_QSHAREDPTR + ".*", ".*", qshareddatapointer_parameter],
+        [".*", ".*", ".*", RE_DICT_PARAMETER, ".*", PyQt_templates.dict_parameter],
+        [".*", ".*", ".*", RE_LIST_PARAMETER, ".*", PyQt_templates.list_parameter],
+        [".*", ".*", ".*", RE_SET_PARAMETER, ".*", PyQt_templates.set_parameter],
+        [".*", ".*", ".*", RE_QPAIR_PARAMETER, ".*", PyQt_templates.qpair_parameter],
+        [".*", ".*", ".*", RE_QSHAREDPTR_PARAMETER, ".*", PyQt_templates.qshareddatapointer_parameter],
     ]
 
 
@@ -213,11 +226,11 @@ def typedef_rules():
         #
         # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", "QHash<.*>", dict_typecode],
-        [".*", ".*", ".*", "QList<.*>", list_typecode],
-        [".*", ".*", ".*", "QMap<.*>", dict_typecode],
-        [".*", ".*", ".*", "QSet<.*>", set_typecode],
-        [".*", ".*", ".*", "QVector<.*>", list_typecode],
+        [".*", ".*", ".*", RE_DICT_TYPEDEF, PyQt_templates.dict_typecode],
+        [".*", ".*", ".*", RE_LIST_TYPEDEF, PyQt_templates.list_typecode],
+        [".*", ".*", ".*", RE_SET_TYPEDEF, PyQt_templates.set_typecode],
+        [".*", ".*", ".*", RE_QPAIR_TYPEDEF, PyQt_templates.qpair_typecode],
+        [".*", ".*", ".*", RE_QSHAREDPTR_TYPEDEF, PyQt_templates.qshareddatapointer_typecode],
         #
         # Rewrite uid_t, gid_t as int.
         #
@@ -276,6 +289,7 @@ class RuleSet(rules_engine.RuleSet):
             methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
         for rules_module in [
             "Akonadi",
+            "FollowupReminder",
             "KAuth",
             "KBookmarks",
             "KCalCore",
@@ -294,6 +308,7 @@ class RuleSet(rules_engine.RuleSet):
             "KIOCore",
             "KItemViews",
             "KI18n",
+            "KItemModels",
             "KJobWidgets",
             "KLDAP",
             "KMime",
@@ -302,6 +317,7 @@ class RuleSet(rules_engine.RuleSet):
             "KParts",
             "KService",
             "KStyle",
+            "KTextEditor",
             "KUnitConversion",
             "KWidgetsAddons",
             "KXmlGui",

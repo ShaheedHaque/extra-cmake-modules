@@ -40,13 +40,26 @@ def fn_remove_inlined(container, function, sip, matcher):
             return
 
 
-def module_fix_imports(filename, sip, matcher):
+def _function_rewrite_using_decl1(container, function, sip, matcher):
+    sip["parameters"] = ["const QByteArray &data"]
+    sip["fn_result"] = "virtual void"
+
+
+def _function_rewrite_using_decl2(container, function, sip, matcher):
+    sip["parameters"] = ["KIO::filesize_t size"]
+    sip["fn_result"] = "virtual void"
+
+
+def module_fix_kiomod(filename, sip, matcher):
+    """
+    Note: there are multiple KIOmod.sip and one kiomod.sip files, and this has to deal with all of them. Yuck.
+    """
     #
     # Fixup the recursion.
     #
     lines = []
     for l in sip["decl"].split("\n"):
-        if "name=KIOCore/KIOCoremod.sip" in l:
+        if "KIOCore/KIOCoremod.sip" in l or "KIOCore/KIO/KIOmod.sip" in l:
             #
             # These modules refer to each other.
             #
@@ -57,11 +70,44 @@ def module_fix_imports(filename, sip, matcher):
     #
     # Random stuff.
     #
-    sip["code"] = """
-    class KIO::Job /External/;
-    class KFileItemList /External/;
-    class QDBusArgument /External/;
-"""
+    code = {
+        "KIOCore.kio": """
+%If (!KIOCore_kio_kiomod)
+class KIO::JobUiDelegateExtension /External/;
+class KIO::MetaData /External/;
+%End
+""",
+        "KIOCore.KIO": """
+%Import(name=KIOCore/kio/kiomod.sip)
+class KIO::Connection;
+class KIO::ClipboardUpdater;
+%If (!KIOCore_KIO_KIOmod)
+class KConfigGroup /External/;
+class KFileItemList /External/;
+class KService /External/;
+class KRemoteEncoding /External/;
+class QDBusArgument /External/;
+%End
+""",
+        "KIOGui.KIO": """
+%Import(name=KIOCore/kio/kiomod.sip)
+%Import(name=KIOCore/KIO/KIOmod.sip)
+%Import(name=KIOCore/KIOCoremod.sip)
+%If (!KIOGui_KIO_KIOmod)
+class KService;
+%End
+""",
+        "KIOWidgets.KIO": ""
+    }
+    sip["code"] = code[sip["name"]]
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    if sip["name"] == "KIOCore.kio":
+        del sip["modulecode"]["QMap<QString, QString>"]
+    elif sip["name"] == "KIOCore.KIO":
+        del sip["modulecode"]["QList<QUrl>"]
+        del sip["modulecode"]["QMap<QString, QString>"]
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -75,12 +121,15 @@ def module_fix_mapped_types(filename, sip, entry):
     tmp = sip["modulecode"][duplicated]
     tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
     sip["modulecode"][duplicated] = tmp
+    del sip["modulecode"]["QList<QUrl>"]
     #
     # Random stuff.
     #
     sip["code"] = """
-    class KIO::Job /External/;
-    class QSharedData /External/;
+%If (!KIOCore_KIOCoremod)
+class KService;
+class KSslCertificateBoxPrivate;
+%End
 """
 
 
@@ -92,6 +141,7 @@ def container_rules():
         #
         ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_delete_base],
         ["KMountPoint", "List", ".*", ".*", ".*", _container_delete_base],
+        ["kmountpoint.h", "KMountPoint", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
         ["KIO", "MetaData", ".*", ".*", ".*", _container_delete_base],
     ]
 
@@ -103,6 +153,30 @@ def function_rules():
         #
         ["KIO::MetaData", "MetaData|operator\\+=|toVariant", ".*", ".*", ".*", fn_remove_inlined],
         ["udsentry.h", "debugUDSEntry", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # Privates...
+        #
+        ["KIO::EmptyTrashJob", "EmptyTrashJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
+        ["KIO::FileSystemFreeSpaceJob", "FileSystemFreeSpaceJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
+        ["KIO::MkdirJob", "MkdirJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
+        #
+        # Duplicate signatures.
+        #
+        ["KIO::StatJob", "setSide", ".*", ".*", ".*bool.*", rules_engine.function_discard],
+        ["KFileItem", "mostLocalUrl", ".*", ".*", ".*local", rules_engine.function_discard],
+        #
+        # Missing stat64.
+        #
+        ["KIO::UDSEntry", "UDSEntry", ".*", ".*", ".*stat64.*", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["KIO::TCPSlaveBase", "write", ".*", ".*", "", _function_rewrite_using_decl1],
+        ["KIO::TCPSlaveBase", "read", ".*", ".*", "", _function_rewrite_using_decl2],
+        #
+        # Deleted functions.
+        #
+        ["KIO", "file_(copy|move)", ".*", ".*", ".*flags", rules_engine.function_discard],
     ]
 
 
@@ -112,6 +186,7 @@ def typedef_rules():
         # Remove some useless stuff.
         #
         ["kacl.h", "ACL.*PermissionsIterator|ACL.*PermissionsConstIterator", ".*", ".*", rules_engine.typedef_discard],
+        ["kprotocolmanager.h", "KSharedConfigPtr", ".*", ".*", rules_engine.typedef_discard],
     ]
 
 
@@ -121,13 +196,57 @@ def modulecode():
             "code": module_fix_mapped_types,
         },
         "KIOmod.sip": {
-            "code": module_fix_imports,
-        }
+            "code": module_fix_kiomod,
+        },
+        "kiomod.sip": {
+            "code": module_fix_kiomod,
+        },
     }
 
 
 def typecode():
     return {
+        "KIO::DesktopExecParser": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKIO_DesktopExecParser KIO::DesktopExecParser
+                %End
+                """
+        },
+        "kfileitem.h::KFileItemList": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKFileItemList KFileItemList
+                %End
+                """
+        },
+        # DISABLED until I figure out an approach for CTSCC.
+        "DISABLED kprotocolinfo.h::KProtocolInfo": {  # KProtocolInfo : KSycocaEntry
+            "code":
+                """
+                %ConvertToSubClassCode
+                    // CTSCC for subclasses of 'KSycocaEntry'
+                    sipType = NULL;
+        
+                    if (dynamic_cast<KProtocolInfo*>(sipCpp))
+                        sipType = sipType_KProtocolInfo;
+                    else if (dynamic_cast<KService*>(sipCpp))
+                        sipType = sipType_KService;
+                    else if (dynamic_cast<KServiceGroup*>(sipCpp))
+                        sipType = sipType_KServiceGroup;
+                    else if (dynamic_cast<KServiceType*>(sipCpp))
+                        {
+                        sipType = sipType_KServiceType;
+                        if (dynamic_cast<KMimeType*>(sipCpp))
+                            sipType = sipType_KMimeType;
+                        }
+                %End
+                """
+        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED KIO::TCPSlaveBase": {  # TCPSlaveBase : KIO::SlaveBase
             "code":

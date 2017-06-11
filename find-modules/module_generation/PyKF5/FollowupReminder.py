@@ -17,16 +17,21 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KNotifyConfig. This modules describes:
+SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<int>"]
 
 
-def forward_declaration_rules():
-    return [
-        ["knotifyconfigwidget.h", "KNotifyConfigElement", ".*", rules_engine.container_mark_forward_declaration_external],
-    ]
-
+def modulecode():
+    return {
+        "FollowupRemindermod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }

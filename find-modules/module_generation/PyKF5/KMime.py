@@ -60,10 +60,20 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     if sip["name"] == "KMime.KMime":
         del sip["modulecode"]["QMap<QString, QString>"]
+        del sip["modulecode"]["QVector<QByteArray>"]
         sip["code"] = """
 %If (!KMime_KMime_KMimemod)
 class KConfigGroup /*External */;
 class KCoreConfigSkeleton /*External */;
+%End
+"""
+    elif sip["name"] == "Akonadi.KMime":
+        del sip["modulecode"]["QVector<Akonadi::Collection>"]
+        del sip["modulecode"]["QVector<Akonadi::Item>"]
+        del sip["modulecode"]["QSet<QByteArray>"]
+        sip["code"] = """
+%If (!Akonadi_KMime_KMimemod)
+class KMime::Message /*External */;
 %End
 """
 

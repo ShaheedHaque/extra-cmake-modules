@@ -62,7 +62,7 @@ def typedef_emit_modulecode(container, typedef, sip, matcher):
 def local_container_rules():
     return [
         [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
-        [".*", "Shared", ".*", ".*", ".*", rules_engine.discard_QSharedData_base],
+        [".*", "Shared", ".*", ".*", ".*", rules_engine.container_discard_QSharedData_base],
         [".*", "TemplateDerivative", ".*", ".*", ".*", container_discard_templated_bases],
         [".*", "ModuleCodeType", ".*", ".*", ".*", container_emit_modulecode],
     ]
@@ -70,7 +70,7 @@ def local_container_rules():
 
 def local_forward_declaration_rules():
     return [
-        [".*", "ExternalFwdDecl", ".*", rules_engine.mark_forward_declaration_external],
+        [".*", "ExternalFwdDecl", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
 

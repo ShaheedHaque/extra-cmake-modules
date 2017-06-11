@@ -38,6 +38,13 @@ def _delete_duplicate_content(filename, sip, entry):
         sip["decl"] = ""
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<QVariant>"]
+
+
 def function_rules():
     return [
         #
@@ -74,5 +81,8 @@ def modulecode():
     return {
         "ktipdialog.h": {
             "code": _delete_duplicate_content
+        },
+        "KConfigWidgetsmod.sip": {
+            "code": module_fix_mapped_types,
         },
     }

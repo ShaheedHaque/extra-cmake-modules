@@ -22,18 +22,49 @@ SIP binding customisation for PyKF5.KParts. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
+from clang.cindex import CursorKind
+
+import rules_engine
+
+
+def _function_rewrite_using_decl(container, function, sip, matcher):
+    if function.kind == CursorKind.USING_DECLARATION:
+        sip["parameters"] = ["QObject *parent /TransferThis/",
+                             "KXMLGUIClient *parentGUIClient",
+                             "const KAboutData &aboutData"]
+
+
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if "QExplicitlySharedDataPointer<KService>" in sip["modulecode"]:
+    if sip["name"] == "KParts.KParts":
         del sip["modulecode"]["QExplicitlySharedDataPointer<KService>"]
         sip["code"] = """
-class KIO::Job /External/;
+%If (!KParts_KParts_KPartsmod)
+class KIconLoader /External/;
 class KXmlGuiWindow /External/;
-class QSharedData /External/;
+class KSslCertificateBoxPrivate;
+%End
 %Import(name=SonnetCore/Sonnet/Sonnetmod.sip)
 """
+
+def function_rules():
+    return [
+        #
+        # SIP unsupported signal argument type.
+        #
+        ["KParts::BrowserExtension", "createNewWindow", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KParts::ReadWritePart", "sigQueryClose", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # SIP overloaded functions with the same Python signature.
+        #
+        ["KParts::OpenUrlArguments", "metaData", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        #
+        # Rewrite using declaration.
+        #
+        ["KParts::Part", "loadPlugins", ".*", ".*", "", _function_rewrite_using_decl],
+    ]
 
 
 def modulecode():

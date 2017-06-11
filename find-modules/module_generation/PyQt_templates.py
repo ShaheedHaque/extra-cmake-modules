@@ -904,8 +904,13 @@ class QSharedDataPointerExpander(AbstractExpander):
 
     // Convert the value from C++.
     CxxvalueT *cxxvalue = sipCpp->data();
-    PyObject *value = sipConvertFromNewType((void *)cxxvalue, genvalueT, sipTransferObj);
-""".replace("{cxx_t}", value_h.cxx_t)
+"""
+        if value_h.cxx_t.startswith("QExplicitlySharedDataPointer"):
+            code += """    cxxvalue->ref.ref();
+"""
+        code += """    PyObject *value = sipConvertFromType((void *)cxxvalue, genvalueT, sipTransferObj);
+"""
+        code = code.replace("{cxx_t}", value_h.cxx_t)
         code += """    if (value == NULL) {
         PyErr_Format(PyExc_TypeError, "cannot convert value");
         return 0;
@@ -936,7 +941,11 @@ class QSharedDataPointerExpander(AbstractExpander):
 """
         code += value_h.release_sip_helper("value")
         code += """    *sipCppPtr = new {qt_type}<CxxvalueT>(cxxvalue);
-    return sipGetState(sipTransferObj);
+"""
+        if value_h.cxx_t.startswith("QExplicitlySharedDataPointer"):
+            code += """    cxxvalue->ref.deref();
+"""
+        code += """    return sipGetState(sipTransferObj);
 %End
 """
         code = code.replace("{qt_type}", qt_type)
@@ -1163,4 +1172,11 @@ def qshareddatapointer_typecode(container, typedef, sip, matcher):
     QSharedDataPointer<>.
     """
     handler = QSharedDataPointerExpander()
+    if typedef.underlying_typedef_type.kind == TypeKind.ELABORATED:
+        #
+        # This is a typedef of a typedef, and Clang gets the template
+        # parameters wrong, so abort.
+        #
+        return
+    assert typedef.underlying_typedef_type.kind == TypeKind.UNEXPOSED
     handler.expand_typedef(qshareddatapointer_parameter, typedef, sip)

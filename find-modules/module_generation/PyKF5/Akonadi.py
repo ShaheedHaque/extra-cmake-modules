@@ -66,8 +66,14 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QSharedPointer<type-parameter-0-0>"]
-    del sip["modulecode"]["QSharedPointer<type-parameter-1-0>"]
+    duplicated = "QMap<QString, QVariant>"
+    tmp = sip["modulecode"][duplicated]
+    tmp = "%If (!AkonadiCore_AkonadiCoremod)\n" + tmp + "%End\n"
+    sip["modulecode"][duplicated] = tmp
+    del sip["modulecode"]["QList<QModelIndex>"]
+    del sip["modulecode"]["QSharedPointer<T>"]
+    del sip["modulecode"]["QSharedPointer<U>"]
+    del sip["modulecode"]["QVector<T>"]
     sip["code"] = """
 //
 // Solve the problem that the following are not part of the public API:
@@ -78,6 +84,45 @@ def module_fix_mapped_types(filename, sip, entry):
 class Akonadi::Protocol::Command /External/;
 class Akonadi::ServerManagerPrivate /External/;
 %If (!AkonadiCore_AkonadiCoremod)
+class KConfigGroup /*External */;
+class KCoreConfigSkeleton /*External */;
+%End
+%ModuleHeaderCode
+#include <akonadi/private/protocol_p.h>
+%End
+"""
+
+
+def module_fix_mapped_types_pim(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<long long>"]
+    sip["code"] = """
+%If (!AkonadiSearch_PIM_PIMmod)
+class KConfigGroup /*External */;
+class KCoreConfigSkeleton /*External */;
+%End
+"""
+
+
+def module_fix_mapped_types_widgets(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<long long>"]
+    del sip["modulecode"]["QVector<Akonadi::Collection>"]
+    del sip["modulecode"]["QVector<Akonadi::Item>"]
+    del sip["modulecode"]["QVector<Akonadi::Tag>"]
+
+
+def module_fix_mapped_types_xml(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QVector<Akonadi::Collection>"]
+    sip["code"] = """
+%If (!AkonadiXml_AkonadiXmlmod)
 class KConfigGroup /*External */;
 class KCoreConfigSkeleton /*External */;
 %End
@@ -289,15 +334,15 @@ def container_rules():
         #
         # We cannot handle templated containers which are this complicated.
         #
-        ["Akonadi::Internal", ".*", ".+", ".*", ".*", rules_engine.container_discard],
+        ["Akonadi::Internal.*", ".*", ".+", ".*", ".*", rules_engine.container_discard],
     ]
 
 
 def forward_declaration_rules():
     return [
-        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rules_engine.mark_forward_declaration_external],
-        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rules_engine.mark_forward_declaration_external],
-        ["collectionview.h", "KXMLGUIClient", ".*", rules_engine.mark_forward_declaration_external],
+        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["collectionview.h", "KXMLGUIClient", ".*", rules_engine.container_mark_forward_declaration_external],
     ]
 
 
@@ -343,6 +388,10 @@ def typedef_rules():
         # Without the needed typedefs, we need to generate QList<Id> and QVector<Id> by hand.
         #
         ["Akonadi::Collection", "Id", ".*", ".*", _typedef_add_collections],
+        #
+        # We cannot handle templated typedefs which are this complicated.
+        #
+        ["Akonadi::Internal.*", ".*", ".*", ".*<.*>.*", rules_engine.typedef_discard],
     ]
 
 
@@ -469,13 +518,10 @@ def modulecode():
             """
         },
     "PIMmod.sip": {
-        "code":
-            """
-            %If (!AkonadiSearch_PIM_PIMmod)
-            class KConfigGroup /*External */;
-            class KCoreConfigSkeleton /*External */;
-            %End
-            """
+        "code": module_fix_mapped_types_pim,
+        },
+    "AkonadiWidgetsmod.sip": {
+        "code": module_fix_mapped_types_widgets,
         },
     "SocialUtilsmod.sip": {
         "code":
@@ -487,15 +533,6 @@ def modulecode():
             """
         },
     "AkonadiXmlmod.sip": {
-        "code":
-            """
-            %If (!AkonadiXml_AkonadiXmlmod)
-            class KConfigGroup /*External */;
-            class KCoreConfigSkeleton /*External */;
-            %End
-            %ModuleHeaderCode
-            #include <akonadi/private/protocol_p.h>
-            %End
-            """
+        "code": module_fix_mapped_types_xml,
         },
     }

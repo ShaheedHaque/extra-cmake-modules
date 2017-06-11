@@ -25,10 +25,6 @@ SIP binding customisation for PyKF5.KService. This modules describes:
 import rules_engine
 
 
-def _discard_QSharedData(container, sip, matcher):
-    sip["base_specifiers"].remove("QSharedData")
-
-
 def _function_rewrite_using_decl(container, function, sip, matcher):
     sip["parameters"] = ["const QString &name"]
     sip["fn_result"] = "QVariant"
@@ -40,6 +36,11 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     del sip["modulecode"]["QList<QExplicitlySharedDataPointer<KSycocaEntry> >"]
+    del sip["modulecode"]["QList<QVariant>"]
+    #
+    # No such things a KServiceOffer?
+    #
+    del sip["modulecode"]["QList<KServiceOffer>"]
     sip["code"] = """
 %ModuleHeaderCode
 #include <QExplicitlySharedDataPointer>
@@ -50,7 +51,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def container_rules():
     return [
-        ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", _discard_QSharedData],
+        ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
     ]
 
 
