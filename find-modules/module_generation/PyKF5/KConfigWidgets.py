@@ -42,7 +42,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<QVariant>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QVariant>")
 
 
 def function_rules():

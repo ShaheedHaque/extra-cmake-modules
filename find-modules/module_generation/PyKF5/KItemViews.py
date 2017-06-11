@@ -24,6 +24,7 @@ SIP binding customisation for PyKF5.KItemViews. This modules describes:
 
 import builtin_rules
 import PyQt_templates
+import rules_engine
 
 
 class FunctionWithTemplatesExpander(builtin_rules.FunctionWithTemplatesExpander):
@@ -47,8 +48,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<int>"]
-    del sip["modulecode"]["QVector<int>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QVector<int>")
 
 
 def function_rules():

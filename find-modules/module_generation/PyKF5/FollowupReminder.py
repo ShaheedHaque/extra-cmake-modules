@@ -21,12 +21,14 @@ SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+import rules_engine
+
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<int>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>")
 
 
 def modulecode():

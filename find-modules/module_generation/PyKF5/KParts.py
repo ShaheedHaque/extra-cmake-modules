@@ -39,7 +39,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KParts.KParts":
-        del sip["modulecode"]["QExplicitlySharedDataPointer<KService>"]
+        rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
         sip["code"] = """
 %If (!KParts_KParts_KPartsmod)
 class KIconLoader /External/;

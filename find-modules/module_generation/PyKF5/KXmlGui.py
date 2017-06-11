@@ -33,7 +33,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<QKeySequence>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QKeySequence>")
     sip["code"] = """
 %Import(name=QtXml/QtXmlmod.sip)
 """

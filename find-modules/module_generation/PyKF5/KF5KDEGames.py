@@ -55,7 +55,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<int>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>")
     sip["code"] = """
 %ModuleHeaderCode
 class KConfig;

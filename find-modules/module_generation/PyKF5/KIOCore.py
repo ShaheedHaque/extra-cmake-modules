@@ -104,10 +104,9 @@ class KService;
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KIOCore.kio":
-        del sip["modulecode"]["QMap<QString, QString>"]
+        rules_engine.modulecode_delete(filename, sip, matcher, "QMap<QString, QString>")
     elif sip["name"] == "KIOCore.KIO":
-        del sip["modulecode"]["QList<QUrl>"]
-        del sip["modulecode"]["QMap<QString, QString>"]
+        rules_engine.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>")
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -117,11 +116,8 @@ def module_fix_mapped_types(filename, sip, entry):
     # Putting knowledge here of any %Import'ers who happen not to have
     # duplicates is horrid, but much less painful than the alternative.
     #
-    duplicated = "QList<QPair<QString, unsigned short> >"
-    tmp = sip["modulecode"][duplicated]
-    tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
-    sip["modulecode"][duplicated] = tmp
-    del sip["modulecode"]["QList<QUrl>"]
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QPair<QString, unsigned short> >")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QUrl>")
     #
     # Random stuff.
     #

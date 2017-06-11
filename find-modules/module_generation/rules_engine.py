@@ -77,6 +77,13 @@ def _parents(container):
     return parents
 
 
+def trace_deleted_by(cursor, modifying_rule):
+    if isinstance(cursor, Cursor):
+        cursor = _parents(cursor) + ":" + cursor.spelling
+    trace = "// Deleted '{}' (by {})\n".format(cursor, modifying_rule)
+    return trace
+
+
 def trace_generated_for(cursor, fn, modifying_rule):
     if isinstance(cursor, Cursor):
         cursor = _parents(cursor) + ":" + cursor.spelling
@@ -1571,6 +1578,43 @@ def parameter_strip_class_enum(container, function, parameter, sip, matcher):
 def function_discard_impl(container, function, sip, matcher):
     if function.extent.start.column == 1:
         sip["name"] = ""
+
+
+def modulecode_delete(basename, sip, rule, *keys):
+    """
+    Delete duplicate modulecode entries from the current module.
+    This prevents clashes when the current module A, imports B and both define
+    the same thing.
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param keys:            The keys to the entries.
+    """
+    for key in keys:
+        trace = trace_deleted_by(key, "duplicate delete")
+        sip["modulecode"][key] = trace
+
+
+def modulecode_make_local(basename, sip, rule, *keys):
+    """
+    Make modulecode entries local to the current module using the feature name.
+    This prevents clashes when the current module A, and another module B both:
+
+        - define the same thing
+        - are imported by a third module C
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:           The rule.
+    :param keys:            The keys to the entries.
+    """
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    for key in keys:
+        tmp = sip["modulecode"][key]
+        trace = trace_inserted_for(key, "duplicate make local")
+        tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
+        sip["modulecode"][key] = tmp
 
 
 def rules(rules_pkg):

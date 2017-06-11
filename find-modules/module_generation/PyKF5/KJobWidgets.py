@@ -23,6 +23,7 @@ SIP binding customisation for PyKF5.KJobWidgets. This modules describes:
 """
 
 import common_typecode
+import rules_engine
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -35,7 +36,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QPair<QString, QString>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QPair<QString, QString>")
 
 
 def modulecode():

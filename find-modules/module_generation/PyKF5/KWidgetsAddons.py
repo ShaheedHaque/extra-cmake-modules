@@ -39,10 +39,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    duplicated = "QMap<QString, QString>"
-    tmp = sip["modulecode"][duplicated]
-    tmp = "%If (!KWidgetsAddons_KWidgetsAddonsmod)\n" + tmp + "%End\n"
-    sip["modulecode"][duplicated] = tmp
+    rules_engine.modulecode_make_local(filename, sip, entry, "QMap<QString, QString>")
     sip["code"] = """
 %Import(name=KConfigCore/KConfigCoremod.sip)
 """

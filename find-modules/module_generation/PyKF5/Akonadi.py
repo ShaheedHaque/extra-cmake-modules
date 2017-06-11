@@ -66,14 +66,9 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    duplicated = "QMap<QString, QVariant>"
-    tmp = sip["modulecode"][duplicated]
-    tmp = "%If (!AkonadiCore_AkonadiCoremod)\n" + tmp + "%End\n"
-    sip["modulecode"][duplicated] = tmp
-    del sip["modulecode"]["QList<QModelIndex>"]
-    del sip["modulecode"]["QSharedPointer<T>"]
-    del sip["modulecode"]["QSharedPointer<U>"]
-    del sip["modulecode"]["QVector<T>"]
+    rules_engine.modulecode_make_local(filename, sip, entry, "QMap<QString, QVariant>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QSharedPointer<T>", "QSharedPointer<U>",
+                                   "QVector<T>")
     sip["code"] = """
 //
 // Solve the problem that the following are not part of the public API:
@@ -97,7 +92,7 @@ def module_fix_mapped_types_pim(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<long long>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<long long>")
     sip["code"] = """
 %If (!AkonadiSearch_PIM_PIMmod)
 class KConfigGroup /*External */;
@@ -110,17 +105,15 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<long long>"]
-    del sip["modulecode"]["QVector<Akonadi::Collection>"]
-    del sip["modulecode"]["QVector<Akonadi::Item>"]
-    del sip["modulecode"]["QVector<Akonadi::Tag>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<long long>", "QVector<Akonadi::Collection>",
+                                   "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>")
 
 
 def module_fix_mapped_types_xml(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QVector<Akonadi::Collection>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>")
     sip["code"] = """
 %If (!AkonadiXml_AkonadiXmlmod)
 class KConfigGroup /*External */;

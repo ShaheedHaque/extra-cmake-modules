@@ -142,15 +142,9 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    # Putting knowledge here of any %Import'ers who happen not to have
-    # duplicates is horrid, but much less painful than the alternative.
-    #
-    for duplicated in ["QExplicitlySharedDataPointer<KSharedConfig>", "QList<QUrl>", "QList<QVariant>"]:
-        tmp = sip["modulecode"][duplicated]
-        tmp = "%If (!KConfigCore_KConfigCoremod || !KNotifications_KNotificationsmod || !KService_KServicemod || !KWidgetsAddons_KWidgetsAddonsmod)\n" + tmp + "%End\n"
-        sip["modulecode"][duplicated] = tmp
-    del sip["modulecode"]["QList<int>"]
-    del sip["modulecode"]["QList<T>"]
+    rules_engine.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>",
+                                       "QList<QUrl>", "QList<QVariant>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
 
 
 def container_rules():

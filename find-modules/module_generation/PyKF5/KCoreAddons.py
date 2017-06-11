@@ -29,15 +29,14 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QList<T>"]
-    for duplicated in ["QList<QUrl>", "QList<QVariant>"]:
-        tmp = sip["modulecode"][duplicated]
-        tmp = "%If (!KCoreAddons_KCoreAddonsmod)\n" + tmp + "%End\n"
-        sip["modulecode"][duplicated] = tmp
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<T>")
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QList<QVariant>")
+
 
 def container_rules():
     return [

@@ -21,13 +21,14 @@ SIP binding customisation for PyKF5.KItemModels. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+import rules_engine
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QVector<int>"]
+    rules_engine.modulecode_delete(filename, sip, entry, "QVector<int>")
 
 
 def modulecode():
