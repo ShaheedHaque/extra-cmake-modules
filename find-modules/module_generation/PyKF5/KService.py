@@ -36,6 +36,11 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     del sip["modulecode"]["QList<QExplicitlySharedDataPointer<KSycocaEntry> >"]
+    del sip["modulecode"]["QList<QVariant>"]
+    #
+    # No such things a KServiceOffer?
+    #
+    del sip["modulecode"]["QList<KServiceOffer>"]
     sip["code"] = """
 %ModuleHeaderCode
 #include <QExplicitlySharedDataPointer>

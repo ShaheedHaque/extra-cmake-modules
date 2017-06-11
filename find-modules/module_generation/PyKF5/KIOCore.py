@@ -100,6 +100,14 @@ class KService;
         "KIOWidgets.KIO": ""
     }
     sip["code"] = code[sip["name"]]
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    if sip["name"] == "KIOCore.kio":
+        del sip["modulecode"]["QMap<QString, QString>"]
+    elif sip["name"] == "KIOCore.KIO":
+        del sip["modulecode"]["QList<QUrl>"]
+        del sip["modulecode"]["QMap<QString, QString>"]
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -113,6 +121,7 @@ def module_fix_mapped_types(filename, sip, entry):
     tmp = sip["modulecode"][duplicated]
     tmp = "%If (!KIOCore_KIOCoremod)\n" + tmp + "%End\n"
     sip["modulecode"][duplicated] = tmp
+    del sip["modulecode"]["QList<QUrl>"]
     #
     # Random stuff.
     #
@@ -177,6 +186,7 @@ def typedef_rules():
         # Remove some useless stuff.
         #
         ["kacl.h", "ACL.*PermissionsIterator|ACL.*PermissionsConstIterator", ".*", ".*", rules_engine.typedef_discard],
+        ["kprotocolmanager.h", "KSharedConfigPtr", ".*", ".*", rules_engine.typedef_discard],
     ]
 
 

@@ -35,6 +35,19 @@ def parameter_rewrite_template(container, function, parameter, sip, matcher):
     sip["decl"] = "DragObjectFactory factory"
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    duplicated = "QMap<QString, QString>"
+    tmp = sip["modulecode"][duplicated]
+    tmp = "%If (!KWidgetsAddons_KWidgetsAddonsmod)\n" + tmp + "%End\n"
+    sip["modulecode"][duplicated] = tmp
+    sip["code"] = """
+%Import(name=KConfigCore/KConfigCoremod.sip)
+"""
+
+
 def forward_declaration_rules():
     return [
         ["kdatepicker.h", "KDateTable", ".*", rules_engine.container_mark_forward_declaration_external],
@@ -62,10 +75,7 @@ def parameter_rules():
 def modulecode():
     return {
         "KWidgetsAddonsmod.sip": {
-            "code":
-                """
-                %Import(name=KConfigCore/KConfigCoremod.sip)
-                """
+            "code": module_fix_mapped_types,
         },
         "kmimetypechooser.h": {
             "code": _delete_duplicate_content

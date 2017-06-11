@@ -17,52 +17,21 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KNotifications. This modules describes:
+SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
-def _function_rewrite_using_decl(container, function, sip, matcher):
-    sip["parameters"] = ["QEvent *event"]
-    sip["fn_result"] = "bool"
-    sip["prefix"] = "virtual "
-
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    del sip["modulecode"]["QPair<QString, QString>"]
-    del sip["modulecode"]["QList<QUrl>"]
-    del sip["modulecode"]["QList<QVariant>"]
-
-
-def function_rules():
-    return [
-        #
-        # Rewrite using declaration.
-        #
-        ["KNotification", "event", ".*", ".*", "", _function_rewrite_using_decl],
-    ]
-
-
-def typecode():
-    return {
-        "knotifyconfig.h::KNotifyConfig": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKNotifyConfig KNotifyConfig
-                %End
-                """
-        },
-    }
+    del sip["modulecode"]["QList<int>"]
 
 
 def modulecode():
     return {
-        "KNotificationsmod.sip": {
+        "FollowupRemindermod.sip": {
             "code": module_fix_mapped_types,
         },
     }

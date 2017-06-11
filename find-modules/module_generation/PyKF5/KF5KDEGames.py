@@ -51,6 +51,18 @@ def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
     sip["init"] = tmp[0] + tmp[2]
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<int>"]
+    sip["code"] = """
+%ModuleHeaderCode
+class KConfig;
+%End
+"""
+
+
 def forward_declaration_rules():
     return [
         ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rules_engine.container_mark_forward_declaration_external],
@@ -140,12 +152,7 @@ def modulecode():
                 """
         },
         "kgamemod.sip": {
-            "code":
-                """
-                %ModuleHeaderCode
-                class KConfig;
-                %End
-                """
+            "code": module_fix_mapped_types,
         },
         "KDEmod.sip": {
             "code": module_remove_redundant

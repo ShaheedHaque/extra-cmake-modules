@@ -43,6 +43,14 @@ def function_uses_templates(container, function, sip, matcher):
     PyQt_templates.function_uses_templates(container, function, sip, matcher)
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    del sip["modulecode"]["QList<int>"]
+    del sip["modulecode"]["QVector<int>"]
+
+
 def function_rules():
     return [
         #
@@ -51,3 +59,10 @@ def function_rules():
         ["KCategorizedView", "moveCursor", ".*", ".*", ".*", function_uses_templates],
     ]
 
+
+def modulecode():
+    return {
+        "KItemViewsmod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }
