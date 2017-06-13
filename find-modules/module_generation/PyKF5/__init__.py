@@ -321,6 +321,7 @@ class RuleSet(rules_engine.RuleSet):
             "KWidgetsAddons",
             "KXmlGui",
             "MessageCore",
+            "Solid",
             "Sonnet",
             "Syndication",
         ]:
