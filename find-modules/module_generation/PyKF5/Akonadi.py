@@ -88,6 +88,13 @@ class KCoreConfigSkeleton /*External */;
 """
 
 
+def module_fix_mapped_types_agentbase(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>")
+
+
 def module_fix_mapped_types_pim(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -498,6 +505,9 @@ def typecode():
 
 def modulecode():
     return {
+    "AkonadiAgentBasemod.sip": {
+        "code": module_fix_mapped_types_agentbase,
+        },
     "AkonadiCoremod.sip": {
         "code": module_fix_mapped_types,
         },

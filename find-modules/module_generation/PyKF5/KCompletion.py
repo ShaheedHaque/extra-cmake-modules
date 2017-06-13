@@ -42,6 +42,13 @@ def parameter_rewrite_template(container, function, parameter, sip, matcher):
         assert False, "Unexpected parameter {}".format(sip["name"])
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QKeySequence>")
+
+
 def container_rules():
     return [
         #
@@ -68,3 +75,11 @@ def parameter_rules():
     return [
         ["KSortableList", ".*", "i|t", ".*", ".*", parameter_rewrite_template],
     ]
+
+
+def modulecode():
+    return {
+        "KCompletionmod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }

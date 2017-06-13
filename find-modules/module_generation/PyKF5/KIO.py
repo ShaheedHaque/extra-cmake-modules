@@ -213,6 +213,7 @@ class KIO::MetaData /External/;
 """
     elif sip["name"] == "KIOCore.KIO":
         rules_engine.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>")
+        rules_engine.modulecode_make_local(filename, sip, matcher, "QMap<QString, QVariant>")
         sip["code"] = """
 %Import(name=KIOCore/kio/kiomod.sip)
 class KIO::Connection;
@@ -234,6 +235,17 @@ class QDBusArgument /External/;
 class KService;
 %End
 """
+    elif sip["name"] == "KIOWidgets.KIO":
+        rules_engine.modulecode_delete(filename, sip, matcher, "QList<QAction *>")
+        sip["code"] = """
+%Import(name=KIOCore/kio/kiomod.sip)
+%Import(name=KIOCore/KIO/KIOmod.sip)
+%Import(name=KIOCore/KIOCoremod.sip)
+%If (!KIOWidgets_KIO_KIOmod)
+class KService;
+class KPixmapSequence;
+%End
+"""
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -248,6 +260,27 @@ def module_fix_mapped_types(filename, sip, entry):
     sip["code"] = """
 %If (!KIOCore_KIOCoremod)
 class KService;
+class KSslCertificateBoxPrivate;
+%End
+"""
+
+
+def module_fix_mapped_types_filewidgets(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QList<QUrl>", "QVector<int>")
+
+
+def module_fix_mapped_types_widgets(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>")
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QModelIndex>")
+    sip["code"] = """
+%If (!KIOWidgets_KIOWidgetsmod)
+class KCModule;
 class KSslCertificateBoxPrivate;
 %End
 """
@@ -307,6 +340,7 @@ def typedef_rules():
         #
         ["kacl.h", "ACL.*PermissionsIterator|ACL.*PermissionsConstIterator", ".*", ".*", rules_engine.typedef_discard],
         ["kprotocolmanager.h", "KSharedConfigPtr", ".*", ".*", rules_engine.typedef_discard],
+        ["thumb.*creator.h", "newCreator", ".*", ".*", rules_engine.typedef_discard],
     ]
 
 
@@ -333,6 +367,12 @@ def modulecode():
         },
         "kiomod.sip": {
             "code": module_fix_kiomod,
+        },
+        "KIOWidgetsmod.sip": {
+            "code": module_fix_mapped_types_widgets,
+        },
+        "KIOFileWidgetsmod.sip": {
+            "code": module_fix_mapped_types_filewidgets,
         },
     }
 

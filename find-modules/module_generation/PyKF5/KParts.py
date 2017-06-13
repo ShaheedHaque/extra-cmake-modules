@@ -40,6 +40,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     if sip["name"] == "KParts.KParts":
         rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
+        rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QMap<QString, QString>")
         sip["code"] = """
 %If (!KParts_KParts_KPartsmod)
 class KIconLoader /External/;

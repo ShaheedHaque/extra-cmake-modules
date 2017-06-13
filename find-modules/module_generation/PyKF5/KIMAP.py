@@ -17,47 +17,21 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KLDAP. This modules describes:
+SIP binding customisation for PyKF5.KIMAP. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rules_engine
-from PyQt_templates import list_typecode
-
-
-def variable_customise(container, variable, sip, matcher):
-    sip["code"] = """
-{
-%GetCode
-#include <KLDAP/kldap/ldapoperation.h>
-%End
-%SetCode
-#include <KLDAP/kldap/ldapoperation.h>
-%End
-}"""
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>")
-
-
-def function_rules():
-    return [
-        ["KLDAP::LdapOperation", "bind|bind_s", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KLDAP::LdapUrl", "extension", ".*", "QString", ".*", rules_engine.function_discard],
-    ]
-
-
-def variable_rules():
-    return [
-        ["KLDAP::LdapOperation.*", "proc", "SASL_Callback_Proc.*", variable_customise],
-    ]
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
+                                       "QVector<long long>")
 
 
 def modulecode():
     return {
-        "KLDAPmod.sip": {
+        "KIMAPmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

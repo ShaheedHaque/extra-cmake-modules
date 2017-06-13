@@ -28,6 +28,11 @@ import rules_engine
 
 
 def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_make_local(filename, sip, entry, "QMap<QByteArray, QString>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
     sip["code"] = """
 %If (!KCalCore_KCalCore_KCalCoremod)
 class KTimeZone;

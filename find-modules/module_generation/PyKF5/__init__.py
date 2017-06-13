@@ -304,6 +304,7 @@ class RuleSet(rules_engine.RuleSet):
             "KdepimDBusInterfaces",
             "KF5KDEGames",
             "KGeoMap",
+            "KIMAP",
             "KIO",
             "KItemViews",
             "KI18n",

@@ -32,6 +32,7 @@ def function_rules():
         ["Solid::Device", "asDeviceInterface", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
     ]
 
+
 def typecode():
     return {
         # DISABLED until I figure out an approach for CTSCC.
