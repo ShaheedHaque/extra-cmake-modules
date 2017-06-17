@@ -290,6 +290,7 @@ class RuleSet(rules_engine.RuleSet):
         for rules_module in [
             "Akonadi",
             "FollowupReminder",
+            "KAlarmCal",
             "KAuth",
             "KBookmarks",
             "KCalCore",

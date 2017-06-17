@@ -92,7 +92,54 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>",
+                                   "QSet<Akonadi::Tag>", "QSet<QByteArray>", "QVector<Akonadi::Collection>",
+                                   "QVector<Akonadi::Item>", "QVector<Akonadi::Relation>",
+                                   "QVector<Akonadi::Tag>", "QVector<QByteArray>", "QVector<long long>")
+    sip["code"] = """
+%If (!AkonadiAgentBase_AkonadiAgentBasemod)
+class QDBusContext;
+class Akonadi::ImapSet;
+%End
+"""
+
+
+def module_fix_mapped_types_calendar(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    if sip["name"] == "Akonadi.Calendar":
+        rules_engine.modulecode_delete(filename, sip, entry, "QSet<QByteArray>",
+                                       "QSharedPointer<KCalCore::Attendee>",
+                                       "QSharedPointer<KCalCore::Event>",
+                                       "QSharedPointer<KCalCore::FreeBusy>",
+                                       "QSharedPointer<KCalCore::Incidence>",
+                                       "QSharedPointer<KCalCore::IncidenceBase>",
+                                       "QSharedPointer<KCalCore::Journal>",
+                                       "QSharedPointer<KCalCore::Person>",
+                                       "QSharedPointer<KCalCore::Todo>",
+                                       "QVector<Akonadi::Collection>",
+                                       "QVector<Akonadi::Item>",
+                                       "QVector<QSharedPointer<KCalCore::Incidence> >",
+                                       "QVector<long long>")
+        sip["code"] = """
+%If (!Akonadi_Calendar_Calendarmod)
+class KTimeZone; 
+class KTimeZoneBackend;
+class KTimeZoneData;
+class KTimeZoneSource;
+struct icalcomponent_impl;
+struct _icaltimezone;
+struct KCalCore::_MSSystemTime;
+struct KCalCore::_MSTimeZone;
+class KDateTime;
+class KDateTime::Spec;
+class QLatin1String;
+class VObject;
+class MailTransport::MessageQueueJob;
+class KIdentityManagement::Identity;
+%End
+"""
 
 
 def module_fix_mapped_types_pim(filename, sip, entry):
@@ -507,6 +554,9 @@ def modulecode():
     return {
     "AkonadiAgentBasemod.sip": {
         "code": module_fix_mapped_types_agentbase,
+        },
+    "Calendarmod.sip": {
+        "code": module_fix_mapped_types_calendar,
         },
     "AkonadiCoremod.sip": {
         "code": module_fix_mapped_types,
