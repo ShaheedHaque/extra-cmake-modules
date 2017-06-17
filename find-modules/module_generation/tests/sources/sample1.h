@@ -61,7 +61,6 @@ public:
 /**
  * https://www.riverbankcomputing.com/pipermail/pyqt/2017-May/039219.html
  */
-
 template<typename T, T, int U>
 class MyTemplate
 {
@@ -92,6 +91,20 @@ public:
         MyTemplate() {};
         T fn() { return Z; };
     };
+};
+
+/**
+ * https://www.riverbankcomputing.com/pipermail/pyqt/2017-June/039293.html
+ * https://www.riverbankcomputing.com/pipermail/pyqt/2017-June/039311.html
+ */
+class PrivateDestructor
+{
+public:
+    PrivateDestructor(char *foo = "A quoted stri\\ng with \"quotes\"") {};
+private:
+    virtual ~PrivateDestructor() {};
+private:
+    PrivateDestructor(const PrivateDestructor &) {};
 };
 
 #endif

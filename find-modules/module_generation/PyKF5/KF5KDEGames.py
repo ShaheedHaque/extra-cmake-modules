@@ -46,11 +46,6 @@ def _function_fully_qualify_parm(container, function, sip, matcher):
     sip["parameters"][0] = sip["parameters"][0].replace("FieldInfo", "KScoreDialog::FieldInfo")
 
 
-def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
-    tmp = sip["init"].split('"')
-    sip["init"] = tmp[0] + tmp[2]
-
-
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -123,13 +118,6 @@ def function_rules():
 
 def parameter_rules():
     return [
-        #
-        # Temporarily rewrite quote to workaround SIP 4.18.1 bug.
-        # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038989.html
-        #
-        ["KGameTheme", "KGameTheme", "themeGroup", ".*", ".*", parameter_rewrite_quotes],
-        ["KGameThemeSelector", "KGameThemeSelector", "groupName|directory", ".*", ".*", parameter_rewrite_quotes],
-        ["KgThemeProvider", "KgThemeProvider", "configKey", ".*", ".*", parameter_rewrite_quotes],
         #
         #  Override the default "parent" rule.
         #

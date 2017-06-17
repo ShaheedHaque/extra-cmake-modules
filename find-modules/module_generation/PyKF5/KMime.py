@@ -46,10 +46,6 @@ def parameter_out(container, function, parameter, sip, matcher):
         PyQt_templates.dict_parameter(container, function, parameter, sip, matcher)
 
 
-def parameter_rewrite_quotes(container, function, parameter, sip, matcher):
-    sip["init"] = "'.'"
-
-
 def parameter_fully_qualify(container, function, parameter, sip, matcher):
     sip["init"] = sip["init"].replace("<", "<KMime::MDN::")
 
@@ -87,11 +83,6 @@ def container_rules():
 
 def parameter_rules():
     return [
-        #
-        # Temporarily rewrite quote to workaround SIP 4.18.1 bug.
-        # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038989.html
-        #
-        ["KMime::HeaderParsing", "parseGenericQuotedString", "(open|close)Char", ".*", ".*", parameter_rewrite_quotes],
         ["KMime::HeaderParsing", "parse.*", "scursor", ".*", ".*", parameter_in_out],
         ["KMime::HeaderParsing", "parse.*", "result", ".*", ".*", parameter_out],
         #
