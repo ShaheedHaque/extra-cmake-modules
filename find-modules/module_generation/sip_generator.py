@@ -977,25 +977,16 @@ class SipGenerator(object):
             2. Watch for the assignment.
         """
         def _get_param_type(parameter):
-            result = parameter.type.get_declaration().type
-
-            if result.kind not in [TypeKind.ENUM, TypeKind.TYPEDEF] and parameter.type.kind == TypeKind.LVALUEREFERENCE:
-                if parameter.type.get_pointee().get_declaration().type.kind != TypeKind.INVALID:
-                    return parameter.type.get_pointee().get_declaration().type
-                return parameter.type.get_pointee()
-
-            if parameter.type.get_declaration().type.kind == TypeKind.INVALID:
-                return parameter.type
-
-            if parameter.type.get_declaration().type.kind == TypeKind.TYPEDEF:
+            if parameter.type.kind == TypeKind.TYPEDEF:
                 is_q_flags = False
                 for member in parameter.type.get_declaration().get_children():
                     if member.kind == CursorKind.TEMPLATE_REF and member.spelling == QFLAGS:
                         is_q_flags = True
                     if is_q_flags and member.kind == CursorKind.TYPE_REF:
                         return member.type
-                return result.get_canonical()
-            return result
+            elif parameter.type.kind == TypeKind.LVALUEREFERENCE:
+                return parameter.type.get_pointee().get_canonical()
+            return parameter.type.get_canonical()
 
         def _get_param_value(text, parameter):
             if text in ["", "0", "nullptr", Q_NULLPTR]:
@@ -1025,14 +1016,17 @@ class SipGenerator(object):
             #       LookUpMode(exactOnly) | defaultOnly
             #                                   parents::LookUpMode(parents::exactOnly) | parents::defaultOnly
             #
-            if parameter_type.kind == TypeKind.ENUM or parameter_type.spelling.startswith(QFLAGS):
+            parameter_spelling = parameter_type.spelling
+            if parameter_spelling.startswith("const "):
+                parameter_spelling = parameter_spelling[6:]
+            if parameter_type.kind == TypeKind.ENUM or parameter_spelling.startswith(QFLAGS):
                 #
                 # Prefix any identifier with the prefix of the enum.
                 #
                 if parameter_type.kind == TypeKind.ENUM:
-                    prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
+                    prefix = parameter_spelling.rsplit("::", 1)[0] + "::"
                 else:
-                    prefix = parameter_type.spelling[len(QFLAGS) + 1:-1].rsplit("::", 1)[0] + "::"
+                    prefix = parameter_spelling[len(QFLAGS) + 1:-1].rsplit("::", 1)[0] + "::"
                 tmp = ""
                 match = SipGenerator.QUALIFIED_ID.search(text)
                 while match:
@@ -1056,11 +1050,11 @@ class SipGenerator(object):
             #       QSharedPointer<Document>    QSharedPointer<Syndication::RSS2::Document>()
             #
             #
-            if SipGenerator.UNHANDLED_DEFAULT_TYPES.search(parameter_type.spelling):
+            if SipGenerator.UNHANDLED_DEFAULT_TYPES.search(parameter_spelling):
                 logger.warn(_("Default for {} has unhandled type {}").format(SipGenerator.describe(parameter),
                                                                              parameter_type.spelling))
                 return text
-            prefix = parameter_type.spelling.rsplit("::", 1)[0] + "::"
+            prefix = parameter_spelling.rsplit("::", 1)[0] + "::"
             tmp = re.split("[(|)]", text)
             if text.endswith(")"):
                 tmp = tmp[:-1]
