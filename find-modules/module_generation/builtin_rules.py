@@ -476,11 +476,14 @@ class FunctionReturnHelper(HeldAs):
 """,
         HeldAs.POINTER:
             """    {name} = {cxx_i};
-    return sipConvertFromType({name}, genresultT, {transfer});
+    return sipConvertFromType((void *){name}, genresultT, {transfer});
 """,
         HeldAs.OBJECT:
-            """    {name} = &{cxx_i};
-    return sipConvertFromType({name}, genresultT, {transfer});
+            #
+            # The cast is needed because SIP sometimes declares sipRes without any const keyword.
+            #
+            """    {name} = const_cast<decltype({name})>(&{cxx_i});
+    return sipConvertFromType((void *){name}, genresultT, {transfer});
 """,
     }
 
