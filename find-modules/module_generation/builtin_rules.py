@@ -613,17 +613,18 @@ class FunctionWithTemplatesExpander(object):
 """
             callsite = callsite.replace("{fn}", fn)
             callsite = callsite.replace("{args}", ", ".join(sip_stars))
-            callsite = """    Py_BEGIN_ALLOW_THREADS
-""" + callsite + """    Py_END_ALLOW_THREADS
+            code += """    Py_BEGIN_ALLOW_THREADS
 """
             if result.category == HeldAs.VOID:
                 code += callsite.replace("cxxvalue = ", "")
             else:
                 code += """    typedef {} CxxvalueT;
-    CxxvalueT cxxvalue;
-""".format(entries["cxx_fn_result"]) + callsite
+""".format(entries["cxx_fn_result"])
+                code += callsite.replace("cxxvalue = ", "CxxvalueT cxxvalue = ")
                 code += result.declare_type_helpers("result", "return 0;")
                 code += result.cxx_to_py("sipRes", False, "cxxvalue")
+            code += """    Py_END_ALLOW_THREADS
+"""
         code += """
 %End
 """
