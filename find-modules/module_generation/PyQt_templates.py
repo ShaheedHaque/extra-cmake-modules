@@ -56,8 +56,7 @@ logger = logging.getLogger(__name__)
 # Keep PyCharm happy.
 _ = _
 
-
-RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>")
+RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>( .)?")
 
 
 class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):

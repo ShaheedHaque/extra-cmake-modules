@@ -48,17 +48,28 @@ import common_modulecode
 import common_typecode
 
 
-RE_DICT_TYPEDEF = "(QHash|QMap)<(.*)>"
-RE_LIST_TYPEDEF = "(QList|QVector)<(.*)>"
-RE_SET_TYPEDEF = "QSet<(.*)>"
-RE_QPAIR_TYPEDEF = "QPair<(.*)>"
-RE_QSHAREDPTR_TYPEDEF = "(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>"
+RE_DICT = "QHash|QMap"
+RE_LIST = "QList|QVector"
+RE_SET = "QSet"
+RE_QPAIR = "QPair"
+RE_QSHAREDPTR = "(Q(Explicitly|)Shared(Data|)Pointer)"
+
+RE_DICT_TYPEDEF = "(" + RE_DICT + ")<(.*)>"
+RE_LIST_TYPEDEF = "(" + RE_LIST + ")<(.*)>"
+RE_SET_TYPEDEF = RE_SET + "<(.*)>"
+RE_QPAIR_TYPEDEF = RE_QPAIR + "<(.*)>"
+RE_QSHAREDPTR_TYPEDEF = RE_QSHAREDPTR + "<(.*)>"
 
 RE_DICT_PARAMETER = "(const )?" + RE_DICT_TYPEDEF + ".*"
 RE_LIST_PARAMETER = "(const )?" + RE_LIST_TYPEDEF + ".*"
 RE_SET_PARAMETER = "(const )?" + RE_SET_TYPEDEF + ".*"
 RE_QPAIR_PARAMETER = "(const )?" + RE_QPAIR_TYPEDEF + ".*"
 RE_QSHAREDPTR_PARAMETER = "(const )?" + RE_QSHAREDPTR_TYPEDEF + ".*"
+
+KNOWN_TEMPLATES = [
+    RE_DICT, RE_LIST, RE_SET, RE_QPAIR, RE_QSHAREDPTR
+]
+RE_KNOWN_RESULTS = "(const )?((" + ")|(".join(KNOWN_TEMPLATES) + "))<(.*)>"
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -162,8 +173,8 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*", ".*", RE_QSHAREDPTR_PARAMETER, ".*", function_uses_templates],
-        [".*", ".*", ".*", ".*", ".*" + RE_QSHAREDPTR_PARAMETER + ".*", function_uses_templates],
+        [".*", ".*", ".*", RE_KNOWN_RESULTS + "( [&*]+)?", ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*", ".*" + RE_KNOWN_RESULTS + "( .*|[&*].*)", function_uses_templates],
         #
         # This class has inline implementations in the header file.
         #
