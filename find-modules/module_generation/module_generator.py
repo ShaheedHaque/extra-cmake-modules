@@ -175,8 +175,7 @@ class ModuleGenerator(object):
         """
         Find all existing module .sip files, folding away any non-lower-case-only duplicates.
         """
-        names = sorted(os.listdir(root))
-        self.dedupe_legacy_names(names)
+        names = self.dedupe_legacy_names(sorted(os.listdir(root)))
         for name in names:
             srcname = os.path.join(root, name)
             if os.path.isfile(srcname):
@@ -189,8 +188,7 @@ class ModuleGenerator(object):
         """
         Predict all the new module .sip files we *might* create.
         """
-        names = sorted(os.listdir(root))
-        self.dedupe_legacy_names(names)
+        names = self.dedupe_legacy_names(sorted(os.listdir(root)))
         for name in names:
             srcname = os.path.join(root, name)
             if os.path.isdir(srcname):
@@ -225,15 +223,14 @@ class ModuleGenerator(object):
         sources = self.compiled_rules.cxx_sources()
         if sources:
             sources = [s[len(self.project_root):] for s in sources]
-            self.dedupe_legacy_names(sources)
+            sources = self.dedupe_legacy_names(sources)
             sources = [self.project_root + s for s in sources]
             #
             # If any of the deduped entries points to a legacy path, fix it.
             #
             for i, source in enumerate(sources):
                 dir, base = os.path.split(source)
-                candidates = os.listdir(dir)
-                self.dedupe_legacy_names(candidates)
+                candidates = self.dedupe_legacy_names(os.listdir(dir))
                 candidates = [c for c in candidates if c.lower() == base.lower()]
                 sources[i] = os.path.join(dir, candidates[0])
             sources.sort(key=FILE_SORT_KEY)
@@ -254,7 +251,7 @@ class ModuleGenerator(object):
                     #
                     # Eliminate the duplication of forwarding directories.
                     #
-                    self.dedupe_legacy_names(dirnames)
+                    dirnames = self.dedupe_legacy_names(dirnames)
                     #
                     # Use sorted walks.
                     #
