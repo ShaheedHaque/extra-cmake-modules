@@ -374,7 +374,22 @@ class RuleSet(rules_engine.RuleSet):
         #
         # We exclude anything which is not under the source root: those are dependencies!
         #
-        result = [i for i in result if i.startswith(source_root)]
+        result = sorted([i for i in result if i.startswith(source_root)])
+        #
+        # Collapse any subdirectories.
+        #
+        i = 0
+        j = 0
+        c = "\x00"
+        while i < len(result):
+            if result[i].startswith(c + os.path.sep):
+                pass
+            else:
+                c = result[i]
+                result[j] = c
+                j += 1
+            i += 1
+        result = result[:j]
         #
         # Include KIOCore/kio/job_base.h.
         #
