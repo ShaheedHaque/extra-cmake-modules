@@ -278,7 +278,7 @@ class ModuleGenerator(object):
             # TODO, make sure the entries are unique.
             #
             with open(feature_list, "w") as f:
-                for feature in self.all_features:
+                for feature in sorted(self.all_features):
                     f.write("%Feature(name={})\n".format(feature))
             self.rule_usage.add_local_stats(self.compiled_rules)
         return attempts, failures, directories
