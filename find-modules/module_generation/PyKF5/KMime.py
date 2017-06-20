@@ -67,7 +67,7 @@ class KCoreConfigSkeleton /*External */;
                                        "QSet<QByteArray>")
         sip["code"] = """
 %If (!Akonadi_KMime_KMimemod)
-class KMime::Message /*External */;
+%Import(name=KMime/KMime/KMimemod.sip)
 %End
 """
 

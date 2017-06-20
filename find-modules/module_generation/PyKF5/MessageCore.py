@@ -25,7 +25,25 @@ SIP binding customisation for PyKF5.MessageCore. This modules describes:
 import rules_engine
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QList<long long>",
+                                   "QVector<KMime::Types::Mailbox>")
+    rules_engine.code_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase")
+    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>")
+
+
 def typedef_rules():
     return [
        ["KMime::Types", "AddressList", ".*", ".*", rules_engine.typedef_discard],
     ]
+
+
+def modulecode():
+    return {
+        "MessageCoremod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }

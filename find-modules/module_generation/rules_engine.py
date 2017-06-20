@@ -87,8 +87,7 @@ def trace_deleted_by(cursor, modifying_rule):
 def trace_generated_for(cursor, fn, modifying_rule):
     if isinstance(cursor, Cursor):
         cursor = _parents(cursor) + ":" + cursor.spelling
-    trace = "// Generated for '{}' (by {},{}:{}):\n".format(cursor, modifying_rule,
-                                                            os.path.basename(inspect.getfile(fn)), fn.__name__)
+    trace = "// Generated for '{}' (by {}:{}):\n".format(cursor, os.path.basename(inspect.getfile(fn)), fn.__name__)
     return trace
 
 
@@ -1606,7 +1605,7 @@ def modulecode_make_local(basename, sip, rule, *keys):
 
     :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
-    :param rule:           The rule.
+    :param rule:            The rule.
     :param keys:            The keys to the entries.
     """
     feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
@@ -1615,6 +1614,24 @@ def modulecode_make_local(basename, sip, rule, *keys):
         trace = trace_inserted_for(key, "duplicate make local")
         tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
         sip["modulecode"][key] = tmp
+
+
+def code_add_classes(basename, sip, rule, *classes):
+    """
+    Add code to insert missing class declarations.
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param classes:         The classes to add.
+    """
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    tmp = ""
+    for key in classes:
+        tmp += "class " + key + ";\n"
+    trace = trace_generated_for(sip["name"], rule["code"], "missing classes")
+    tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
+    sip["code"] += tmp
 
 
 def rules(rules_pkg):

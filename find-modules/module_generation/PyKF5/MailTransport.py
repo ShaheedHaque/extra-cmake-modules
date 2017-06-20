@@ -17,23 +17,37 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
+SIP binding customisation for PyKF5.MailTransport. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
+
+
+def _parameter_remove_prefix(container, function, parameter, sip, matcher):
+    sip["init"] = sip["init"].replace("Akonadi::-1", "-1")
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QSharedPointer<KMime::Message>")
+    rules_engine.code_add_classes(filename, sip, entry, "MailTransport::TransportBase",
+                                  "Akonadi::SpecialMailCollectionsPrivate", "KLocalizedString",
+                                  "MailTransport::SentActionAttribute")
+
+
+def parameter_rules():
+    return [
+        ["MailTransport::SentBehaviourAttribute", "SentBehaviourAttribute", "moveToCollection", ".*", ".*", _parameter_remove_prefix],
+    ]
 
 
 def modulecode():
     return {
-        "FollowupRemindermod.sip": {
+        "MailTransportmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

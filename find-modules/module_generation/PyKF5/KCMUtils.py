@@ -17,10 +17,11 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
+SIP binding customisation for PyKF5.KCMUtils. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
 
 
@@ -28,12 +29,27 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::Journal>",
+                                   "QExplicitlySharedDataPointer<KService>",
+                                   "QExplicitlySharedDataPointer<KSharedConfig>", "QList<KPluginInfo>")
+    rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+                                  "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
+                                  "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String")
+
+
+def module_fix_mapped_types_ksettings(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<KPluginInfo>")
 
 
 def modulecode():
     return {
-        "FollowupRemindermod.sip": {
+        "KCMUtilsmod.sip": {
             "code": module_fix_mapped_types,
+        },
+        "ksettingsmod.sip": {
+            "code": module_fix_mapped_types_ksettings,
         },
     }

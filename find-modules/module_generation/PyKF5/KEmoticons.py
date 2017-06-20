@@ -17,10 +17,11 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
+SIP binding customisation for PyKF5.KEmoticons. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
 
 
@@ -28,12 +29,12 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
 
 
 def modulecode():
     return {
-        "FollowupRemindermod.sip": {
+        "KEmoticonsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

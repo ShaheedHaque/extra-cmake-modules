@@ -33,22 +33,12 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rules_engine.modulecode_make_local(filename, sip, entry, "QMap<QByteArray, QString>")
     rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
-    sip["code"] = """
-%If (!KCalCore_KCalCore_KCalCoremod)
-class KTimeZone;
-class KTimeZoneBackend;
-class KTimeZoneData;
-class KTimeZoneSource;
-struct icalcomponent_impl;
-struct _icaltimezone;
-struct KCalCore::_MSSystemTime;
-struct KCalCore::_MSTimeZone;
-class KDateTime;
-class KDateTime::Spec;
-//struct VObject; Uncommenting this causes SIP to crash.
-class QLatin1String /External/;
-%End
-"""
+    rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+                                  "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
+                                  "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec",
+                                  # Uncommenting this causes SIP to crash.
+                                  # "VObject",
+                                  "QLatin1String")
 
 
 def typedef_duplicate_discard(container, typedef, sip, matcher):

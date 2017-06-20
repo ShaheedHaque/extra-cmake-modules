@@ -17,10 +17,11 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
+SIP binding customisation for PyKF5.KRunner. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
 
 
@@ -28,12 +29,14 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
+    rules_engine.code_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "Plasma::Package",
+                                  "Plasma::DataEngine", "QAction", "QWidget")
 
 
 def modulecode():
     return {
-        "FollowupRemindermod.sip": {
+        "KRunnermod.sip": {
             "code": module_fix_mapped_types,
         },
     }

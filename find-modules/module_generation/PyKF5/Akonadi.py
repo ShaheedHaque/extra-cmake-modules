@@ -142,6 +142,13 @@ class KIdentityManagement::Identity;
 """
 
 
+def module_fix_mapped_types_notes(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
+    rules_engine.code_add_classes(filename, sip, entry, "KMime::Message")
+
 def module_fix_mapped_types_pim(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -569,6 +576,9 @@ def modulecode():
             class KCoreConfigSkeleton /*External */;
             %End
             """
+        },
+    "Notesmod.sip": {
+        "code": module_fix_mapped_types_notes,
         },
     "PIMmod.sip": {
         "code": module_fix_mapped_types_pim,

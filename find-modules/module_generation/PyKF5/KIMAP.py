@@ -25,8 +25,8 @@ import rules_engine
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
-                                       "QVector<long long>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
+                                   "QVector<long long>")
 
 
 def modulecode():

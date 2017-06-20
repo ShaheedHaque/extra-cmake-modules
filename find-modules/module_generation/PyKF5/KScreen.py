@@ -17,10 +17,11 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.FollowupReminder. This modules describes:
+SIP binding customisation for PyKF5.KScreen. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
 
 
@@ -28,12 +29,39 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>")
+    rules_engine.code_add_classes(filename, sip, entry, "KScreen::AbstractBackend")
+
+
+def _variable_declash_enum(container, variable, sip, matcher):
+    sip["enumerations"][0] = sip["enumerations"][0] + " /PyName={}{}/".format(sip["name"], sip["enumerations"][0])
+
+
+def function_rules():
+    return [
+        #
+        # QDebug is not exposed.
+        #
+        [".*", "operator<<", ".*", "QDebug.*", "QDebug.*KScreen::.*", rules_engine.function_discard],
+        #
+        # Private constructors.
+        #
+        ["KScreen::.*", ".*", ".*", "", ".*Private.*", rules_engine.function_discard],
+    ]
+
+
+def variable_rules():
+    return [
+        #
+        # Two different enums specify the value "None".
+        #
+        ["KScreen::Config", ".*", "enum .*", _variable_declash_enum],
+    ]
 
 
 def modulecode():
     return {
-        "FollowupRemindermod.sip": {
+        "KScreenmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

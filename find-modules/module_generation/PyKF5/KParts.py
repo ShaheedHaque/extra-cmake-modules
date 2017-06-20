@@ -39,14 +39,11 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KParts.KParts":
-        rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
-        rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QMap<QString, QString>")
-        sip["code"] = """
-%If (!KParts_KParts_KPartsmod)
-class KIconLoader /External/;
-class KXmlGuiWindow /External/;
-class KSslCertificateBoxPrivate;
-%End
+        rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
+                                       "QMap<QString, QString>")
+        rules_engine.code_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
+                                      "KSslCertificateBoxPrivate")
+        sip["code"] += """
 %Import(name=SonnetCore/Sonnet/Sonnetmod.sip)
 """
 

@@ -17,10 +17,11 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KAlarmCal. This modules describes:
+SIP binding customisation for PyKF5.KCalUtils. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rules_engine
 
 
@@ -29,24 +30,19 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::Calendar>",
-                                   "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::ToDo>",
-                                   "QSharedPointer<KCalCore::Todo>", "QVector<QSharedPointer<KCalCore::Person> >",
-                                   "QVector<int>")
+                                   "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::Incidence>",
+                                   "QSharedPointer<KCalCore::IncidenceBase>",
+                                   "QSharedPointer<KCalCore::MemoryCalendar>", "QSharedPointer<KCalCore::ToDo>",
+                                   "QSharedPointer<KCalCore::Todo>", "QVector<QSharedPointer<KCalCore::Incidence> >")
     rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
-                                  "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String",
-                                  "KConfigGroup", "KCoreConfigSkeleton")
-
-
-def function_rules():
-    return [
-        ["KAlarmCal::Repetition", "operator(!| bool)", ".*", ".*", ".*", rules_engine.function_discard],
-    ]
+                                  "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec","VObject", "QLatin1String",
+                                  "QDropEvent", "QDrag", "QWidget", "KCalUtils::HTMLExportSettings", "KGuiItem")\
 
 
 def modulecode():
     return {
-        "KAlarmCalmod.sip": {
+        "KCalUtilsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }
