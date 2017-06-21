@@ -458,7 +458,8 @@ class SipGenerator(object):
                 decl, tmp = self._fn_get(container, member, level + 1, is_signal, templating_stack)
                 modulecode.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:
-                decl = self._enum_get(container, member, level + 1) + ";\n"
+                decl, tmp = self._enum_get(container, member, level + 1)
+                modulecode.update(tmp)
             elif member.kind == CursorKind.CXX_ACCESS_SPEC_DECL:
                 decl, is_signal = self._get_access_specifier(member, level + 1)
             elif member.kind == CursorKind.TYPEDEF_DECL:
@@ -694,19 +695,40 @@ class SipGenerator(object):
         return decl, is_signal
 
     def _enum_get(self, container, enum, level):
-        pad = " " * (level * 4)
-        decl = pad + "enum {}\n".format(enum.displayname or "__enum{}".format(enum.extent.start.line))
-        decl += pad + "{\n"
+        sip = {
+            "name": enum.spelling or "__enum{}".format(enum.extent.start.line),
+            "annotations": set(),
+        }
+        modulecode = {}
         enumerations = []
-        for enum in enum.get_children():
+        for enumeration in enum.get_children():
             #
             # Skip visibility attributes and the like.
             #
-            if enum.kind == CursorKind.ENUM_CONSTANT_DECL:
-                enumerations.append(pad + "    {}".format(enum.displayname))
-        decl += ",\n".join(enumerations) + "\n"
-        decl += pad + "}"
-        return decl
+            if enumeration.kind == CursorKind.ENUM_CONSTANT_DECL:
+                enumerations.append(enumeration.displayname)
+        sip["decl"] = "enum " + sip["name"]
+        sip["enumerations"] = enumerations
+        modifying_rule = self.compiled_rules.variable_rules().apply(container, enum, sip)
+        pad = " " * (level * 4)
+        if sip["name"]:
+            decl = ""
+            if modifying_rule:
+                decl += pad + trace_modified_by(enum, modifying_rule)
+            decl += pad + sip["decl"] + "\n"
+            decl += pad + "{\n"
+            decl += ",\n".join([pad + "    " + e for e in sip["enumerations"]]) + "\n"
+            decl += pad + "}"
+            if sip["annotations"]:
+                decl += " /" + ",".join(sip["annotations"]) + "/"
+            decl = decl + sip["code"] + ";\n"
+            if sip["modulecode"]:
+                modulecode.update(sip["modulecode"])
+        else:
+            decl = pad + trace_discarded_by(enum, modifying_rule)
+        return decl, modulecode
+
+
 
     def _fn_get(self, container, function, level, is_signal, templating_stack):
         """
