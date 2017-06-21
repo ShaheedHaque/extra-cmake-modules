@@ -791,6 +791,13 @@ class SipGenerator(object):
                     func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
                     named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, parameter)
                     decl = type_spelling.replace(func_ptr, named_func_ptr, 1)
+                elif the_type.kind == TypeKind.INCOMPLETEARRAY:
+                    #
+                    # CLang makes "const int []" into "int const[]"!!!
+                    #
+                    if " const[" in type_spelling:
+                        type_spelling = "const " + type_spelling.replace(" const[", " [", 1)
+                    decl = type_spelling.replace("[", parameter + "[", 1)
                 else:
                     decl = "{} {}".format(type_spelling, parameter)
                     decl = decl.replace("* ", "*").replace("& ", "&")
@@ -1216,6 +1223,11 @@ class SipGenerator(object):
             sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
         elif typedef.underlying_typedef_type.kind == TypeKind.RECORD:
             sip["decl"] = result_type
+        elif typedef.underlying_typedef_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
+            #
+            # CLang makes "QString foo[size]" into "QString [size]"!!!
+            #
+            sip["decl"] = typedef.underlying_typedef_type.spelling.replace("[", typedef.spelling + "[", 1)
         else:
             sip["decl"] = typedef.underlying_typedef_type.get_canonical().spelling
             #
@@ -1261,6 +1273,8 @@ class SipGenerator(object):
             if sip["fn_result"]:
                 decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
+            elif typedef.underlying_typedef_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
+                decl += pad + "typedef {}".format(sip["decl"])
             else:
                 decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
             #
