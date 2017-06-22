@@ -29,7 +29,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>", "QList<int>")
-
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 def modulecode():
     return {

@@ -56,20 +56,14 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     if sip["name"] == "KMime.KMime":
         rules_engine.modulecode_delete(filename, sip, entry, "QMap<QString, QString>", "QVector<QByteArray>")
-        sip["code"] = """
-%If (!KMime_KMime_KMimemod)
-class KConfigGroup /*External */;
-class KCoreConfigSkeleton /*External */;
-%End
-"""
+        rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                      "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     elif sip["name"] == "Akonadi.KMime":
         rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                        "QSet<QByteArray>")
-        sip["code"] = """
-%If (!Akonadi_KMime_KMimemod)
-%Import(name=KMime/KMime/KMimemod.sip)
-%End
-"""
+        rules_engine.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
+                                      "KLocalizedString", "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+        rules_engine.code_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
 
 
 def container_rules():

@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.Libkdepim. This modules describes:
+SIP binding customisation for PyKF5.KDeclarative. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -25,17 +25,7 @@ SIP binding customisation for PyKF5.Libkdepim. This modules describes:
 import rules_engine
 
 
-def module_fix_mapped_types(filename, sip, entry):
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Tag>")
-    rules_engine.code_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "KSslCertificateBoxPrivate",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-
-def modulecode():
-    return {
-        "Libkdepimmod.sip": {
-            "code": module_fix_mapped_types,
-        },
-    }
+def container_rules():
+    return [
+        ["configmodule.h", "QQmlTypeInfo", ".*", ".*", ".*", rules_engine.container_discard],
+    ]

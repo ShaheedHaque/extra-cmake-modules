@@ -1634,6 +1634,24 @@ def code_add_classes(basename, sip, rule, *classes):
     sip["code"] += tmp
 
 
+def code_add_imports(basename, sip, rule, *modules):
+    """
+    Add code to insert missing class declarations.
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param modules:         The modules to add.
+    """
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    tmp = ""
+    for key in modules:
+        tmp += "%Import(name=" + key + ")\n"
+    trace = trace_generated_for(sip["name"], rule["code"], "missing imports")
+    tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
+    sip["code"] += tmp
+
+
 def rules(rules_pkg):
     """
     Constructor.

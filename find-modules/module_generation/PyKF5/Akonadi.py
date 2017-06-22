@@ -70,22 +70,12 @@ def module_fix_mapped_types(filename, sip, entry):
     rules_engine.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QSharedPointer<T>", "QSharedPointer<U>",
                                    "QVector<T>")
     sip["code"] = """
-//
-// Solve the problem that the following are not part of the public API:
-//
-//  - Akonadi::Protocol::Command
-//  - Akonadi::ServerManagerPrivate
-//
-class Akonadi::Protocol::Command /External/;
-class Akonadi::ServerManagerPrivate /External/;
-%If (!AkonadiCore_AkonadiCoremod)
-class KConfigGroup /*External */;
-class KCoreConfigSkeleton /*External */;
-%End
 %ModuleHeaderCode
 #include <akonadi/private/protocol_p.h>
 %End
 """
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command /External/",
+                                  "Akonadi::ServerManagerPrivate /External/", "KConfigGroup", "KCoreConfigSkeleton")
 
 
 def module_fix_mapped_types_agentbase(filename, sip, entry):
@@ -96,12 +86,7 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
                                    "QSet<Akonadi::Tag>", "QSet<QByteArray>", "QVector<Akonadi::Collection>",
                                    "QVector<Akonadi::Item>", "QVector<Akonadi::Relation>",
                                    "QVector<Akonadi::Tag>", "QVector<QByteArray>", "QVector<long long>")
-    sip["code"] = """
-%If (!AkonadiAgentBase_AkonadiAgentBasemod)
-class QDBusContext;
-class Akonadi::ImapSet;
-%End
-"""
+    rules_engine.code_add_classes(filename, sip, entry, "QDBusContext", "Akonadi::ImapSet")
 
 
 def module_fix_mapped_types_calendar(filename, sip, entry):
@@ -109,37 +94,28 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "Akonadi.Calendar":
-        rules_engine.modulecode_delete(filename, sip, entry, "QSet<QByteArray>",
-                                       "QSharedPointer<KCalCore::Attendee>",
-                                       "QSharedPointer<KCalCore::Event>",
-                                       "QSharedPointer<KCalCore::FreeBusy>",
-                                       "QSharedPointer<KCalCore::Incidence>",
-                                       "QSharedPointer<KCalCore::IncidenceBase>",
-                                       "QSharedPointer<KCalCore::Journal>",
-                                       "QSharedPointer<KCalCore::Person>",
-                                       "QSharedPointer<KCalCore::Todo>",
-                                       "QVector<Akonadi::Collection>",
-                                       "QVector<Akonadi::Item>",
-                                       "QVector<QSharedPointer<KCalCore::Incidence> >",
+        rules_engine.modulecode_delete(filename, sip, entry, "QSet<QByteArray>", "QSharedPointer<KCalCore::Attendee>",
+                                       "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::FreeBusy>",
+                                       "QSharedPointer<KCalCore::Incidence>", "QSharedPointer<KCalCore::IncidenceBase>",
+                                       "QSharedPointer<KCalCore::Journal>", "QSharedPointer<KCalCore::Person>",
+                                       "QSharedPointer<KCalCore::Todo>", "QVector<Akonadi::Collection>",
+                                       "QVector<Akonadi::Item>", "QVector<QSharedPointer<KCalCore::Incidence> >",
                                        "QVector<long long>")
-        sip["code"] = """
-%If (!Akonadi_Calendar_Calendarmod)
-class KTimeZone; 
-class KTimeZoneBackend;
-class KTimeZoneData;
-class KTimeZoneSource;
-struct icalcomponent_impl;
-struct _icaltimezone;
-struct KCalCore::_MSSystemTime;
-struct KCalCore::_MSTimeZone;
-class KDateTime;
-class KDateTime::Spec;
-class QLatin1String;
-class VObject;
-class MailTransport::MessageQueueJob;
-class KIdentityManagement::Identity;
-%End
-"""
+        rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+                                      "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
+                                      "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
+                                      "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
+                                      "KIdentityManagement::Identity")
+
+
+def module_fix_mapped_types_contact(filename, sip, entry):
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                  "Akonadi::AbstractContactEditorWidget", "KLineEdit", "KLocalizedString")
+
+
+def module_fix_mapped_types_debug(filename, sip, entry):
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_notes(filename, sip, entry):
@@ -147,19 +123,22 @@ def module_fix_mapped_types_notes(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
-    rules_engine.code_add_classes(filename, sip, entry, "KMime::Message")
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                  "KConfigGroup", "KCoreConfigSkeleton")
+    rules_engine.code_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
+
 
 def module_fix_mapped_types_pim(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QList<long long>")
-    sip["code"] = """
-%If (!AkonadiSearch_PIM_PIMmod)
-class KConfigGroup /*External */;
-class KCoreConfigSkeleton /*External */;
-%End
-"""
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+
+
+def module_fix_mapped_types_socialutils(filename, sip, entry):
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton")
 
 
 def module_fix_mapped_types_widgets(filename, sip, entry):
@@ -168,18 +147,16 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QList<long long>", "QVector<Akonadi::Collection>",
                                    "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>")
-
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 def module_fix_mapped_types_xml(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>")
-    sip["code"] = """
-%If (!AkonadiXml_AkonadiXmlmod)
-class KConfigGroup /*External */;
-class KCoreConfigSkeleton /*External */;
-%End
+    rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                  "KConfigGroup", "KCoreConfigSkeleton")
+    sip["code"] += """
 %ModuleHeaderCode
 #include <akonadi/private/protocol_p.h>
 %End
@@ -554,48 +531,48 @@ def typecode():
             %End
             """
         },
+        "Akonadi::NoteUtils::NoteMessageWrapper": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipAkonadi_NoteUtils_NoteMessageWrapper Akonadi::NoteUtils::NoteMessageWrapper
+                %End
+                """
+        },
     }
 
 
 def modulecode():
     return {
-    "AkonadiAgentBasemod.sip": {
-        "code": module_fix_mapped_types_agentbase,
+        "AkonadiCoremod.sip": {
+            "code": module_fix_mapped_types,
         },
-    "Calendarmod.sip": {
-        "code": module_fix_mapped_types_calendar,
+        "AkonadiAgentBasemod.sip": {
+            "code": module_fix_mapped_types_agentbase,
         },
-    "AkonadiCoremod.sip": {
-        "code": module_fix_mapped_types,
+        "Calendarmod.sip": {
+            "code": module_fix_mapped_types_calendar,
         },
-    "Debugmod.sip": {
-        "code":
-            """
-            %If (!AkonadiSearch_Debug_Debugmod)
-            class KConfigGroup /*External */;
-            class KCoreConfigSkeleton /*External */;
-            %End
-            """
+        "Contactmod.sip": {
+            "code": module_fix_mapped_types_contact,
         },
-    "Notesmod.sip": {
-        "code": module_fix_mapped_types_notes,
+        "Debugmod.sip": {
+            "code": module_fix_mapped_types_debug,
         },
-    "PIMmod.sip": {
-        "code": module_fix_mapped_types_pim,
+        "Notesmod.sip": {
+            "code": module_fix_mapped_types_notes,
         },
-    "AkonadiWidgetsmod.sip": {
-        "code": module_fix_mapped_types_widgets,
+        "PIMmod.sip": {
+            "code": module_fix_mapped_types_pim,
         },
-    "SocialUtilsmod.sip": {
-        "code":
-            """
-            %If (!Akonadi_SocialUtils_SocialUtilsmod)
-            class KConfigGroup /*External */;
-            class KCoreConfigSkeleton /*External */;
-            %End
-            """
+        "SocialUtilsmod.sip": {
+            "code": module_fix_mapped_types_socialutils,
         },
-    "AkonadiXmlmod.sip": {
-        "code": module_fix_mapped_types_xml,
+        "AkonadiWidgetsmod.sip": {
+            "code": module_fix_mapped_types_widgets,
+        },
+        "AkonadiXmlmod.sip": {
+            "code": module_fix_mapped_types_xml,
         },
     }

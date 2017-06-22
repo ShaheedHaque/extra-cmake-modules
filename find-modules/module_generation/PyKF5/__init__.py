@@ -316,6 +316,7 @@ class RuleSet(rules_engine.RuleSet):
             "KConfigWidgets",
             "KContacts",
             "KCrash",
+            "KDeclarative",
             "KdepimDBusInterfaces",
             "KEmoticons",
             "KF5KDEGames",
@@ -352,6 +353,7 @@ class RuleSet(rules_engine.RuleSet):
             "MailTransport",
             "MessageCore",
             "MessageList",
+            "SendLater",
             "Solid",
             "Sonnet",
             "Syndication",
@@ -415,6 +417,11 @@ class RuleSet(rules_engine.RuleSet):
             if source.endswith("KIOCore"):
                 result.append(os.path.join(source, "kio", "job_base.h"))
                 break
+        #
+        # Akonadi private.
+        #
+        result.append(os.path.join(source_root, "akonadi", "abstractsearchplugin.h"))
+        result.append(os.path.join(source_root, "akonadi", "private"))
         #
         # KF5KIO is missing .../kio.
         #

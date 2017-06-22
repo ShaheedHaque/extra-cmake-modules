@@ -21,15 +21,12 @@ SIP binding customisation for PyKF5.KdepimDBusInterfaces. This modules describes
 
     * Supplementary SIP file generator rules.
 """
+import rules_engine
+
 
 def module_fix_mapped_types(filename, sip, entry):
-    sip["code"] = """
-%If (!KdepimDBusInterfaces_KdepimDBusInterfacesmod)
-class KConfigGroup /*External */;
-class KCoreConfigSkeleton /*External */;
-%End
-"""
-
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 def modulecode():
     return {
