@@ -33,6 +33,10 @@ def _function_rewrite_using_decl(container, function, sip, matcher):
     sip["prefix"] = "virtual "
 
 
+def _function_rewrite_using_decl2(container, function, sip, matcher):
+    sip["parameters"] = ["const Akonadi::Collection &collection"]
+
+
 def _parameter_restore_default(container, function, parameter, sip, matcher):
     sip["init"] = "Q_NULLPTR"
 
@@ -86,7 +90,9 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
                                    "QSet<Akonadi::Tag>", "QSet<QByteArray>", "QVector<Akonadi::Collection>",
                                    "QVector<Akonadi::Item>", "QVector<Akonadi::Relation>",
                                    "QVector<Akonadi::Tag>", "QVector<QByteArray>", "QVector<long long>")
-    rules_engine.code_add_classes(filename, sip, entry, "QDBusContext", "Akonadi::ImapSet")
+    rules_engine.code_add_classes(filename, sip, entry, "QDBusContext /External/", "Akonadi::ImapSet",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+    rules_engine.code_add_imports(filename, sip, entry, "QtDBus/QtDBusmod.sip")
 
 
 def module_fix_mapped_types_calendar(filename, sip, entry):
@@ -105,7 +111,8 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
                                       "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
                                       "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
                                       "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
-                                      "KIdentityManagement::Identity")
+                                      "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
+                                      "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_contact(filename, sip, entry):
@@ -138,7 +145,8 @@ def module_fix_mapped_types_pim(filename, sip, entry):
 
 
 def module_fix_mapped_types_socialutils(filename, sip, entry):
-    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton")
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_widgets(filename, sip, entry):
@@ -148,6 +156,7 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     rules_engine.modulecode_delete(filename, sip, entry, "QList<long long>", "QVector<Akonadi::Collection>",
                                    "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>")
     rules_engine.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+
 
 def module_fix_mapped_types_xml(filename, sip, entry):
     #
@@ -393,6 +402,7 @@ def function_rules():
         # Rewrite using declaration.
         #
         ["Akonadi::(Collection|Entity(List|Tree)|Item)View", "currentChanged", ".*", ".*", "", _function_rewrite_using_decl],
+        ["Akonadi::AgentBase::ObserverV2", "collectionChanged", ".*", ".*", "", _function_rewrite_using_decl2],
     ]
 
 

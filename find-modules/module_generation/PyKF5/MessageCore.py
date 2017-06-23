@@ -31,7 +31,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QList<long long>",
                                    "QVector<KMime::Types::Mailbox>")
-    rules_engine.code_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase")
+    rules_engine.code_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>")
 
 

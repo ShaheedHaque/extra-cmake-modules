@@ -411,21 +411,20 @@ class RuleSet(rules_engine.RuleSet):
             i += 1
         result = result[:j]
         #
-        # Include KIOCore/kio/job_base.h.
-        #
-        for source in result:
-            if source.endswith("KIOCore"):
-                result.append(os.path.join(source, "kio", "job_base.h"))
-                break
-        #
         # Akonadi private.
         #
         result.append(os.path.join(source_root, "akonadi", "abstractsearchplugin.h"))
         result.append(os.path.join(source_root, "akonadi", "private"))
         #
+        # Include KIOCore/kio/job_base.h.
+        #
+        result.append(os.path.join(source_root, "KIOCore", "kio", "job_base.h"))
+        #
         # KF5KIO is missing .../kio.
         #
         result.append(os.path.join(source_root, "kio"))
+        result.append(os.path.join(source_root, "MailTransport", "mailtransport", "sentactionattribute.h"))
+        result.append(os.path.join(source_root, "MailTransport", "mailtransport", "transportbase.h"))
         result = sorted(result)
         return result
 

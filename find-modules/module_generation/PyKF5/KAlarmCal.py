@@ -35,7 +35,9 @@ def module_fix_mapped_types(filename, sip, entry):
     rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String",
-                                  "KConfigGroup", "KCoreConfigSkeleton")
+                                  "KConfigGroup", "KCoreConfigSkeleton", "Akonadi::Protocol::Command",
+                                  "Akonadi::ServerManagerPrivate", "KAlarmCal::CalEvent::Type", "KDateTime::SpecType",
+                                  "KDateTime::Comparison", "KHolidays::HolidayRegion")
 
 
 def function_rules():

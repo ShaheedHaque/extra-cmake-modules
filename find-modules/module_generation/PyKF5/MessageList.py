@@ -32,7 +32,8 @@ def module_fix_mapped_types(filename, sip, entry):
     rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Item>")
     rules_engine.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate", "KLocalizedString",
                                   "KXMLGUIClient", "MessageList::Core::SearchLineStatus",
-                                  "MessageList::Core::MessageItem", "MessageList::Core::Widget")
+                                  "MessageList::Core::MessageItem", "MessageList::Core::Widget",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def modulecode():
