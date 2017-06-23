@@ -34,7 +34,6 @@ def module_fix_mapped_types_private(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>")
     rules_engine.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget",
                                   "GlobalShortcutsRegistry", "QDBusContext")
 

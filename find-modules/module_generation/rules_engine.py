@@ -1592,6 +1592,7 @@ def modulecode_delete(basename, sip, rule, *keys):
     """
     for key in keys:
         trace = trace_deleted_by(key, "duplicate delete")
+        del sip["modulecode"][key]
         sip["modulecode"][key] = trace
 
 

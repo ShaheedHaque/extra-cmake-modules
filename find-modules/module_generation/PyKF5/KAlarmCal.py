@@ -29,9 +29,8 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::Calendar>",
-                                   "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::ToDo>",
-                                   "QSharedPointer<KCalCore::Todo>", "QVector<QSharedPointer<KCalCore::Person> >",
-                                   "QVector<int>")
+                                   "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::Todo>",
+                                   "QVector<QSharedPointer<KCalCore::Person> >", "QVector<int>")
     rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String",

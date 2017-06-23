@@ -86,10 +86,10 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>",
-                                   "QSet<Akonadi::Tag>", "QSet<QByteArray>", "QVector<Akonadi::Collection>",
-                                   "QVector<Akonadi::Item>", "QVector<Akonadi::Relation>",
-                                   "QVector<Akonadi::Tag>", "QVector<QByteArray>", "QVector<long long>")
+    rules_engine.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QSet<Akonadi::Tag>", "QSet<QByteArray>",
+                                   "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+                                   "QVector<Akonadi::Relation>", "QVector<Akonadi::Tag>", "QVector<QByteArray>",
+                                   "QVector<long long>")
     rules_engine.code_add_classes(filename, sip, entry, "QDBusContext /External/", "Akonadi::ImapSet",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     rules_engine.code_add_imports(filename, sip, entry, "QtDBus/QtDBusmod.sip")
