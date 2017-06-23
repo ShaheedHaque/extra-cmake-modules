@@ -25,12 +25,23 @@ SIP binding customisation for PyKF5.KMbox. This modules describes:
 import rules_engine
 
 
+def _parameter_fully_qualify(container, function, parameter, sip, matcher):
+    sip["init"] = "KMBox::" + sip["init"]
+
+
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
-    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton")
+    rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+
+
+def parameter_rules():
+    return [
+        ["KMBox::MBox", "entries", "deletedEntries", ".*", ".*", _parameter_fully_qualify],
+    ]
 
 
 def modulecode():
