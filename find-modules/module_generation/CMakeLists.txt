@@ -45,7 +45,7 @@ project(sip_module_generation)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(SIP REQUIRED)
-find_package(Clang)
+find_package(Clang REQUIRED)
 find_package(LibClang REQUIRED)
 
 if(NOT ClangPP_FOUND)
