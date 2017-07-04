@@ -35,6 +35,11 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def module_fix_mapped_types_core(filename, sip, entry):
     rules_engine.code_add_classes(filename, sip, entry, "Attica::Provider", "KArchiveDirectory")
+    sip["code"] += """
+%If (!KNewStuff3_KNSCore_KNSCoremod)
+%Import(name=KNewStuff3/KNS3/KNS3mod.sip)
+%End
+"""
 
 
 def modulecode():
