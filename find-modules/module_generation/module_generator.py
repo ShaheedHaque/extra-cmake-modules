@@ -273,14 +273,14 @@ class ModuleGenerator(object):
                 failures += f
                 if a:
                     directories += 1
-            feature_list = os.path.join(self.output_dir, "modules.features")
-            #
-            # TODO, make sure the entries are unique.
-            #
-            with open(feature_list, "w") as f:
-                for feature in sorted(self.all_features, key=FILE_SORT_KEY):
-                    f.write("%Feature(name={})\n".format(feature))
-            self.rule_usage.add_local_stats(self.compiled_rules)
+        feature_list = os.path.join(self.output_dir, "modules.features")
+        #
+        # TODO, make sure the entries are unique.
+        #
+        with open(feature_list, "w") as f:
+            for feature in sorted(self.all_features, key=FILE_SORT_KEY):
+                f.write("%Feature(name={})\n".format(feature))
+        self.rule_usage.add_local_stats(self.compiled_rules)
         return attempts, failures, directories
 
     FUNNY_CHARS = "+"
