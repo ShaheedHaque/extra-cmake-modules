@@ -50,7 +50,7 @@ find_package(LibClang REQUIRED)
 
 if(NOT ClangPP_FOUND)
     message(SEND_ERROR "Clang++ not found")
-elseif(SIP_VERSION VERSION_LESS 4.19)
+elseif(SIP_VERSION VERSION_LESS 4.19.3)
     message(SEND_ERROR "SIP version \"${SIP_VERSION}\" too old")
 elseif(ClangPP_VERSION VERSION_LESS 3.9)
     message(SEND_ERROR "Clang++ version \"${ClangPP_VERSION}\" too old")
