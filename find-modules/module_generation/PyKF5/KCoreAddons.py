@@ -70,9 +70,12 @@ def function_rules():
         #
         ["KPluginName", ".*", ".*", ".*", ".*", rules_engine.function_discard_impl],
         #
-        # SIP thinks there are duplicate signatures.
+        # SIP cannot handle std::function.
         #
         ["KPluginLoader", "instantiatePlugins|findPlugins|forEachPlugin", ".*", ".*", ".*", rules_engine.function_discard],
+        #
+        # SIP thinks there are duplicate signatures.
+        #
         ["KRandomSequence", "setSeed", ".*", ".*", "int.*", rules_engine.function_discard],
         #
         # kuser.h has inline operators.
