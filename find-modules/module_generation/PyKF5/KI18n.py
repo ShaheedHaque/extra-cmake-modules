@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KI18n. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def container_rules():
@@ -30,19 +30,19 @@ def container_rules():
         #
         # Remove some useless stuff.
         #
-        ["klocalizedstring.h", "I18nTypeCheck", ".*", ".*", ".*", rules_engine.container_discard],
+        ["klocalizedstring.h", "I18nTypeCheck", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
 
 def function_rules():
     return [
-        ["Kuit", "setupForDomain", ".*", ".*", ".*", rules_engine.function_discard],
+        ["Kuit", "setupForDomain", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Needs %MethodCode?
         #
-        ["KuitSetup", "setTagPattern", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KuitSetup", "setTagPattern", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP thinks there are duplicate signatures.
         #
-        ["KLocalizedString", "subs", ".*", ".*", "(?!long long).*", rules_engine.function_discard],
+        ["KLocalizedString", "subs", ".*", ".*", "(?!long long).*", rule_helpers.function_discard],
     ]

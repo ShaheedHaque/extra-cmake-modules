@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KF5KDEGames. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def module_remove_redundant(filename, sip, matcher):
@@ -50,7 +50,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
     sip["code"] = """
 %ModuleHeaderCode
 class KConfig;
@@ -60,17 +60,17 @@ class KConfig;
 
 def forward_declaration_rules():
     return [
-        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rules_engine.container_mark_forward_declaration_external],
-        ["kgame.h", "KRandomSequence", ".*", rules_engine.container_mark_forward_declaration_external],
-        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rules_engine.container_mark_forward_declaration_external],
-        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rules_engine.container_mark_forward_declaration_external],
-        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["kgame.h", "KRandomSequence", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rule_helpers.container_mark_forward_declaration_external],
     ]
 
 
 def container_rules():
     return [
-        ["KGamePropertyBase", "Flags", ".*", ".*", ".*", rules_engine.container_discard],
+        ["KGamePropertyBase", "Flags", ".*", ".*", ".*", rule_helpers.container_discard],
         #
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.
@@ -84,35 +84,35 @@ def function_rules():
         #
         # Duplicate.
         #
-        ["kgamerenderer.h", "qHash", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", "GAMES_.*", ".*", "const QLoggingCategory &", ".*", rules_engine.function_discard],
+        ["kgamerenderer.h", "qHash", ".*", ".*", ".*", rule_helpers.function_discard],
+        [".*", "GAMES_.*", ".*", "const QLoggingCategory &", ".*", rule_helpers.function_discard],
         ["KScoreDialog", "addScore", ".*", ".*", ".*FieldInfo.*", _function_fully_qualify_parm],
-        ["KGamePropertyBase", "typeinfo", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGamePropertyBase", "typeinfo", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # TBD: support various templates.
         #
-        ["KGamePropertyHandler", "dict", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMessageClient", "sendForward", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMessageServer", "sendMessage", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGamePropertyHandler", "dict", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMessageClient", "sendForward", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMessageServer", "sendMessage", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Delete non-const.
         #
-        ["KGame", "(p|inactiveP)layerList", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        ["KGame", "(p|inactiveP)layerList", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
         #
         # Unsupported signal argument type.
         #
-        ["KGame", "signal(ReplacePlayerIO|LoadError)", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KGameIO", "signalPrepareTurn", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KGameKeyIO", "signalKeyEvent", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KGameMouseIO", "signalMouseEvent", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KGameProcessIO", "signalIOAdded", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KGamePropertyHandler", "signalSendMessage", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMessageClient", "(forward|serverMessage)Received", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMessageServer", "messageReceived", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGame", "signal(ReplacePlayerIO|LoadError)", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KGameIO", "signalPrepareTurn", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KGameKeyIO", "signalKeyEvent", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KGameMouseIO", "signalMouseEvent", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KGameProcessIO", "signalIOAdded", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KGamePropertyHandler", "signalSendMessage", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMessageClient", "(forward|serverMessage)Received", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMessageServer", "messageReceived", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Suppress template stuff for now.
         #
-        ["KGameProperty", "operator.*|typeinfo|value", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KGameProperty", "operator.*|typeinfo|value", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 
@@ -121,7 +121,7 @@ def parameter_rules():
         #
         #  Override the default "parent" rule.
         #
-        ["KStandardGameAction", ".*", "parent", ".*", ".*", rules_engine.noop]
+        ["KStandardGameAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
     ]
 
 

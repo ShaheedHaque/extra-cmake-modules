@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KBookmarks. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def _container_delete_base(container, sip, matcher):
@@ -38,11 +38,11 @@ def container_rules():
         #
         # No multiple inheritance.
         #
-        ["kbookmarkimporter.h", "KXBELBookmarkImporterImpl", ".*", ".*", ".*", rules_engine.container_discard],
+        ["kbookmarkimporter.h", "KXBELBookmarkImporterImpl", ".*", ".*", ".*", rule_helpers.container_discard],
         #
         # Protected.
         #
-        ["konqbookmarkmenu.h", "KonqBookmarkMenu::DynMenuInfo", ".*", ".*", ".*", rules_engine.container_discard],
+        ["konqbookmarkmenu.h", "KonqBookmarkMenu::DynMenuInfo", ".*", ".*", ".*", rule_helpers.container_discard],
         #
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.
@@ -56,7 +56,7 @@ def function_rules():
         #
         # Protected.
         #
-        ["KonqBookmarkMenu", "showDynamicBookmarks|setDynamicBookmarks", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KonqBookmarkMenu", "showDynamicBookmarks|setDynamicBookmarks", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 

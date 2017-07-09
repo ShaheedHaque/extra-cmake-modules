@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KLDAP. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 from PyQt_templates import list_typecode
 
 
@@ -39,13 +39,13 @@ def variable_customise(container, variable, sip, matcher):
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QByteArray>", "QList<QModelIndex>")
 
 
 def function_rules():
     return [
-        ["KLDAP::LdapOperation", "bind|bind_s", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KLDAP::LdapUrl", "extension", ".*", "QString", ".*", rules_engine.function_discard],
+        ["KLDAP::LdapOperation", "bind|bind_s", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KLDAP::LdapUrl", "extension", ".*", "QString", ".*", rule_helpers.function_discard],
     ]
 
 

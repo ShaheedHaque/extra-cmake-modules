@@ -24,16 +24,16 @@ SIP binding customisation for PyKF5.KCalCore. This modules describes:
 
 import os
 
-import rules_engine
+import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_make_local(filename, sip, entry, "QMap<QByteArray, QString>")
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
-    rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QMap<QByteArray, QString>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
+    rule_helpers.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec",
                                   # Uncommenting this causes SIP to crash.
@@ -51,7 +51,7 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
     """
     filename = os.path.basename(container.translation_unit.spelling)
     if filename != "incidencebase.h":
-        rules_engine.typedef_discard(container, typedef, sip, matcher)
+        rule_helpers.typedef_discard(container, typedef, sip, matcher)
 
 
 def container_rules():
@@ -59,7 +59,7 @@ def container_rules():
         #
         # Duplicate Akonadi::SuperClass.
         #
-        ["(event|journal|todo).h", "Akonadi", ".*", ".*", ".*", rules_engine.container_discard],
+        ["(event|journal|todo).h", "Akonadi", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
 
@@ -68,7 +68,7 @@ def function_rules():
         #
         # Delete non-const.
         #
-        ["KCalCore::Attendee", "customProperties", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        ["KCalCore::Attendee", "customProperties", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
     ]
 
 

@@ -21,7 +21,7 @@ SIP binding customisation for PyKF5.KNotifications. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-import rules_engine
+import rule_helpers
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -34,7 +34,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QPair<QString, QString>", "QList<QUrl>",
+    rule_helpers.modulecode_delete(filename, sip, entry, "QPair<QString, QString>", "QList<QUrl>",
                                         "QList<QVariant>")
 
 

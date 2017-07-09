@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KService. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -35,12 +35,12 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
                                    "QList<QVariant>")
     #
     # No such things a KServiceOffer?
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<KServiceOffer>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KServiceOffer>")
     sip["code"] = """
 %ModuleHeaderCode
 #include <QExplicitlySharedDataPointer>
@@ -51,7 +51,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def container_rules():
     return [
-        ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
+        ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
     ]
 
 
@@ -60,23 +60,23 @@ def function_rules():
         #
         # Provide %MethodCode and a C++ signature.
         #
-        ["KMimeTypeTrader|KServiceTypeTrader", "preferredService", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KPluginInfo", "KPluginInfo", ".*", ".*", ".*SharedData.*", rules_engine.function_discard],
-        ["KPluginInfo", "service", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KService", "service.*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KServiceGroup", "root|group|childGroup|addEntry", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KServiceType", "parentType|serviceType", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KSycoca", "stream", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMimeTypeTrader|KServiceTypeTrader", "preferredService", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KPluginInfo", "KPluginInfo", ".*", ".*", ".*SharedData.*", rule_helpers.function_discard],
+        ["KPluginInfo", "service", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KService", "service.*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KServiceGroup", "root|group|childGroup|addEntry", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KServiceType", "parentType|serviceType", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KSycoca", "stream", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # No KSycocaFactory or KSycocaFactoryList.
         #
-        ["KSycoca", "addFactory|factories", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KSycoca", "addFactory|factories", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # There is no KServiceOffer.
         #
-        ["KMimeTypeTrader", "filterMimeTypeOffers", ".*", ".*", ".*KServiceOffer.*", rules_engine.function_discard],
-        ["KServiceTypeTrader", "weightedOffers", ".*", ".*KServiceOffer.*", ".*", rules_engine.function_discard],
-        ["KService", "_k_accessServiceTypes", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KMimeTypeTrader", "filterMimeTypeOffers", ".*", ".*", ".*KServiceOffer.*", rule_helpers.function_discard],
+        ["KServiceTypeTrader", "weightedOffers", ".*", ".*KServiceOffer.*", ".*", rule_helpers.function_discard],
+        ["KService", "_k_accessServiceTypes", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Rewrite using declaration.
         #
@@ -89,7 +89,7 @@ def typedef_rules():
         #
         # There is no KServiceOffer.
         #
-        ["k(mime|service)typetrader.h", "KServiceOfferList", ".*", ".*", rules_engine.typedef_discard],
+        ["k(mime|service)typetrader.h", "KServiceOfferList", ".*", ".*", rule_helpers.typedef_discard],
     ]
 
 

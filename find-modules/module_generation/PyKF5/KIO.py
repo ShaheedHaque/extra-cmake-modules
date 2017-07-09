@@ -25,7 +25,7 @@ PyKF5.KIOGui PyKF5.KIOWidgets PyKF5.kio. This modules describes:
 
 from clang.cindex import TokenKind, TypeKind
 
-import rules_engine
+import rule_helpers
 
 
 def _container_delete_base(container, sip, matcher):
@@ -37,7 +37,7 @@ def fn_remove_inlined(container, function, sip, matcher):
         if token.kind != TokenKind.KEYWORD:
             return
         if token.spelling == "inline":
-            rules_engine.function_discard(container, function, sip, matcher)
+            rule_helpers.function_discard(container, function, sip, matcher)
             return
 
 
@@ -204,7 +204,7 @@ def module_fix_kiomod(filename, sip, matcher):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KIOCore.kio":
-        rules_engine.modulecode_delete(filename, sip, matcher, "QMap<QString, QString>")
+        rule_helpers.modulecode_delete(filename, sip, matcher, "QMap<QString, QString>")
         sip["code"] = """
 %If (!KIOCore_kio_kiomod)
 class KIO::JobUiDelegateExtension /External/;
@@ -212,8 +212,8 @@ class KIO::MetaData /External/;
 %End
 """
     elif sip["name"] == "KIOCore.KIO":
-        rules_engine.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>")
-        rules_engine.modulecode_make_local(filename, sip, matcher, "QMap<QString, QVariant>")
+        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>")
+        rule_helpers.modulecode_make_local(filename, sip, matcher, "QMap<QString, QVariant>")
         sip["code"] = """
 %Import(name=KIOCore/kio/kiomod.sip)
 class KIO::Connection;
@@ -236,7 +236,7 @@ class KService;
 %End
 """
     elif sip["name"] == "KIOWidgets.KIO":
-        rules_engine.modulecode_delete(filename, sip, matcher, "QList<QAction *>")
+        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QAction *>")
         sip["code"] = """
 %Import(name=KIOCore/kio/kiomod.sip)
 %Import(name=KIOCore/KIO/KIOmod.sip)
@@ -252,8 +252,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QPair<QString, unsigned short> >")
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QUrl>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QPair<QString, unsigned short> >")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QUrl>")
     #
     # Random stuff.
     #
@@ -269,15 +269,15 @@ def module_fix_mapped_types_filewidgets(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QList<QUrl>", "QVector<int>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QList<QUrl>", "QVector<int>")
 
 
 def module_fix_mapped_types_widgets(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>")
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QModelIndex>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QModelIndex>")
     sip["code"] = """
 %If (!KIOWidgets_KIOWidgetsmod)
 class KCModule;
@@ -294,7 +294,7 @@ def container_rules():
         #
         ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_delete_base],
         ["KMountPoint", "List", ".*", ".*", ".*", _container_delete_base],
-        ["kmountpoint.h", "KMountPoint", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
+        ["kmountpoint.h", "KMountPoint", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
         ["KIO", "MetaData", ".*", ".*", ".*", _container_delete_base],
     ]
 
@@ -305,22 +305,22 @@ def function_rules():
         # Remove some inlined stuff.
         #
         ["KIO::MetaData", "MetaData|operator\\+=|toVariant", ".*", ".*", ".*", fn_remove_inlined],
-        ["udsentry.h", "debugUDSEntry", ".*", ".*", ".*", rules_engine.function_discard],
+        ["udsentry.h", "debugUDSEntry", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Privates...
         #
-        ["KIO::EmptyTrashJob", "EmptyTrashJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
-        ["KIO::FileSystemFreeSpaceJob", "FileSystemFreeSpaceJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
-        ["KIO::MkdirJob", "MkdirJob", ".*", ".*", ".*Private.*", rules_engine.function_discard],
+        ["KIO::EmptyTrashJob", "EmptyTrashJob", ".*", ".*", ".*Private.*", rule_helpers.function_discard],
+        ["KIO::FileSystemFreeSpaceJob", "FileSystemFreeSpaceJob", ".*", ".*", ".*Private.*", rule_helpers.function_discard],
+        ["KIO::MkdirJob", "MkdirJob", ".*", ".*", ".*Private.*", rule_helpers.function_discard],
         #
         # Duplicate signatures.
         #
-        ["KIO::StatJob", "setSide", ".*", ".*", ".*bool.*", rules_engine.function_discard],
-        ["KFileItem", "mostLocalUrl", ".*", ".*", ".*local", rules_engine.function_discard],
+        ["KIO::StatJob", "setSide", ".*", ".*", ".*bool.*", rule_helpers.function_discard],
+        ["KFileItem", "mostLocalUrl", ".*", ".*", ".*local", rule_helpers.function_discard],
         #
         # Missing stat64.
         #
-        ["KIO::UDSEntry", "UDSEntry", ".*", ".*", ".*stat64.*", rules_engine.function_discard],
+        ["KIO::UDSEntry", "UDSEntry", ".*", ".*", ".*stat64.*", rule_helpers.function_discard],
         #
         # Rewrite using declaration.
         #
@@ -329,7 +329,7 @@ def function_rules():
         #
         # Deleted functions.
         #
-        ["KIO", "file_(copy|move)", ".*", ".*", ".*flags", rules_engine.function_discard],
+        ["KIO", "file_(copy|move)", ".*", ".*", ".*flags", rule_helpers.function_discard],
     ]
 
 
@@ -338,9 +338,9 @@ def typedef_rules():
         #
         # Remove some useless stuff.
         #
-        ["kacl.h", "ACL.*PermissionsIterator|ACL.*PermissionsConstIterator", ".*", ".*", rules_engine.typedef_discard],
-        ["kprotocolmanager.h", "KSharedConfigPtr", ".*", ".*", rules_engine.typedef_discard],
-        ["thumb.*creator.h", "newCreator", ".*", ".*", rules_engine.typedef_discard],
+        ["kacl.h", "ACL.*PermissionsIterator|ACL.*PermissionsConstIterator", ".*", ".*", rule_helpers.typedef_discard],
+        ["kprotocolmanager.h", "KSharedConfigPtr", ".*", ".*", rule_helpers.typedef_discard],
+        ["thumb.*creator.h", "newCreator", ".*", ".*", rule_helpers.typedef_discard],
     ]
 
 

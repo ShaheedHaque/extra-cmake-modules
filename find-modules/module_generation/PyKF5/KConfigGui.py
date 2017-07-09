@@ -21,7 +21,7 @@ SIP binding customisation for PyKF5.KConfigGui. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-import rules_engine
+import rule_helpers
 
 
 def _container_delete_base(container, sip, matcher):
@@ -32,7 +32,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>")
 
 
 def container_rules():

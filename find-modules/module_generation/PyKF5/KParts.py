@@ -24,7 +24,7 @@ SIP binding customisation for PyKF5.KParts. This modules describes:
 
 from clang.cindex import CursorKind
 
-import rules_engine
+import rule_helpers
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -39,9 +39,9 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KParts.KParts":
-        rules_engine.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
+        rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
                                        "QMap<QString, QString>")
-        rules_engine.code_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
+        rule_helpers.code_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
                                       "KSslCertificateBoxPrivate")
         sip["code"] += """
 %Import(name=SonnetCore/Sonnet/Sonnetmod.sip)
@@ -52,12 +52,12 @@ def function_rules():
         #
         # SIP unsupported signal argument type.
         #
-        ["KParts::BrowserExtension", "createNewWindow", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KParts::ReadWritePart", "sigQueryClose", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KParts::BrowserExtension", "createNewWindow", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KParts::ReadWritePart", "sigQueryClose", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP overloaded functions with the same Python signature.
         #
-        ["KParts::OpenUrlArguments", "metaData", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        ["KParts::OpenUrlArguments", "metaData", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
         #
         # Rewrite using declaration.
         #

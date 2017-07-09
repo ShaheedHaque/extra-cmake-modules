@@ -22,10 +22,10 @@ SIP binding customisation for PyKF5.KDeclarative. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def container_rules():
     return [
-        ["configmodule.h", "QQmlTypeInfo", ".*", ".*", ".*", rules_engine.container_discard],
+        ["configmodule.h", "QQmlTypeInfo", ".*", ".*", ".*", rule_helpers.container_discard],
     ]

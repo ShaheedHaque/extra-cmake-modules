@@ -24,7 +24,7 @@ SIP binding customisation for PyKF5.Syndication. This modules describes:
 
 import os
 
-import rules_engine
+import rule_helpers
 import PyQt_templates
 
 
@@ -44,7 +44,7 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
     pointer = os.path.splitext(pointer)[0]
     pointer = pointer.capitalize() + "Ptr"
     if pointer != typedef.spelling:
-        rules_engine.typedef_discard(container, typedef, sip, matcher)
+        rule_helpers.typedef_discard(container, typedef, sip, matcher)
     else:
         #
         # This is the one we want. Keep it, and generate its %MappedType.
@@ -54,16 +54,16 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
 
 def function_rules():
     return [
-        ["Syndication.*", "operator QString", ".*", ".*", ".*", rules_engine.function_discard],
+        ["Syndication.*", "operator QString", ".*", ".*", ".*", rule_helpers.function_discard],
         ["Syndication::ParserCollection", "registerParser|changeMapper", ".*", ".*", ".*", _function_fixup_template_params],
         #
         # Provide %MethodCode and a C++ signature.
         #
-        ["Syndication", "parserCollection", ".*", ".*", ".*", rules_engine.function_discard],
+        ["Syndication", "parserCollection", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Broken C++, missing ">"!!!
         #
-        #["Syndication::RSS2::Item", "Item", ".*", ".*", ".*doc.*", rules_engine.function_discard],
+        #["Syndication::RSS2::Item", "Item", ".*", ".*", ".*doc.*", rule_helpers.function_discard],
     ]
 
 

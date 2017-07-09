@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KCodecs. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 def _mark_abstract(container, sip, matcher):
     sip["annotations"].add("Abstract")
@@ -36,18 +36,18 @@ def container_rules():
 
 def function_rules():
     return [
-        ["KCodecs::Codec", "encode", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Codec", "decode", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
+        ["KCodecs::Codec", "encode", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Codec", "decode", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
 
-        ["KCodecs::Encoder", "encode", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Encoder", "finish", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Encoder", "write", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Encoder", "writeCRLF", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Encoder", "flushOutputBuffer", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
+        ["KCodecs::Encoder", "encode", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Encoder", "finish", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Encoder", "write", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Encoder", "writeCRLF", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Encoder", "flushOutputBuffer", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
 
-        ["KCodecs::Decoder", "decode", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
-        ["KCodecs::Decoder", "finish", ".*", ".*", ".*char.*&.*", rules_engine.function_discard],
+        ["KCodecs::Decoder", "decode", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
+        ["KCodecs::Decoder", "finish", ".*", ".*", ".*char.*&.*", rule_helpers.function_discard],
 
-        ["KCharsets", "codecForName", ".*", ".*", ".*name", rules_engine.function_discard],
-        ["KCharsets", "fromEntity", ".*", ".*", ".*str", rules_engine.function_discard],
+        ["KCharsets", "codecForName", ".*", ".*", ".*name", rule_helpers.function_discard],
+        ["KCharsets", "fromEntity", ".*", ".*", ".*str", rule_helpers.function_discard],
     ]

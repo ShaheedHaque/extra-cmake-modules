@@ -23,7 +23,7 @@ SIP binding customisation for PyKF5.KMime. This modules describes:
 """
 
 import PyQt_templates
-import rules_engine
+import rule_helpers
 
 
 def _delete_duplicate_content(filename, sip, entry):
@@ -32,12 +32,12 @@ def _delete_duplicate_content(filename, sip, entry):
 
 
 def parameter_in_out(container, function, parameter, sip, matcher):
-    rules_engine.parameter_out(container, function, parameter, sip, matcher)
-    rules_engine.parameter_in(container, function, parameter, sip, matcher)
+    rule_helpers.parameter_out(container, function, parameter, sip, matcher)
+    rule_helpers.parameter_in(container, function, parameter, sip, matcher)
 
 
 def parameter_out(container, function, parameter, sip, matcher):
-    rules_engine.parameter_out(container, function, parameter, sip, matcher)
+    rule_helpers.parameter_out(container, function, parameter, sip, matcher)
     if sip["decl"].startswith("QPair"):
         PyQt_templates.qpair_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QVector"):
@@ -55,15 +55,15 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KMime.KMime":
-        rules_engine.modulecode_delete(filename, sip, entry, "QMap<QString, QString>", "QVector<QByteArray>")
-        rules_engine.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+        rule_helpers.modulecode_delete(filename, sip, entry, "QMap<QString, QString>", "QVector<QByteArray>")
+        rule_helpers.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                       "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     elif sip["name"] == "Akonadi.KMime":
-        rules_engine.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+        rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                        "QSet<QByteArray>")
-        rules_engine.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
+        rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
                                       "KLocalizedString", "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-        rules_engine.code_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
+        rule_helpers.code_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
 
 
 def container_rules():
@@ -71,7 +71,7 @@ def container_rules():
         #
         # Duplicate Akonadi::SuperClass.
         #
-        ["kmime_newsarticle.h", "Akonadi", ".*", ".*", ".*", rules_engine.container_discard],
+        ["kmime_newsarticle.h", "Akonadi", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
 

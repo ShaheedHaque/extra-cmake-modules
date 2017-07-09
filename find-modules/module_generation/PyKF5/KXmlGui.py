@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KXmlGui. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def _parameter_remove_qualifier(container, function, parameter, sip, matcher):
@@ -33,7 +33,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QKeySequence>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QKeySequence>")
     sip["code"] = """
 %Import(name=QtXml/QtXmlmod.sip)
 """
@@ -41,8 +41,8 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def function_rules():
     return [
-        ["KMainWindow", "k_func", ".*", ".*", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMainWindow", "KMainWindow", ".*", ".*", "KMainWindowPrivate.*", rules_engine.function_discard],
+        ["KMainWindow", "k_func", ".*", ".*", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMainWindow", "KMainWindow", ".*", ".*", "KMainWindowPrivate.*", rule_helpers.function_discard],
     ]
 
 

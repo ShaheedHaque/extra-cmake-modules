@@ -22,15 +22,15 @@ SIP binding customisation for PyKF5.KTNEF. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::MemoryCalendar>")
-    rules_engine.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::MemoryCalendar>")
+    rule_helpers.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "QLatin1String", "VObject",
                                   "KCalCore::IncidenceBase::VirtualHook", "KCalUtils::InvitationFormatterHelper")

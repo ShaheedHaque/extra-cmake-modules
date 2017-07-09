@@ -22,23 +22,23 @@ SIP binding customisation for PyKF5.MessageCore. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QList<long long>",
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QList<long long>",
                                    "QVector<KMime::Types::Mailbox>")
-    rules_engine.code_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase",
+    rule_helpers.code_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QUrl>")
 
 
 def typedef_rules():
     return [
-       ["KMime::Types", "AddressList", ".*", ".*", rules_engine.typedef_discard],
+       ["KMime::Types", "AddressList", ".*", ".*", rule_helpers.typedef_discard],
     ]
 
 

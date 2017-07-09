@@ -42,6 +42,7 @@ from clang.cindex import AccessSpecifier
 
 import PyQt_templates
 from PyQt_templates import function_uses_templates
+import rule_helpers
 import rules_engine
 import common_methodcode
 import common_modulecode
@@ -82,17 +83,17 @@ def _function_discard_class(container, fn, sip, matcher):
 
 def _function_discard_impl(container, fn, sip, matcher):
     if fn.extent.start.column == 1:
-        rules_engine.function_discard(container, fn, sip, matcher)
+        rule_helpers.function_discard(container, fn, sip, matcher)
 
 
 def _function_discard_non_const(container, fn, sip, matcher):
     if not sip["suffix"]:
-        rules_engine.function_discard(container, fn, sip, matcher)
+        rule_helpers.function_discard(container, fn, sip, matcher)
 
 
 def _function_discard_protected(container, fn, sip, matcher):
     if fn.access_specifier == AccessSpecifier.PROTECTED:
-        rules_engine.function_discard(container, fn, sip, matcher)
+        rule_helpers.function_discard(container, fn, sip, matcher)
 
 
 def _parameter_rewrite_without_colons(container, fn, parameter, sip, matcher):
@@ -128,7 +129,7 @@ def _typedef_rewrite_without_colons(container, typedef, sip, matcher):
 
 def _variable_discard_protected(container, variable, sip, matcher):
     if variable.access_specifier in [AccessSpecifier.PROTECTED, AccessSpecifier.PRIVATE]:
-        rules_engine.variable_discard(container, variable, sip, matcher)
+        rule_helpers.variable_discard(container, variable, sip, matcher)
 
 
 def container_rules():
@@ -136,11 +137,11 @@ def container_rules():
         #
         # Discard Qt metatype system.
         #
-        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
+        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rule_helpers.container_discard],
         #
         # SIP cannot handle templated containers with a base which is a template parameter.
         #
-        ["kimagecache.h", "KSharedPixmapCacheMixin", ".+", ".*", ".*", rules_engine.container_discard],
+        ["kimagecache.h", "KSharedPixmapCacheMixin", ".+", ".*", ".*", rule_helpers.container_discard],
         #
         # SIP does not seem to be able to handle templated base classes.
         #
@@ -148,12 +149,12 @@ def container_rules():
         #
         # SIP does not seem to be able to handle empty containers.
         #
-        ["KParts::ScriptableExtension", "Null|Undefined", ".*", ".*", ".*", rules_engine.container_discard],
+        ["KParts::ScriptableExtension", "Null|Undefined", ".*", ".*", ".*", rule_helpers.container_discard],
         #
         # This is pretty much a disaster area. TODO: can we rescue some parts?
         #
-        [".*", "KConfigCompilerSignallingItem", ".*", ".*", ".*", rules_engine.container_discard],
-        ["ConversionCheck", ".*", ".*", ".*", ".*", rules_engine.container_discard],
+        [".*", "KConfigCompilerSignallingItem", ".*", ".*", ".*", rule_helpers.container_discard],
+        ["ConversionCheck", ".*", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
 
@@ -162,17 +163,17 @@ def function_rules():
         #
         # Discard functions emitted by QOBJECT.
         #
-        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", "d_func", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rule_helpers.function_discard],
+        [".*", "d_func", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP does not support operator=.
         #
-        [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "operator=", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # TODO: Temporarily remove any functions which require templates.
         #
-        [".*", ".*", ".+", ".*", ".*", rules_engine.function_discard],
-        [".*", ".*<.*>.*", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", ".*", ".+", ".*", ".*", rule_helpers.function_discard],
+        [".*", ".*<.*>.*", ".*", ".*", ".*", rule_helpers.function_discard],
         [".*", ".*", ".*", RE_KNOWN_RESULTS + "( [&*]+)?", ".*", function_uses_templates],
         [".*", ".*", ".*", ".*", ".*" + RE_KNOWN_RESULTS + "( .*|[&*].*)", function_uses_templates],
         #
@@ -183,28 +184,28 @@ def function_rules():
         #
         # kshell.h, kconfigbase.sip have inline operators.
         #
-        [".*", "operator\|", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "operator\|", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Inline operators.
         #
-        ["KFileItem", "operator QVariant", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KService", "operator KPluginName", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KCalCore::Duration", "operator bool|operator!", ".*", ".*", "", rules_engine.function_discard],
+        ["KFileItem", "operator QVariant", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KService", "operator KPluginName", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KCalCore::Duration", "operator bool|operator!", ".*", ".*", "", rule_helpers.function_discard],
         ["KPageDialog", "pageWidget|buttonBox", ".*", ".*", "", _function_discard_non_const],
         [".*", ".*", ".*", ".*", ".*Private.*", _function_discard_protected],
         #
         # This fn does not exist.
         #
-        [".*", "qt_check_for_QGADGET_macro", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "qt_check_for_QGADGET_macro", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP thinks there are duplicate signatures.
         #
-        [".*", "qobject_cast", ".*", ".*", ".*", rules_engine.function_discard],
-        [".*", "qobject_interface_iid", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "qobject_cast", ".*", ".*", ".*", rule_helpers.function_discard],
+        [".*", "qobject_interface_iid", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # QDebug is not exposed.
         #
-        [".*", "operator<<", ".*", "QDebug.*", ".*", rules_engine.function_discard],
+        [".*", "operator<<", ".*", "QDebug.*", ".*", rule_helpers.function_discard],
     ]
 
 
@@ -214,8 +215,8 @@ def parameter_rules():
         # Annotate with Transfer or TransferThis when we see a parent object.
         #
         [".*", ".*", ".*", r"[KQ][A-Za-z_0-9]+\W*\*\W*parent", ".*", _parameter_transfer_to_parent],
-        ["KCoreConfigSkeleton", "addItem.*", "reference", ".*", ".*", rules_engine.parameter_in],
-        ["KDateTime", "fromString", "negZero", ".*", ".*", rules_engine.parameter_out],
+        ["KCoreConfigSkeleton", "addItem.*", "reference", ".*", ".*", rule_helpers.parameter_in],
+        ["KDateTime", "fromString", "negZero", ".*", ".*", rule_helpers.parameter_out],
         ["KPty", "tcGetAttr|tcSetAttr", "ttmode", ".*", ".*", _parameter_rewrite_without_colons],
         #
         # TODO: Temporarily trim any parameters which start "enum".
@@ -278,7 +279,7 @@ def variable_rules():
         #
         # Discard variable emitted by QOBJECT.
         #
-        [".*", "staticMetaObject", ".*", rules_engine.variable_discard],
+        [".*", "staticMetaObject", ".*", rule_helpers.variable_discard],
         #
         # Discard "private" variables (check they are protected!).
         #

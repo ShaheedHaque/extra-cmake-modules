@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KAuth. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def function_rules():
@@ -30,7 +30,7 @@ def function_rules():
         #
         # SIP thinks there are duplicate signatures.
         #
-        ["KAuth::ActionReply", "ActionReply", ".*", ".*", ".*int.*", rules_engine.function_discard],
+        ["KAuth::ActionReply", "ActionReply", ".*", ".*", ".*int.*", rule_helpers.function_discard],
     ]
 
 

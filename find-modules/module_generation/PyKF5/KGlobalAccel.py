@@ -22,11 +22,11 @@ SIP binding customisation for PyKF5.KGlobalAccel. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rules_engine.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget")
+    rule_helpers.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget")
 
 
 
@@ -34,7 +34,7 @@ def module_fix_mapped_types_private(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget",
+    rule_helpers.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget",
                                   "GlobalShortcutsRegistry", "QDBusContext")
 
 

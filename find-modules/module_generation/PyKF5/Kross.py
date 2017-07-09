@@ -22,14 +22,14 @@ SIP binding customisation for PyKF5.Kross. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QVariant>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QVariant>")
 
 
 def modulecode():

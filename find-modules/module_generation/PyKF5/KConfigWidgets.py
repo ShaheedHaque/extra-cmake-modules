@@ -23,7 +23,7 @@ SIP binding customisation for PyKF5.KConfigWidgets. This modules describes:
 """
 
 
-import rules_engine
+import rule_helpers
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -42,7 +42,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>")
 
 
 def function_rules():
@@ -59,7 +59,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KStandardAction", ".*", "parent", ".*", ".*", rules_engine.noop]
+        ["KStandardAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
     ]
 
 

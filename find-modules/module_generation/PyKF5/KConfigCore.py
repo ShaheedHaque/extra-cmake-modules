@@ -24,7 +24,7 @@ SIP binding customisation for PyKF5.KConfigCore. This modules describes:
 
 from copy import deepcopy
 
-import rules_engine
+import rule_helpers
 
 
 def _container_delete_base(container, sip, matcher):
@@ -32,8 +32,8 @@ def _container_delete_base(container, sip, matcher):
 
 
 def _mark_abstract_and_discard_QSharedData(container, sip, matcher):
-    rules_engine.container_mark_abstract(container, sip, matcher)
-    rules_engine.container_discard_QSharedData_base(container, sip, matcher)
+    rule_helpers.container_mark_abstract(container, sip, matcher)
+    rule_helpers.container_discard_QSharedData_base(container, sip, matcher)
 
 
 def _function_fixup_template_params(container, function, sip, matcher):
@@ -49,7 +49,7 @@ def _function_rewrite_using_decl(container, function, sip, matcher):
 
 
 def _discard_non_const_suffixes(container, function, sip, matcher):
-    rules_engine.function_discard(container, function, sip, matcher)
+    rule_helpers.function_discard(container, function, sip, matcher)
 
 
 def parameter_add_brackets(container, function, parameter, sip, matcher):
@@ -142,20 +142,20 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>",
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>",
                                        "QList<QUrl>", "QList<QVariant>")
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
 
 
 def container_rules():
     return [
         ["kconfigbackend.h", "KConfigBackend", ".*", ".*", ".*", _mark_abstract_and_discard_QSharedData],
-        ["kconfigbase.h", "KConfigBase", ".*", ".*", ".*", rules_engine.container_mark_abstract],
-        ["ksharedconfig.h", "KSharedConfig", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
+        ["kconfigbase.h", "KConfigBase", ".*", ".*", ".*", rule_helpers.container_mark_abstract],
+        ["ksharedconfig.h", "KSharedConfig", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
         #
         # Emit templated containers.
         #
-        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rules_engine.noop],
+        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rule_helpers.noop],
         #
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.
@@ -168,13 +168,13 @@ def function_rules():
     return [
         ["KCoreConfigSkeleton|KConfig.*|KDesktopFile|KSharedConfig", "groupImpl|group|config|actionGroup", ".*", ".*", ".*", ".*", "(?! const).*", _discard_non_const_suffixes],
         ["KConfigGroup", "KConfigGroup", ".*", ".*", "KConfigBase.*", ".*", "(?! const)", _discard_non_const_suffixes],
-        ["KConfigSkeletonGenericItem", "value", ".*", ".*", ".*", "", "", rules_engine.function_discard],
+        ["KConfigSkeletonGenericItem", "value", ".*", ".*", ".*", "", "", rule_helpers.function_discard],
         ["KConfigSkeletonGenericItem", "setValue|setDefaultValue", ".*", ".*", ".*", _function_fixup_template_params],
         #
         # What *is* KEntryMap?
         #
-        ["KConfigBackend", ".*", ".*", ".*", ".*KEntryMap.*", rules_engine.function_discard],
-        ["KConfigBackend", "create", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KConfigBackend", ".*", ".*", ".*", ".*KEntryMap.*", rule_helpers.function_discard],
+        ["KConfigBackend", "create", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Rewrite using declaration.
         #
@@ -188,7 +188,7 @@ def typedef_rules():
         # It is not clear how to represent "typedef QHash < QString, KConfigSkeletonItem * >::Iterator DictIterator;"
         # in SIP. Discard it.
         #
-        ["KConfigSkeletonItem", "DictIterator", ".*", ".*", rules_engine.typedef_discard],
+        ["KConfigSkeletonItem", "DictIterator", ".*", ".*", rule_helpers.typedef_discard],
     ]
 
 

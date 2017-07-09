@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KCoreAddons. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def _container_delete_base(container, sip, matcher):
@@ -34,8 +34,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rules_engine.modulecode_delete(filename, sip, entry, "QList<T>")
-    rules_engine.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QList<QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<T>")
+    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QList<QVariant>")
 
 
 def container_rules():
@@ -45,7 +45,7 @@ def container_rules():
         # delete the base class.
         #
         ["kuser.h", "KUserId|KGroupId", ".*", ".*", ".*", _container_delete_base],
-        ["KPluginFactory", "InheritanceChecker", ".*", ".*", ".*", rules_engine.container_discard],
+        ["KPluginFactory", "InheritanceChecker", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
 
@@ -54,47 +54,47 @@ def function_rules():
         #
         # Strip protected functions which require private stuff to work.
         #
-        ["KPluginFactory", "KPluginFactory", ".*", ".*", "KPluginFactoryPrivate.*", rules_engine.function_discard],
-        ["KJob", ".*", ".*", ".*", ".*KJob::QPrivateSignal.*", rules_engine.function_discard],
-        ["KCompositeJob", "KCompositeJob", ".*", ".*", "KCompositeJobPrivate.*", rules_engine.function_discard],
-        ["KUser", "KUser", ".*", ".*", ".*passwd.*", rules_engine.function_discard],
-        ["KUserGroup", "KUserGroup", ".*", ".*", ".*group.*", rules_engine.function_discard],
+        ["KPluginFactory", "KPluginFactory", ".*", ".*", "KPluginFactoryPrivate.*", rule_helpers.function_discard],
+        ["KJob", ".*", ".*", ".*", ".*KJob::QPrivateSignal.*", rule_helpers.function_discard],
+        ["KCompositeJob", "KCompositeJob", ".*", ".*", "KCompositeJobPrivate.*", rule_helpers.function_discard],
+        ["KUser", "KUser", ".*", ".*", ".*passwd.*", rule_helpers.function_discard],
+        ["KUserGroup", "KUserGroup", ".*", ".*", ".*group.*", rule_helpers.function_discard],
         #
         # Use forward declared types.
         #
-        ["KPluginFactory", "createPartObject", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KPluginFactory", "create", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KMacroExpanderBase", "expandMacrosShellQuote", ".*", ".*", "QString &str", rules_engine.function_discard],
+        ["KPluginFactory", "createPartObject", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KPluginFactory", "create", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KMacroExpanderBase", "expandMacrosShellQuote", ".*", ".*", "QString &str", rule_helpers.function_discard],
         #
         # This class has inline implementations in the header file.
         #
-        ["KPluginName", ".*", ".*", ".*", ".*", rules_engine.function_discard_impl],
+        ["KPluginName", ".*", ".*", ".*", ".*", rule_helpers.function_discard_impl],
         #
         # SIP cannot handle std::function.
         #
-        ["KPluginLoader", "instantiatePlugins|findPlugins|forEachPlugin", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KPluginLoader", "instantiatePlugins|findPlugins|forEachPlugin", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP thinks there are duplicate signatures.
         #
-        ["KRandomSequence", "setSeed", ".*", ".*", "int.*", rules_engine.function_discard],
+        ["KRandomSequence", "setSeed", ".*", ".*", "int.*", rule_helpers.function_discard],
         #
         # kuser.h has inline operators.
         #
-        [".*", "operator!=", ".*", ".*", "const KUser(Group){0,1} &other", rules_engine.function_discard],
+        [".*", "operator!=", ".*", ".*", "const KUser(Group){0,1} &other", rule_helpers.function_discard],
         #
         # Need typedef for argument, plus custom logic.
         #
-        ["KPluginFactory", "registerPlugin", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KPluginFactory", "registerPlugin", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP: unsupported signal argument type, unsupported function argument type (QPair)
         #
-        ["KJob|KJobTrackerInterface|KStatusBarJobTracker|KUiServerJobTracker|KWidgetJobTracker", "description", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KJob|KJobTrackerInterface|KStatusBarJobTracker|KUiServerJobTracker|KWidgetJobTracker", "description", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 
 def parameter_rules():
     return [
-        ["KShell", "splitArgs", "err", ".*", ".*", rules_engine.parameter_out],
+        ["KShell", "splitArgs", "err", ".*", ".*", rule_helpers.parameter_out],
     ]
 
 

@@ -22,13 +22,13 @@ SIP binding customisation for PyKF5.KContacts. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def function_rules():
     return [
-        ["KContacts::ContactGroup", "contact.*Reference|data", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
-        ["KContacts::Field", "Field", ".*", ".*", ".*Private.*", ".*", ".*", rules_engine.function_discard],
+        ["KContacts::ContactGroup", "contact.*Reference|data", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["KContacts::Field", "Field", ".*", ".*", ".*Private.*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 

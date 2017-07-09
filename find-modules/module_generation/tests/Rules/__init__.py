@@ -29,8 +29,9 @@ SIP binding customisation for tests.
 """
 import os
 
-import rules_engine
 import builtin_rules
+import rule_helpers
+import rules_engine
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -85,8 +86,8 @@ def parameter_emit_modulecode(container, function, parameter, sip, matcher):
 
 
 def parameter_in_out(container, function, parameter, sip, matcher):
-    rules_engine.parameter_out(container, function, parameter, sip, matcher)
-    rules_engine.parameter_in(container, function, parameter, sip, matcher)
+    rule_helpers.parameter_out(container, function, parameter, sip, matcher)
+    rule_helpers.parameter_in(container, function, parameter, sip, matcher)
 
 
 def typedef_emit_modulecode(container, typedef, sip, matcher):
@@ -110,8 +111,8 @@ def container_rules():
         #
         # Discard Qt metatype system.
         #
-        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rules_engine.container_discard],
-        [".*", "Shared", ".*", ".*", ".*", rules_engine.container_discard_QSharedData_base],
+        [".*", "(QMetaTypeId|QTypeInfo)", ".*", ".*", ".*", rule_helpers.container_discard],
+        [".*", "Shared", ".*", ".*", ".*", rule_helpers.container_discard_QSharedData_base],
         [".*", "TemplateDerivative", ".*", ".*", ".*", container_discard_templated_bases],
         [".*", "ModuleCodeType", ".*", ".*", ".*", container_emit_modulecode],
     ]
@@ -119,7 +120,7 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        [".*", "ExternalFwdDecl", ".*", rules_engine.container_mark_forward_declaration_external],
+        [".*", "ExternalFwdDecl", ".*", rule_helpers.container_mark_forward_declaration_external],
     ]
 
 
@@ -128,17 +129,17 @@ def function_rules():
         #
         # Discard functions emitted by QOBJECT.
         #
-        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "metaObject|qt_metacast|tr|trUtf8|qt_metacall|qt_check_for_QOBJECT_macro", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # SIP does not support operator=.
         #
-        [".*", "operator=", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", "operator=", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # TODO: Temporarily remove any functions which require std templates.
         #
-        [".*", ".*", ".*", ".*", ".*std::function.*", rules_engine.function_discard],
-        [".*", ".*", ".*", ".*", ".*std::numeric_limits.*", rules_engine.function_discard],
-        ["TypedefUser", "setTagPattern", ".*", ".*", ".*", rules_engine.function_discard],
+        [".*", ".*", ".*", ".*", ".*std::function.*", rule_helpers.function_discard],
+        [".*", ".*", ".*", ".*", ".*std::numeric_limits.*", rule_helpers.function_discard],
+        ["TypedefUser", "setTagPattern", ".*", ".*", ".*", rule_helpers.function_discard],
         ["Sample1_1", "markedInOutCxxDecl", ".*", ".*", ".*", fn_cxx_decl],
     ]
 
@@ -146,7 +147,7 @@ def function_rules():
 def parameter_rules():
     return [
         ["Sample1_1", "markedInOut.*", "scursor", ".*", ".*", parameter_in_out],
-        ["Sample1_1", "markedInOut.*", "result", ".*", ".*", rules_engine.parameter_out],
+        ["Sample1_1", "markedInOut.*", "result", ".*", ".*", rule_helpers.parameter_out],
     ]
 
 
@@ -163,7 +164,7 @@ def variable_rules():
         #
         # Discard variable emitted by QOBJECT.
         #
-        [".*", "staticMetaObject", ".*", rules_engine.variable_discard],
+        [".*", "staticMetaObject", ".*", rule_helpers.variable_discard],
     ]
 
 

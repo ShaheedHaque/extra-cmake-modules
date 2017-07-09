@@ -22,11 +22,11 @@ SIP binding customisation for PyKF5.KNotifyConfig. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def forward_declaration_rules():
     return [
-        ["knotifyconfigwidget.h", "KNotifyConfigElement", ".*", rules_engine.container_mark_forward_declaration_external],
+        ["knotifyconfigwidget.h", "KNotifyConfigElement", ".*", rule_helpers.container_mark_forward_declaration_external],
     ]
 

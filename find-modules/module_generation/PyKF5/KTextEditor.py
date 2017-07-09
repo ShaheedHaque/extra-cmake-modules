@@ -22,7 +22,7 @@ SIP binding customisation for PyKF5.KTextEditor. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def _function_make_public(container, function, sip, matcher):
@@ -72,21 +72,21 @@ _ktexteditor_qobject_ctscc = """
 
 def container_rules():
     return [
-        ["KTextEditor", "Attribute", ".*", ".*", ".*QSharedData.*", rules_engine.container_discard_QSharedData_base],
+        ["KTextEditor", "Attribute", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
     ]
 
 
 def function_rules():
     return [
-        ["KTextEditor::.*Cursor", "operator Cursor", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KTextEditor::MovingRange", "operator Range", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KTextEditor::.*Cursor", "operator Cursor", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KTextEditor::MovingRange", "operator Range", ".*", ".*", ".*", rule_helpers.function_discard],
         ["KTextEditor::MovingCursor", "MovingCursor", ".*", "", ".*", _function_make_public],
         #
         # SIP unsupported signal argument type.
         #
-        ["KTextEditor::MarkInterface", "markToolTipRequested", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KTextEditor::MarkInterface", "markContextMenuRequested", ".*", ".*", ".*", rules_engine.function_discard],
-        ["KTextEditor::MarkInterface", "markClicked", ".*", ".*", ".*", rules_engine.function_discard],
+        ["KTextEditor::MarkInterface", "markToolTipRequested", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KTextEditor::MarkInterface", "markContextMenuRequested", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KTextEditor::MarkInterface", "markClicked", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 

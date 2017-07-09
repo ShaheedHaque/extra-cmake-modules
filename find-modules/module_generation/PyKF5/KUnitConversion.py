@@ -22,12 +22,12 @@ SIP binding customisation for PyKF5.KUnitConversion. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import rules_engine
+import rule_helpers
 
 
 def function_rules():
     return [
-        ["KUnitConversion::Unit", "Unit", ".*", ".*", "KUnitConversion::UnitPrivate.*", rules_engine.function_discard],
-        ["KUnitConversion::UnitCategory", "UnitCategory", ".*", ".*", "KUnitConversion::UnitCategoryPrivate.*", rules_engine.function_discard],
+        ["KUnitConversion::Unit", "Unit", ".*", ".*", "KUnitConversion::UnitPrivate.*", rule_helpers.function_discard],
+        ["KUnitConversion::UnitCategory", "UnitCategory", ".*", ".*", "KUnitConversion::UnitCategoryPrivate.*", rule_helpers.function_discard],
     ]
 

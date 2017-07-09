@@ -21,7 +21,7 @@ SIP binding customisation for PyKF5.Solid. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-import rules_engine
+import rule_helpers
 
 
 def function_rules():
@@ -29,7 +29,7 @@ def function_rules():
         #
         # Discard non-const.
         #
-        ["Solid::Device", "asDeviceInterface", ".*", ".*", ".*", ".*", "(?! const)", rules_engine.function_discard],
+        ["Solid::Device", "asDeviceInterface", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
     ]
 
 
