@@ -102,12 +102,17 @@ class RuleUsage(dict):
 
 
 class ModuleGenerator(object):
-    def __init__(self, rules_pkg, output_dir):
+    def __init__(self, rules_pkg, output_dir, dump_modules=False, dump_items=False, dump_includes=False,
+                 dump_privates=False):
         """
         Constructor.
 
         :param rules_pkg:           The rules for the project.
         :param output_dir:          The destination SIP directory.
+        :param dump_modules:        Turn on tracing for modules.
+        :param dump_items:          Turn on tracing for container members.
+        :param dump_includes:       Turn on diagnostics for include files.
+        :param dump_privates:       Turn on diagnostics for omitted private items.
         """
         super(ModuleGenerator, self).__init__()
         #
@@ -134,6 +139,10 @@ class ModuleGenerator(object):
         self.compile_flags += ["-I" + i for i in exploded_includes]
         self.imports = self.compiled_rules.sip_imports()
         self.output_dir = output_dir
+        self.dump_modules = dump_modules
+        self.dump_items = dump_items
+        self.dump_includes = dump_includes
+        self.dump_privates = dump_privates
         #
         # One of the problems we want to solve is that for each #include in the transitive fanout for a .h under
         # self.project_root, we need to insert a %Import for the corresponding module-level .sip. To do this, we assume
@@ -303,7 +312,8 @@ class ModuleGenerator(object):
                     per_process_args.append((source, h_file))
         if not per_process_args:
             return attempts, failures
-        std_args = (self.project_root, self.rules_pkg, self.package, self.compile_flags, self.includes, self.output_dir)
+        std_args = (self.project_root, self.rules_pkg, self.package, self.compile_flags, self.includes, self.output_dir,
+                    self.dump_modules, self.dump_items, self.dump_includes, self.dump_privates)
         if jobs == 0:
             #
             # Debug mode.
@@ -387,7 +397,6 @@ class ModuleGenerator(object):
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
-            logger.info(_("Creating {}").format(full_output))
             if h_dir:
                 decl = "%Module(name={}.{})\n".format(self.package, module)
             else:
@@ -444,9 +453,12 @@ class ModuleGenerator(object):
                 "peers": peers,
             }
             body = ""
+            if self.dump_modules:
+                logger.info(_("Processing module for {}").format(os.path.basename(full_output)))
             modifying_rule = self.compiled_rules.modulecode(os.path.basename(full_output), sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
+            logger.info(_("Creating {}").format(full_output))
             with open(full_output, "w") as f:
                 f.write(header(output_file, h_dir, self.package))
                 f.write(body)
@@ -488,7 +500,8 @@ class ModuleGenerator(object):
         return None
 
 
-def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_paths, output_dir):
+def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_paths, output_dir, dump_modules,
+                dump_items, dump_includes, dump_privates):
     """
     Walk over a directory tree and for each file or directory, apply a function.
 
@@ -500,6 +513,10 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
     :param compile_flags:       Config
     :param i_paths:             Config
     :param output_dir:          Config
+    :param dump_modules:        Turn on tracing for modules.
+    :param dump_items:          Turn on tracing for container members.
+    :param dump_includes:       Turn on diagnostics for include files.
+    :param dump_privates:       Turn on diagnostics for omitted private items.
     :return:                    (
                                     source,
                                     sip_suffix,
@@ -518,7 +535,8 @@ def process_one(h_file, h_suffix, h_root, rules_pkg, package, compile_flags, i_p
     # Make sure any errors mention the file that was being processed.
     #
     try:
-        generator = SipGenerator(rules_pkg, compile_flags)
+        generator = SipGenerator(rules_pkg, compile_flags, dump_modules=dump_modules, dump_items=dump_items,
+                                 dump_includes=dump_includes, dump_privates=dump_privates)
         if h_suffix.endswith("_export.h"):
             pass
         elif h_suffix.endswith("_version.h"):
@@ -752,7 +770,15 @@ def main(argv=None):
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
-                        help=_("Debug dump rule usage statistics"))
+                        help=_("Emit rule usage statistics"))
+    parser.add_argument("--dump-includes", action="store_true", default=False,
+                        help=_("Emit diagnostics for include files"))
+    parser.add_argument("--dump-privates", action="store_true", default=False,
+                        help=_("Emit diagnostics for omitted private items"))
+    parser.add_argument("--dump-modules", action="store_true", default=False,
+                        help=_("Emit tracing for modules"))
+    parser.add_argument("--dump-items", action="store_true", default=False,
+                        help=_("Emit tracing for container members"))
     parser.add_argument("output", help=_("SIP output directory"))
     try:
         args = parser.parse_args(argv[1:])
@@ -765,7 +791,8 @@ def main(argv=None):
         #
         rules_pkg = os.path.normpath(args.rules)
         output = os.path.normpath(args.output)
-        d = ModuleGenerator(rules_pkg, output)
+        d = ModuleGenerator(rules_pkg, output, dump_modules=args.dump_modules, dump_items=args.dump_items,
+                            dump_includes=args.dump_includes, dump_privates=args.dump_privates)
         attempts, failures, directories = d.process_tree(args.jobs, args.select, args.omit)
         if args.dump_rule_usage:
             for rule in sorted(d.rule_usage.keys()):

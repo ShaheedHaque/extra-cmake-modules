@@ -131,18 +131,22 @@ def trace_modified_by(cursor, rule, text=None):
 
 
 class SipGenerator(object):
-    def __init__(self, rules_pkg, compile_flags, verbose=False, dump_includes=False, dump_privates=False):
+    def __init__(self, rules_pkg, compile_flags, dump_modules=False, dump_items=False, dump_includes=False,
+                 dump_privates=False):
         """
         Constructor.
 
         :param rules_pkg:           The rules for the file.
         :param compile_flags:       The compile flags for the file.
+        :param dump_modules:        Turn on tracing for modules.
+        :param dump_items:          Turn on tracing for container members.
         :param dump_includes:       Turn on diagnostics for include files.
         :param dump_privates:       Turn on diagnostics for omitted private items.
         """
         self.compiled_rules = rules_engine.rules(rules_pkg)
         self.compile_flags = compile_flags
-        self.verbose = verbose
+        self.dump_modules = dump_modules
+        self.dump_items = dump_items
         self.dump_includes = dump_includes
         self.dump_privates = dump_privates
         self.diagnostics = set()
@@ -150,9 +154,18 @@ class SipGenerator(object):
         self.unpreprocessed_source = None
 
     @staticmethod
-    def describe(cursor, text=None):
+    def describe(cursor, text=None, fqn=False):
         if not text:
             text = cursor.spelling
+        if fqn:
+            parents = ""
+            parent = cursor.semantic_parent
+            while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
+                parents = parent.spelling + "::" + parents
+                parent = parent.semantic_parent
+            if not parents:
+                parents = os.path.basename(cursor.translation_unit.spelling) + "::"
+            text = parents + text
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
     def create_sip(self, h_file, include_filename):
@@ -196,7 +209,7 @@ class SipGenerator(object):
                        "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
         if self.dump_includes:
             for include in sorted(set(self.tu.get_includes())):
-                logger.debug(_("Used includes {}").format(include.include.name))
+                logger.info(_("Used includes {}").format(include.include.name))
         #
         # Run through the top level children in the translation unit.
         #
@@ -212,6 +225,8 @@ class SipGenerator(object):
                 "decl": body
             }
             body = ""
+            if self.dump_modules:
+                logger.info(_("Processing module for {}").format(h_name))
             modifying_rule = self.compiled_rules.modulecode(h_name, sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(h_name, modifying_rule)
@@ -239,7 +254,7 @@ class SipGenerator(object):
             return False
         if member.spelling == "hidden":
             if self.dump_privates:
-                logger.debug("Ignoring private {}".format(SipGenerator.describe(parent)))
+                logger.info(_("Ignoring private {}").format(SipGenerator.describe(parent)))
             sip["name"] = ""
             return True
         return False
@@ -441,7 +456,7 @@ class SipGenerator(object):
                     pass
                 else:
                     if self.dump_privates:
-                        logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
+                        logger.info(_("Ignoring private {}").format(SipGenerator.describe(member)))
                     continue
             decl = ""
             if member.kind in FN_KINDS:
@@ -515,7 +530,7 @@ class SipGenerator(object):
                     decl, tmp = self._var_get(container, member, level + 1)
                     modulecode.update(tmp)
                 elif self.dump_privates:
-                    logger.debug("Ignoring private {}".format(SipGenerator.describe(member)))
+                    logger.info(_("Ignoring private {}").format(SipGenerator.describe(member)))
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
@@ -548,10 +563,10 @@ class SipGenerator(object):
                     modulecode.update(tmp)
                 else:
                     SipGenerator._report_ignoring(container, member)
+            if self.dump_items:
+                logger.info(_("Processing {}").format(SipGenerator.describe(member, fqn=True)))
+                body += "// Processing {}\n".format(SipGenerator.describe(member, fqn=True))
             if decl:
-                if self.verbose:
-                    pad = " " * ((level + 1) * 4)
-                    body += pad + "// {}\n".format(SipGenerator.describe(member))
                 body += decl
 
         if container.kind == CursorKind.TRANSLATION_UNIT:
