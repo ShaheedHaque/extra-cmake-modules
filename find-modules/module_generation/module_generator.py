@@ -216,7 +216,7 @@ class ModuleGenerator(object):
         """
         self.omitter = omitter
         self.selector = selector
-        self.all_features = []
+        self.all_features = set()
         attempts = 0
         failures = []
         directories = 0
@@ -278,7 +278,7 @@ class ModuleGenerator(object):
             # TODO, make sure the entries are unique.
             #
             with open(feature_list, "w") as f:
-                for feature in sorted(self.all_features):
+                for feature in sorted(self.all_features, key=FILE_SORT_KEY):
                     f.write("%Feature(name={})\n".format(feature))
             self.rule_usage.add_local_stats(self.compiled_rules)
         return attempts, failures, directories
@@ -398,7 +398,7 @@ class ModuleGenerator(object):
 %End
 """
             feature = feature_for_sip_module(output_file)
-            self.all_features.append(feature)
+            self.all_features.add(feature)
             #
             # Create something which the SIP compiler can process that includes what appears to be the
             # immediate fanout from this module.
@@ -414,6 +414,7 @@ class ModuleGenerator(object):
                 if sip_import in self.predicted_sips:
                     if sip_import != output_file:
                         feature = feature_for_sip_module(sip_import)
+                        self.all_features.add(feature)
                         decl += "%If ({})\n".format(feature)
                         decl += "%Import(name={})\n".format(sip_import)
                         decl += "%End\n"
