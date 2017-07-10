@@ -825,7 +825,7 @@ class SipGenerator(object):
                     # Except that function pointers need special consideration. See elsewhere too...
                     #
                     if type_spelling.find(FUNC_PTR) == -1:
-                        decl = "{}* {}".format(the_type.get_pointee().spelling, parameter)
+                        decl = "{} *{}".format(the_type.get_pointee().spelling, parameter)
                     else:
                         named_func_ptr = "(*{})".format(parameter)
                         decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
