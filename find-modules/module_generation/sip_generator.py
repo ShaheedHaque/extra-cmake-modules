@@ -1144,7 +1144,8 @@ class SipGenerator(object):
                         text += token.spelling
                         was_punctuated = token.kind == TokenKind.PUNCTUATION
                 if not found_end and text:
-                    RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling, text))
+                    raise RuntimeError(_("No end found for {}::{}, '{}'").format(function.spelling, parameter.spelling,
+                                                                                 text))
                 #
                 # SIP does not like outer brackets as in "(QHash<QColor,QColor>())". Get rid of them.
                 #
