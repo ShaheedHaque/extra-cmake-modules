@@ -419,6 +419,7 @@ class SipGenerator(object):
             "name": container.spelling,
             "annotations": set()
         }
+        initial_access_specifier = ""
         body = ""
         base_specifiers = []
         template_parameters = []
@@ -575,9 +576,35 @@ class SipGenerator(object):
 
         if container.kind == CursorKind.NAMESPACE:
             container_type = "namespace " + sip["name"]
-        elif container.kind in [CursorKind.CLASS_DECL, CursorKind.CLASS_TEMPLATE,
-                                CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
+        elif container.kind == CursorKind.CLASS_DECL:
             container_type = "class " + sip["name"]
+        elif container.kind in [CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
+            #
+            # Clang presents a templated struct as a CLASS_TEMPLATE, but does not insert an initial "public" access
+            # specifier.
+            #
+            found_start = False
+            found_end = False
+            bracket_level = 0
+            for token in container.get_tokens():
+                #
+                # Now count balanced <> till we get to the end.
+                #
+                if bracket_level == 0 and found_start and token.kind == TokenKind.KEYWORD:
+                    found_end = True
+                    break
+                elif token.spelling in "<":
+                    found_start = True
+                    bracket_level += 1
+                elif token.spelling in ">":
+                    bracket_level -= 1
+            if not found_start or not found_end:
+                raise RuntimeError(_("No start or end found for {}").format(container.spelling))
+            #
+            # OTOH, SIP does not support templated structs.
+            #
+            container_type = "class " + sip["name"]
+            initial_access_specifier = "public: // Was struct"
         elif container.kind == CursorKind.STRUCT_DECL:
             if not sip["name"]:
                 sip["name"] = "__struct{}".format(container.extent.start.line)
@@ -654,6 +681,8 @@ class SipGenerator(object):
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             decl += "\n" + pad + "{\n"
             decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
+            if initial_access_specifier:
+                decl += pad + initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
             #
@@ -742,8 +771,6 @@ class SipGenerator(object):
         else:
             decl = pad + trace_discarded_by(enum, modifying_rule)
         return decl, modulecode
-
-
 
     def _fn_get(self, container, function, level, is_signal, templating_stack):
         """
