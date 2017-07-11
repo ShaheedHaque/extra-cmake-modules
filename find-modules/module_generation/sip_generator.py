@@ -786,11 +786,13 @@ class SipGenerator(object):
         :param templating_stack:    The stack of sets of template parameters.
         :return:                    A string.
         """
-        if container.kind == CursorKind.TRANSLATION_UNIT and \
-                (function.semantic_parent.kind == CursorKind.CLASS_DECL or
-                 function.semantic_parent.kind == CursorKind.STRUCT_DECL) and \
-                function.is_definition():
-            # Skip inline methods
+        #
+        # Discard inline implementations of functions declared in a class/struct.
+        #
+        if container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
+            function.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL] and \
+            function.is_definition():
+            SipGenerator._report_ignoring(container, function, "inline method")
             return "", {}
 
         sip = {

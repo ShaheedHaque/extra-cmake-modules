@@ -32,15 +32,6 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
-def fn_remove_inlined(container, function, sip, matcher):
-    for token in function.get_tokens():
-        if token.kind != TokenKind.KEYWORD:
-            return
-        if token.spelling == "inline":
-            rule_helpers.function_discard(container, function, sip, matcher)
-            return
-
-
 def _function_rewrite_using_decl1(container, function, sip, matcher):
     sip["parameters"] = ["const QByteArray &data"]
     sip["fn_result"] = "virtual void"
@@ -304,7 +295,6 @@ def function_rules():
         #
         # Remove some inlined stuff.
         #
-        ["KIO::MetaData", "MetaData|operator\\+=|toVariant", ".*", ".*", ".*", fn_remove_inlined],
         ["udsentry.h", "debugUDSEntry", ".*", ".*", ".*", rule_helpers.function_discard],
         #
         # Privates...
@@ -385,6 +375,15 @@ def typecode():
                 %TypeHeaderCode
                 // SIP does not always generate a derived class. Fake one!
                 #define sipKIO_DesktopExecParser KIO::DesktopExecParser
+                %End
+                """
+        },
+        "KIO::MetaData": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKIO_MetaData KIO::MetaData
                 %End
                 """
         },

@@ -568,6 +568,21 @@ class FunctionWithTemplatesExpander(object):
         #
         # Generate function call, unwrapping shared data result as needed.
         #
+        # TODO: When should the logic be bracketed by Py_BEGIN_ALLOW_THREADS/Py_END_ALLOW_THREADS
+        # versus the form:
+        #
+        #    try
+        #    {
+        #        stuff;
+        #    }
+        #    catch(...)
+        #    {
+        #        sipRaiseUnknownException();
+        #        return NULL;
+        #    }
+        #
+        # is it to do with exception handling support in SIP?
+        #
         if function.kind == CursorKind.CONSTRUCTOR:
             fn = fqn(container, "")[:-2].replace("::", "_")
             callsite = """    Py_BEGIN_ALLOW_THREADS
@@ -575,6 +590,18 @@ class FunctionWithTemplatesExpander(object):
     Py_END_ALLOW_THREADS
 """
             callsite = callsite.replace("{fn}", fn)
+            callsite = callsite.replace("{args}", ", ".join(sip_stars))
+            code += callsite
+        elif function.spelling.startswith("operator") and \
+                function.spelling.endswith(("*=", "/=", "%=", "+=", "-=", ">>=", "<<=", "&=", "^=", "|=")):
+            #
+            # This is a compound assignment.
+            #
+            callsite = """    Py_BEGIN_ALLOW_THREADS
+    sipCpp->{fn}({args});
+    Py_END_ALLOW_THREADS
+"""
+            callsite = callsite.replace("{fn}", function.spelling)
             callsite = callsite.replace("{args}", ", ".join(sip_stars))
             code += callsite
         else:
