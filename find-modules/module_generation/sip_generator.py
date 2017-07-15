@@ -1467,7 +1467,7 @@ class SipGenerator(object):
             # this should behave as expected!
             #
             if words[1] == "union":
-                decl = "/* union */ struct __struct" + words[-2]
+                decl = "/* union */ struct __" + words[1] + words[-2]
             else:
                 decl = words[1] + " __" + words[1] + words[-2]
         elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
