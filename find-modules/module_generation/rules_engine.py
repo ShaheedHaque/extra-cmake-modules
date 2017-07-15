@@ -1284,6 +1284,7 @@ class RuleSet(object):
         #
         self.add_rules(
             container_rules=builtin_rules.container_rules,
+            forward_declaration_rules=builtin_rules.forward_declaration_rules,
             function_rules=builtin_rules.function_rules,
             variable_rules=builtin_rules.variable_rules)
         #

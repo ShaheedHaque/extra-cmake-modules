@@ -637,11 +637,10 @@ class SipGenerator(object):
                 if sip["name"]:
                     if modifying_rule:
                         body += trace_modified_by(container, modifying_rule)
-                    if "External" in sip["annotations"]:
-                        body += pad + sip["decl"]
-                        body += " /External/;\n"
-                    else:
-                        body = pad + trace_discarded_by(container, "default forward declaration handling")
+                    body += pad + sip["decl"]
+                    if sip["annotations"]:
+                        body += " /" + ",".join(sip["annotations"]) + "/"
+                    body += ";\n"
                 else:
                     body = pad + trace_discarded_by(container, modifying_rule)
                 self._template_stack_pop_last(templating_stack, template_parameters)

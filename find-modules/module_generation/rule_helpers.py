@@ -43,6 +43,10 @@ def container_discard(container, sip, matcher):
     sip["name"] = ""
 
 
+def forward_declaration_discard(container, sip, matcher):
+    sip["name"] = ""
+
+
 def function_discard(container, function, sip, matcher):
     sip["name"] = ""
 

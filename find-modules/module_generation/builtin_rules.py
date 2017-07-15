@@ -39,6 +39,8 @@ import logging
 import re
 
 from clang.cindex import AccessSpecifier, CursorKind, TypeKind
+
+import rule_helpers
 from sip_generator import trace_generated_for
 
 logger = logging.getLogger(__name__)
@@ -1174,6 +1176,15 @@ def container_rules():
         # Other exceptions.
         #
         [".*", ".*", ".*", ".*", ".*Exception", container_rewrite_exception],
+    ]
+
+
+def forward_declaration_rules():
+    return [
+        #
+        # Default forward declaration handling.
+        #
+        [".*", ".*", ".*", rule_helpers.forward_declaration_discard],
     ]
 
 
