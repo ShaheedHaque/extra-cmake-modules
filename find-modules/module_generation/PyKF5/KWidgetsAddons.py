@@ -24,6 +24,7 @@ SIP binding customisation for PyKF5.KWidgetsAddons. This modules describes:
 
 import rule_helpers
 import common_typecode
+import rules_engine
 
 
 def _delete_duplicate_content(filename, sip, entry):
@@ -64,7 +65,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KMessageBox", ".*", "parent", ".*", ".*", rule_helpers.noop],
+        ["KMessageBox", ".*", "parent", ".*", ".*", rules_engine.noop],
         ["KMessageBox", "createKMessageBox", "checkboxReturn", ".*", ".*", rule_helpers.parameter_out],
     ]
 

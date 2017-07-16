@@ -33,13 +33,6 @@ import re
 import rules_engine
 
 
-def noop(*args):
-    """
-    This action function "does nothing" but without causing a warning.
-    """
-    pass
-
-
 def container_discard(container, sip, matcher):
     sip["name"] = ""
 

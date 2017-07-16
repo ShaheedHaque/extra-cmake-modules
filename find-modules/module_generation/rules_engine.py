@@ -51,7 +51,6 @@ from copy import deepcopy
 from clang.cindex import Cursor, CursorKind
 
 import builtin_rules
-from rule_helpers import noop
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -64,6 +63,13 @@ _SEPARATOR = "\x00"
 
 # Keep PyCharm happy.
 _ = _
+
+
+def noop(*args):
+    """
+    This action function "does nothing" but without causing a warning.
+    """
+    pass
 
 
 def _parents(container):
@@ -1265,10 +1271,28 @@ class RuleSet(object):
     You then simply run the SIP generation and SIP compilation programs passing
     in the name of your rules file
     """
-    def __init__(self, container_rules=None, forward_declaration_rules=None,
+    def __init__(self, rules_module=None, container_rules=None, forward_declaration_rules=None,
                  function_rules=None, parameter_rules=None, typedef_rules=None,
                  unexposed_rules=None, variable_rules=None, methodcode=None,
                  modulecode=None, typecode=None):
+        """
+        Constructor.
+
+        :param rules_module:                For convenience, just pass the
+                                            Python module containing
+                                            rule-returning functions named as
+                                            per the remaining arguments.
+        :param container_rules:
+        :param forward_declaration_rules:
+        :param function_rules:
+        :param parameter_rules:
+        :param typedef_rules:
+        :param unexposed_rules:
+        :param variable_rules:
+        :param methodcode:
+        :param modulecode:
+        :param typecode:
+        """
         self._container_db = ContainerRuleDb(None)
         self._forward_declaration_db = ForwardDeclarationRuleDb(None)
         self._fn_db = FunctionRuleDb(None)
@@ -1282,24 +1306,48 @@ class RuleSet(object):
         #
         # Built-in rules go first.
         #
-        self.add_rules(
-            container_rules=builtin_rules.container_rules,
-            forward_declaration_rules=builtin_rules.forward_declaration_rules,
-            function_rules=builtin_rules.function_rules,
-            variable_rules=builtin_rules.variable_rules)
+        self.add_rules(rules_module=builtin_rules)
         #
         # User supplied rules.
         #
-        self.add_rules(
-            container_rules=container_rules, forward_declaration_rules=forward_declaration_rules,
-            function_rules=function_rules, parameter_rules=parameter_rules, typedef_rules=typedef_rules,
-            unexposed_rules=unexposed_rules, variable_rules=variable_rules,
-            methodcode=methodcode, modulecode=modulecode, typecode=typecode)
+        self.add_rules(rules_module=rules_module, container_rules=container_rules,
+                       forward_declaration_rules=forward_declaration_rules, function_rules=function_rules,
+                       parameter_rules=parameter_rules, typedef_rules=typedef_rules, unexposed_rules=unexposed_rules,
+                       variable_rules=variable_rules, methodcode=methodcode, modulecode=modulecode, typecode=typecode)
 
-    def add_rules(self, container_rules=None, forward_declaration_rules=None,
+    def add_rules(self, rules_module=None, container_rules=None, forward_declaration_rules=None,
                   function_rules=None, parameter_rules=None, typedef_rules=None,
                   unexposed_rules=None, variable_rules=None, methodcode=None,
                   modulecode=None, typecode=None):
+        """
+        Add a set of rules.
+
+        :param rules_module:                For convenience, just pass the
+                                            Python module containing
+                                            rule-returning functions named as
+                                            per the remaining arguments.
+        :param container_rules:
+        :param forward_declaration_rules:
+        :param function_rules:
+        :param parameter_rules:
+        :param typedef_rules:
+        :param unexposed_rules:
+        :param variable_rules:
+        :param methodcode:
+        :param modulecode:
+        :param typecode: 
+        """
+        if rules_module:
+            container_rules = getattr(rules_module, "container_rules", container_rules)
+            forward_declaration_rules = getattr(rules_module, "forward_declaration_rules", forward_declaration_rules)
+            function_rules = getattr(rules_module, "function_rules", function_rules)
+            parameter_rules = getattr(rules_module, "parameter_rules", parameter_rules)
+            typedef_rules = getattr(rules_module, "typedef_rules", typedef_rules)
+            unexposed_rules = getattr(rules_module, "unexposed_rules", unexposed_rules)
+            variable_rules = getattr(rules_module, "variable_rules", variable_rules)
+            methodcode = getattr(rules_module, "methodcode", methodcode)
+            modulecode = getattr(rules_module, "modulecode", modulecode)
+            typecode = getattr(rules_module, "typecode", typecode)
         self._container_db.add_rules(container_rules)
         self._forward_declaration_db.add_rules(forward_declaration_rules),
         self._fn_db.add_rules(function_rules)

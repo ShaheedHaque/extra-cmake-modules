@@ -25,6 +25,7 @@ SIP binding customisation for PyKF5.KConfigCore. This modules describes:
 from copy import deepcopy
 
 import rule_helpers
+import rules_engine
 
 
 def _container_delete_base(container, sip, matcher):
@@ -155,7 +156,7 @@ def container_rules():
         #
         # Emit templated containers.
         #
-        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rule_helpers.noop],
+        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rules_engine.noop],
         #
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.

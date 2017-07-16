@@ -24,6 +24,7 @@ SIP binding customisation for PyKF5.KConfigWidgets. This modules describes:
 
 
 import rule_helpers
+import rules_engine
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -59,7 +60,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KStandardAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
+        ["KStandardAction", ".*", "parent", ".*", ".*", rules_engine.noop]
     ]
 
 

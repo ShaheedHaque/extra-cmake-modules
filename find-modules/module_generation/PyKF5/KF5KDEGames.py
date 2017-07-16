@@ -23,6 +23,7 @@ SIP binding customisation for PyKF5.KF5KDEGames. This modules describes:
 """
 
 import rule_helpers
+import rules_engine
 
 
 def module_remove_redundant(filename, sip, matcher):
@@ -121,7 +122,7 @@ def parameter_rules():
         #
         #  Override the default "parent" rule.
         #
-        ["KStandardGameAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
+        ["KStandardGameAction", ".*", "parent", ".*", ".*", rules_engine.noop]
     ]
 
 

@@ -37,6 +37,7 @@ from __future__ import print_function
 from importlib import import_module
 import os
 import re
+import sys
 
 from clang.cindex import AccessSpecifier
 
@@ -295,10 +296,8 @@ class RuleSet(rules_engine.RuleSet):
     """
     def __init__(self):
         super(RuleSet, self).__init__(
-            container_rules=container_rules, forward_declaration_rules=lambda: [],
-            function_rules=function_rules, parameter_rules=parameter_rules, typedef_rules=typedef_rules,
-            unexposed_rules=unexposed_rules, variable_rules=variable_rules,
-            methodcode=common_methodcode.code, modulecode=common_modulecode.code, typecode=common_typecode.code)
+            rules_module=sys.modules[__name__], methodcode=common_methodcode.code, modulecode=common_modulecode.code,
+            typecode=common_typecode.code)
         for rules_module in [
             "Akonadi",
             "FollowupReminder",
@@ -361,18 +360,8 @@ class RuleSet(rules_engine.RuleSet):
             "Sonnet",
             "Syndication",
         ]:
-            rules_module = import_module("." + rules_module, self.__module__)
             self.add_rules(
-                container_rules=getattr(rules_module, "container_rules", None),
-                forward_declaration_rules=getattr(rules_module, "forward_declaration_rules", None),
-                function_rules=getattr(rules_module, "function_rules", None),
-                parameter_rules=getattr(rules_module, "parameter_rules", None),
-                typedef_rules=getattr(rules_module, "typedef_rules", None),
-                unexposed_rules=getattr(rules_module, "unexposed_rules", None),
-                variable_rules=getattr(rules_module, "variable_rules", None),
-                methodcode=getattr(rules_module, "methodcode", None),
-                modulecode=getattr(rules_module, "modulecode", None),
-                typecode=getattr(rules_module, "typecode", None))
+                rules_module=import_module("." + rules_module, self.__module__))
         self.pd_cache = None
 
     def _fill_cache(self):

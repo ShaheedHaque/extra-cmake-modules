@@ -26,6 +26,7 @@ from clang.cindex import StorageClass
 
 import builtin_rules
 import rule_helpers
+import rules_engine
 
 
 def function_discard_inlines(container, function, sip, matcher):
@@ -224,7 +225,7 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        ["KJS", "AttachedInterpreter", ".*", rule_helpers.noop],
+        ["KJS", "AttachedInterpreter", ".*", rules_engine.noop],
     ]
 
 
