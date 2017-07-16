@@ -831,8 +831,16 @@ class SipGenerator(object):
                     if type_spelling.find(FUNC_PTR) == -1:
                         decl = "{} *{}".format(the_type.get_pointee().spelling, parameter)
                     else:
-                        named_func_ptr = "(*{})".format(parameter)
-                        decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
+                        #
+                        # SIP gets confused if we have default values for a canonical function pointer, so use the
+                        # "higher" form if we have else, else just hope we don't have a default value.
+                        #
+                        if child.type.spelling.find("(") == -1:
+                            decl = "{} {}".format(child.type.spelling, parameter)
+                            decl = decl.replace("* ", "*").replace("& ", "&")
+                        else:
+                            named_func_ptr = "(*{})".format(parameter)
+                            decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
                 elif the_type.kind == TypeKind.MEMBERPOINTER:
                     func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
                     named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, parameter)
