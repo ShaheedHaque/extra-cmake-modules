@@ -168,7 +168,7 @@ def function_rules():
     return [
         ["KCoreConfigSkeleton|KConfig.*|KDesktopFile|KSharedConfig", "groupImpl|group|config|actionGroup", ".*", ".*", ".*", ".*", "(?! const).*", _discard_non_const_suffixes],
         ["KConfigGroup", "KConfigGroup", ".*", ".*", "KConfigBase.*", ".*", "(?! const)", _discard_non_const_suffixes],
-        ["KConfigSkeletonGenericItem", "value", ".*", ".*", ".*", "", "", rule_helpers.function_discard],
+        ["KConfigSkeletonGenericItem", "value", ".*", ".*", ".*", "inline ", "", rule_helpers.function_discard],
         ["KConfigSkeletonGenericItem", "setValue|setDefaultValue", ".*", ".*", ".*", _function_fixup_template_params],
         #
         # What *is* KEntryMap?

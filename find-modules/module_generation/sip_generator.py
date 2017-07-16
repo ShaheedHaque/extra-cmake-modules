@@ -78,6 +78,14 @@ QScopedPointer = "QScopedPointer"
 # Function pointers are a tricky area. We need to detect them by text matching.
 #
 FUNC_PTR = "(*)"
+#
+# Function decorator keywords.
+#
+FN_PREFIX_INLINE = "inline "
+FN_PREFIX_STATIC = "static "
+FN_PREFIX_VIRTUAL = "virtual "
+FN_SUFFIX_CONST = " const"
+FN_SUFFIX_PURE = " = 0"
 
 
 def clang_diagnostic_to_logging_diagnostic(lvl):
@@ -924,7 +932,7 @@ class SipGenerator(object):
             elif function.result_type.get_canonical().kind == TypeKind.MEMBERPOINTER:
                 sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
-        sip["prefix"], sip["suffix"] = self._fn_get_decorators(function)
+        sip["prefix"], sip["suffix"] = self._fn_get_decorators(container, function)
         self._template_parameters_fixup(templating_stack, sip, "fn_result")
         self._template_parameters_fixup(templating_stack, sip, "parameters")
         modifying_rule = self.compiled_rules.function_rules().apply(container, function, sip)
@@ -972,7 +980,11 @@ class SipGenerator(object):
                 decl = sip["fn_result"] + decl
             else:
                 decl = sip["fn_result"] + " " + decl
-        decl = pad + sip["prefix"] + decl + sip["suffix"]
+        #
+        # Note that we never emit any "inline" prefix: it is only there to help rule-writers.
+        #
+        prefix = sip["prefix"].replace(FN_PREFIX_INLINE, "")
+        decl = pad + prefix + decl + sip["suffix"]
         if sip["annotations"]:
             decl += " /" + ",".join(sip["annotations"]) + "/"
         if sip["template_parameters"]:
@@ -1013,7 +1025,7 @@ class SipGenerator(object):
                                    container.displayname
         return template_type_parameters
 
-    def _fn_get_decorators(self, function):
+    def _fn_get_decorators(self, container, function):
         """
         The parser does not provide direct access to the complete keywords (explicit, const, static, etc) of a function
         in the displayname. It would be nice to get these from the AST, but I cannot find where they are hiding.
@@ -1028,14 +1040,24 @@ class SipGenerator(object):
         """
         suffix = ""
         if function.is_const_method():
-            suffix += " const"
+            suffix += FN_SUFFIX_CONST
         prefix = ""
-        if function.is_static_method():
-            prefix += "static "
-        if function.is_virtual_method():
-            prefix += "virtual "
-            if function.is_pure_virtual_method():
-                suffix += " = 0"
+        if function.is_definition():
+            #
+            # The support for "inline" is for the benefit of rule-writers who might, for example, need to suppress
+            # *any* definition, not necessarily one that the user marked as "inline". It is never emitted.
+            #
+            prefix += FN_PREFIX_INLINE
+        #
+        # A namespace cannot have "virtual" or "static".
+        #
+        if container.kind != CursorKind.NAMESPACE:
+            if function.is_static_method():
+                prefix += FN_PREFIX_STATIC
+            if function.is_virtual_method():
+                prefix += FN_PREFIX_VIRTUAL
+                if function.is_pure_virtual_method():
+                    suffix += FN_SUFFIX_PURE
         return prefix, suffix
 
     #
