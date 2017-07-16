@@ -28,6 +28,7 @@
 """Some common rule actions, as a convenience for rule writers."""
 
 import os
+import re
 
 import rules_engine
 
@@ -178,4 +179,42 @@ def code_add_imports(basename, sip, rule, *modules):
         tmp += "%Import(name=" + key + ")\n"
     trace = rules_engine.trace_generated_for(sip["name"], rule["code"], "missing imports")
     tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
+    sip["code"] += tmp
+
+
+def code_add_supplementary_typedefs(container, sip, rule, *typedefs):
+    """
+    There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param typedefs:        The types to replace.
+    """
+    def get_template(text):
+        QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)$", re.I)
+        args = text.split("<", 1)[-1]
+        args = args.rsplit(">", 1)[0]
+        if args == text:
+            return None
+        args = [a.strip() for a in args.split(",")]
+        args = [a for a in args if QUALIFIED_ID.match(a)]
+        if args == text:
+            return "<" + ", ".join(args) + ">"
+        else:
+            return ""
+
+    basename = os.path.basename(container.translation_unit.spelling)
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    tmp = ""
+    for key, value in enumerate(typedefs):
+        key = "__{}{}_t".format(container.spelling, key)
+        template = get_template(value)
+        if template:
+            tmp += "    template" + template + "\n"
+            key += template
+        tmp += "    typedef " + value + " " + key + ";\n"
+        sip["body"] = sip["body"].replace(value, key)
+    trace = rules_engine.trace_generated_for(sip["name"], code_add_supplementary_typedefs, rule)
+    tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp

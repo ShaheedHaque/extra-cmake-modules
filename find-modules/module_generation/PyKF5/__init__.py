@@ -332,6 +332,7 @@ class RuleSet(rules_engine.RuleSet):
             "KI18n",
             "KItemModels",
             "KJobWidgets",
+            "KJS",
             "KLDAP",
             "KMbox",
             "KMime",
@@ -423,8 +424,11 @@ class RuleSet(rules_engine.RuleSet):
         result.append(os.path.join(source_root, "KIOCore", "kio", "job_base.h"))
         #
         # KF5KIO is missing .../kio.
+        # KF5JS is missing .../kjs and .../wtf.
         #
         result.append(os.path.join(source_root, "kio"))
+        result.append(os.path.join(source_root, "kjs"))
+        result.append(os.path.join(source_root, "wtf"))
         result.append(os.path.join(source_root, "MailTransport", "mailtransport", "sentactionattribute.h"))
         result.append(os.path.join(source_root, "MailTransport", "mailtransport", "transportbase.h"))
         result = sorted(result)
