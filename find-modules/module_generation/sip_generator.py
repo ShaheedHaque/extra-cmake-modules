@@ -1681,7 +1681,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] != "--self-check":
+    if sys.argv[-1] != "--self-check":
         sys.exit(main())
     else:
         cindex.Config.set_library_file(sys.argv[2])

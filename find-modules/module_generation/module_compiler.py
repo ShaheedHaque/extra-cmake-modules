@@ -46,7 +46,6 @@ import traceback
 from PyQt5.QtCore import PYQT_CONFIGURATION
 
 from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
-from module_generator import PYKF5_RULES_PKG
 import rules_engine
 
 
@@ -363,13 +362,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--rules", default=PYKF5_RULES_PKG, help=_("Project rules package"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of SIP modules under 'input' to be processed"))
     parser.add_argument("--omit", default="<nothing>", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers under 'input' NOT to be processed"))
     parser.add_argument("-j", "--jobs", type=int, default=multiprocessing.cpu_count(),
                         help=_("Number of parallel jobs, 0 for serial inline operation"))
+    parser.add_argument("rules", help=_("Project rules package"))
     parser.add_argument("input", help=_("SIP input directory to process"))
     parser.add_argument("output", help=_("Python and shippable SIP output directory"))
     try:

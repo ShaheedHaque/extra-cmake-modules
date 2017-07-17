@@ -60,7 +60,6 @@ _ = _
 
 MODULE_SIP = "mod.sip"
 INCLUDES_EXTRACT = "includes"
-PYKF5_RULES_PKG = os.path.join(os.path.dirname(__file__), "PyKF5")
 FILE_SORT_KEY = str.lower
 
 
@@ -762,7 +761,6 @@ def main(argv=None):
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--rules", default=PYKF5_RULES_PKG, help=_("Project rules package"))
     parser.add_argument("--select", default=".*", type=lambda s: re.compile(s, re.I),
                         help=_("Regular expression of C++ headers from 'rules-pkg' to be processed"))
     parser.add_argument("--omit", default="=Nothing=", type=lambda s: re.compile(s, re.I),
@@ -779,6 +777,7 @@ def main(argv=None):
                         help=_("Emit tracing for modules"))
     parser.add_argument("--dump-items", action="store_true", default=False,
                         help=_("Emit tracing for container members"))
+    parser.add_argument("rules", help=_("Project rules package"))
     parser.add_argument("output", help=_("SIP output directory"))
     try:
         args = parser.parse_args(argv[1:])
