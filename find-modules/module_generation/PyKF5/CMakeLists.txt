@@ -29,25 +29,27 @@
 # NOT CMakeCache.txt et. al. but a JSON file:
 #
 #   {
+#       "CXX_COMPILE_OPTIONS": "-std=gnu++14",
+#       "CXX_DEPENDENCIES": {
+#           "Qt5Core": {
+#               "COMPILE_FLAGS": "-DQT_CORE_LIB;-DQT_NO_DEBUG;-fPIC",
+#               "INCLUDE_DIRS": "/usr/include/x86_64-linux-gnu/qt5/;...",
+#               "LIBRARIES": "/usr/lib/x86_64-linux-gnu/libQt5Core.so.5.7.1"
+#           },
+#           "$": null
+#       },
 #       "CXX_SOURCES": {
 #           "KF5Activities": {
-#               "LIBRARIES": "/usr/lib/x86_64-linux-gnu/libKF5Activities.so.5.31.0",
-#               "INCLUDE_DIRS": "/usr/include/KF5/KActivities;/usr/include/KF5"
+#               "COMPILE_FLAGS": "",
+#               "INCLUDE_DIRS": "/usr/include/KF5/KActivities;/usr/include/KF5",
+#               "LIBRARIES": "/usr/lib/x86_64-linux-gnu/libKF5Activities.so.5.31.0"
 #           },
 #           ...
 #           "$": null
 #       },
-#       "CXX_DEPENDENCIES": {
-#           "Qt5Widgets": {
-#               "LIBRARIES": ...,
-#               "INCLUDE_DIRS": ...,
-#           },
-#           "$": null
-#       },
-#       "CXX_COMPILE_OPTIONS": "-fPIC,-std=gnu++14",
-#       "SIP_DEPENDENCIES": "/usr/share/sip/PyQt5",
 #       "CXX_SOURCE_ROOT": "/usr/include/KF5",
-#       "PY_PACKAGE": "PyKF5",
+#       "SIP_DEPENDENCIES": "/usr/share/sip/PyQt5",
+#       "SIP_PACKAGE": "PyKF5",
 #       "$": null
 #   }
 #
@@ -185,7 +187,7 @@ set(CXX_SOURCES
         KF5XmlGui
         KF5XmlRpcClient)
 
-set(CXX_DEPENDENCIES
+set(CXX_QT_DEPENDENCIES
         Qt5Core
         Qt5Widgets
         Qt5Xml)
@@ -265,14 +267,36 @@ function(get_targets_info dict component targets)
     #
     # Make a combined list of includes, libraries etc.
     #
+    # There is a potential impedence mismatch between the directory-centric
+    # Pythonic notion of a package, and the possibility that the the multiple
+    # targets *might* have conflicting options. Luckily, this seems not to be
+    # a problem in KF5.
+    #
     set(libraries)
     set(includes)
+    set(compile_flags)
     foreach(target ${targets})
         if(TARGET ${target})
             get_target_property(tmp ${target} LOCATION)
             list(APPEND libraries ${tmp})
             get_target_property_recursive(${target} INTERFACE_INCLUDE_DIRECTORIES)
             list(APPEND includes ${get_target_property_recursive_result})
+            get_target_property_recursive(${target} INTERFACE_COMPILE_DEFINITIONS)
+            foreach(definition ${get_target_property_recursive_result})
+                if(${definition} MATCHES ".*QT_NO_DEBUG>")
+                    #
+                    # Qt uses the formulation "$<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG>".
+                    #
+                elseif(${definition} MATCHES "QT_.*_LIB")
+                    #
+                    # Qt uses the formulation "QT_CORE_LIB" even for INTERFACE_COMPILE_FLAGS.
+                    #
+                else()
+                    list(APPEND compile_flags "-D${definition}")
+                endif()
+            endforeach()
+            get_target_property_recursive(${target} INTERFACE_COMPILE_OPTIONS)
+            list(APPEND compile_flags ${get_target_property_recursive_result})
         else()
             message(STATUS "Warning: Ignoring invalid target \"${target}\" in ${f}")
         endif()
@@ -287,9 +311,14 @@ function(get_targets_info dict component targets)
         #
         list(REMOVE_ITEM includes "/usr/include")
     endif()
+    if(DEFINED compile_flags)
+        list(REMOVE_DUPLICATES compile_flags)
+    endif()
     file(APPEND "${dict}" "\"${component}\": {\n")
     file(APPEND "${dict}" "    \"LIBRARIES\": \"${libraries}\",\n")
-    file(APPEND "${dict}" "    \"INCLUDE_DIRS\": \"${includes}\"\n")
+    file(APPEND "${dict}" "    \"INCLUDE_DIRS\": \"${includes}\",\n")
+    file(APPEND "${dict}" "    \"COMPILE_FLAGS\": \"${compile_flags}\",\n")
+    file(APPEND "${dict}" "    \"$\": null\n")
     file(APPEND "${dict}" "},\n")
     set(includes "${includes}" PARENT_SCOPE)
 endfunction(get_targets_info)
@@ -361,7 +390,7 @@ file(APPEND "${dict}" "},\n")
 # Dependencies.
 #
 file(APPEND "${dict}" "\"CXX_DEPENDENCIES\": {\n")
-foreach(component ${CXX_DEPENDENCIES})
+foreach(component ${CXX_QT_DEPENDENCIES})
     find_package(${component})
     get_qt5_targets(${component})
     get_targets_info(${dict} ${component} "${targets}")
@@ -370,7 +399,7 @@ endforeach()
 #get_pkgconfig_info(${dict} LIBICAL)
 file(APPEND "${dict}" "\"$\": null\n")
 file(APPEND "${dict}" "},\n")
-file(APPEND "${dict}" "\"CXX_COMPILE_OPTIONS\": \"-fPIC,-std=gnu++14\",\n")
+file(APPEND "${dict}" "\"CXX_COMPILE_OPTIONS\": \"-std=gnu++14\",\n")
 file(APPEND "${dict}" "\"SIP_DEPENDENCIES\": \"${PyQt_INCLUDE_DIRS}\",\n")
 file(APPEND "${dict}" "\"CXX_SOURCE_ROOT\": \"${CXX_SOURCE_ROOT}\",\n")
 file(APPEND "${dict}" "\"SIP_PACKAGE\": \"${CMAKE_PROJECT_NAME}\",\n")

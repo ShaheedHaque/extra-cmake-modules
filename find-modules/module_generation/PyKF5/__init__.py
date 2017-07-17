@@ -295,9 +295,8 @@ class RuleSet(rules_engine.RuleSet):
     and regular expression-based matching rules.
     """
     def __init__(self):
-        super(RuleSet, self).__init__(
-            rules_module=sys.modules[__name__], methodcode=common_methodcode.code, modulecode=common_modulecode.code,
-            typecode=common_typecode.code)
+        super(RuleSet, self).__init__(rules_module=sys.modules[__name__], methodcode=common_methodcode.code,
+                                      modulecode=common_modulecode.code, typecode=common_typecode.code)
         for rules_module in [
             "Akonadi",
             "FollowupReminder",
@@ -436,8 +435,12 @@ class RuleSet(rules_engine.RuleSet):
         return result
 
     def cxx_compile_flags(self):
-        QT5_COMPILE_FLAGS = ["-fPIC", "-std=gnu++14"]
-        return QT5_COMPILE_FLAGS
+        result = set(self.pd_cache["CXX_COMPILE_OPTIONS"].split(";"))
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "COMPILE_FLAGS")
+        self._update_dir_set(result, "CXX_DEPENDENCIES", "COMPILE_FLAGS")
+        result = [i for i in result]
+        result = sorted(result)
+        return result
 
     def cxx_libraries(self):
         result = set()
