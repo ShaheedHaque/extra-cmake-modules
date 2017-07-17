@@ -294,10 +294,34 @@ function(get_targets_info dict component targets)
     set(includes "${includes}" PARENT_SCOPE)
 endfunction(get_targets_info)
 
+#
+# Find the includes, libraries etc. for a pkg-config component.
+#
+function(get_pkgconfig_info dict component)
+    set(libraries)
+    set(includes ${${component}_INCLUDEDIR})
+    set(compile_flags ${${component}_CFLAGS})
+    foreach(tmp ${${component}_LIBRARIES})
+        find_library(lib${tmp} NAMES ${tmp} PATHS ${${component}_LIBRARIES})
+        list(APPEND libraries ${lib${tmp}})
+    endforeach()
+    file(APPEND "${dict}" "\"${component}\": {\n")
+    file(APPEND "${dict}" "    \"LIBRARIES\": \"${libraries}\",\n")
+    file(APPEND "${dict}" "    \"INCLUDE_DIRS\": \"${includes}\",\n")
+    file(APPEND "${dict}" "    \"COMPILE_FLAGS\": \"${compile_flags}\",\n")
+    file(APPEND "${dict}" "    \"$\": null\n")
+    file(APPEND "${dict}" "},\n")
+    set(includes "${includes}" PARENT_SCOPE)
+endfunction(get_pkgconfig_info)
+
+#
+# Main code.
+#
 find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${ECM_MODULE_PATH})
 find_package(PyQt REQUIRED)
 include(FeatureSummary)
+include(FindPkgConfig)
 #
 # Write the values we found as a JSON blob.
 #
@@ -342,6 +366,8 @@ foreach(component ${CXX_DEPENDENCIES})
     get_qt5_targets(${component})
     get_targets_info(${dict} ${component} "${targets}")
 endforeach()
+#pkg_search_module(LIBICAL REQUIRED libical)
+#get_pkgconfig_info(${dict} LIBICAL)
 file(APPEND "${dict}" "\"$\": null\n")
 file(APPEND "${dict}" "},\n")
 file(APPEND "${dict}" "\"CXX_COMPILE_OPTIONS\": \"-fPIC,-std=gnu++14\",\n")
