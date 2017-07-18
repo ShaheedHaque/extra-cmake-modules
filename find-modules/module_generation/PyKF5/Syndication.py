@@ -49,7 +49,7 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
         #
         # This is the one we want. Keep it, and generate its %MappedType.
         #
-        PyQt_templates.qshareddatapointer_typecode(container, typedef, sip, matcher)
+        PyQt_templates.pointer_typecode(container, typedef, sip, matcher)
 
 
 def function_rules():

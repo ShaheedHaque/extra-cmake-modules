@@ -39,7 +39,7 @@ def parameter_in_out(container, function, parameter, sip, matcher):
 def parameter_out(container, function, parameter, sip, matcher):
     rule_helpers.parameter_out(container, function, parameter, sip, matcher)
     if sip["decl"].startswith("QPair"):
-        PyQt_templates.qpair_parameter(container, function, parameter, sip, matcher)
+        PyQt_templates.pair_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QVector"):
         PyQt_templates.list_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QMap"):

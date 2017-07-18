@@ -747,10 +747,10 @@ class ListExpander(AbstractExpander):
         return code
 
 
-class QPairExpander(AbstractExpander):
+class PairExpander(AbstractExpander):
 
     def __init__(self):
-        super(QPairExpander, self).__init__(["first", "second"])
+        super(PairExpander, self).__init__(["first", "second"])
 
     def expand_generic(self, qt_type, entries):
         """
@@ -883,16 +883,16 @@ class QPairExpander(AbstractExpander):
         return code
 
 
-class QSharedDataPointerExpander(AbstractExpander):
+class PointerExpander(AbstractExpander):
 
     def __init__(self):
-        super(QSharedDataPointerExpander, self).__init__(["value"])
+        super(PointerExpander, self).__init__(["value"])
 
     def expand_generic(self, qt_type, entries):
         """
-        Generic support for QPair types which are mapped onto a Python tuple.
-        Either template parameter can be of any integral (int, long, enum) type
-        or non-integral type, for example, QPair<int, QString>.
+        Generic support for Qt pointer types. The template parameter can be of
+        any integral (int, long, enum) type or non-integral type, for example,
+        QWeakPointer<int>.
 
         :param qt_type:         The name of the Qt template, e.g. "QSharedDataPointer".
         :param entries:         Dictionary describing the C++ template. Expected keys:
@@ -1155,39 +1155,39 @@ def set_typecode(container, typedef, sip, matcher):
     template.expand_typedef(set_typecode, typedef, sip)
 
 
-def qpair_parameter(container, function, parameter, sip, matcher):
+def pair_parameter(container, function, parameter, sip, matcher):
     """
     A ParameterDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
-    handler = QPairExpander()
-    handler.expand_parameter(qpair_parameter, parameter, sip)
+    handler = PairExpander()
+    handler.expand_parameter(pair_parameter, parameter, sip)
 
 
-def qpair_typecode(container, typedef, sip, matcher):
+def pair_typecode(container, typedef, sip, matcher):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
-    template = QPairExpander()
-    template.expand_typedef(qpair_typecode, typedef, sip)
+    template = PairExpander()
+    template.expand_typedef(pair_typecode, typedef, sip)
 
 
-def qshareddatapointer_parameter(container, function, parameter, sip, matcher):
+def pointer_parameter(container, function, parameter, sip, matcher):
     """
     A ParameterDb-compatible function used to create a %MappedType for a
-    QSharedDataPointer<>.
+    Qt pointer type.
     """
-    handler = QSharedDataPointerExpander()
-    handler.expand_parameter(qshareddatapointer_parameter, parameter, sip)
+    handler = PointerExpander()
+    handler.expand_parameter(pointer_parameter, parameter, sip)
 
 
-def qshareddatapointer_typecode(container, typedef, sip, matcher):
+def pointer_typecode(container, typedef, sip, matcher):
     """
-    A TypeCodeDb-compatible function used to create a %MappedType for a 
-    QSharedDataPointer<>.
+    A TypeCodeDb-compatible function used to create a %MappedType for a
+    Qt pointer type.
     """
-    handler = QSharedDataPointerExpander()
+    handler = PointerExpander()
     if typedef.underlying_typedef_type.kind == TypeKind.ELABORATED:
         #
         # This is a typedef of a typedef, and Clang gets the template
@@ -1195,4 +1195,4 @@ def qshareddatapointer_typecode(container, typedef, sip, matcher):
         #
         return
     assert typedef.underlying_typedef_type.kind == TypeKind.UNEXPOSED
-    handler.expand_typedef(qshareddatapointer_parameter, typedef, sip)
+    handler.expand_typedef(pointer_parameter, typedef, sip)
