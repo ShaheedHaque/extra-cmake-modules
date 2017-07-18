@@ -65,13 +65,13 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
     Automatic handling for templated function parameter types with auto-unwrapping
     of QT_PTRS.
     """
-    def __init__(self, cxx_t, clang_kind, manual_t=None):
+    def __init__(self, cxx_t, clang_t, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
         if is_qshared:
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]
             cxx_t = template_args[0] + " *"
-        super(FunctionParameterHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        super(FunctionParameterHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_qshared = is_qshared
 
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
@@ -111,13 +111,13 @@ class FunctionReturnHelper(builtin_rules.FunctionReturnHelper):
     Automatic handling for templated function return types with auto-unwrapping
     of QT_PTRS templates.
     """
-    def __init__(self, cxx_t, clang_kind, manual_t=None):
+    def __init__(self, cxx_t, clang_t, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
         if is_qshared:
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]
             cxx_t = template_args[0] + " *"
-        super(FunctionReturnHelper, self).__init__(cxx_t, clang_kind, manual_t)
+        super(FunctionReturnHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_qshared = is_qshared
 
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
@@ -204,8 +204,8 @@ class GenerateMappedHelper(HeldAs):
 """,
     }
 
-    def __init__(self, entry, clang_kind):
-        super(GenerateMappedHelper, self).__init__(entry["type"], clang_kind, entry["base_type"])
+    def __init__(self, entry, clang_t):
+        super(GenerateMappedHelper, self).__init__(entry["type"], clang_t, entry["base_type"])
 
     def cxx_to_py_template(self):
         if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
@@ -480,8 +480,8 @@ class AbstractExpander(object):
                 "type": actual_type,
                 "base_type": base_type,
             }
-            kind = types[i].type.get_canonical().kind if types[i] else None
-            entries[parameter] = GenerateMappedHelper(p, kind)
+            clang_t = types[i].type.get_canonical() if types[i] else None
+            entries[parameter] = GenerateMappedHelper(p, clang_t)
             parameters.append(actual_type)
         template_args = ", ".join(parameters)
         #

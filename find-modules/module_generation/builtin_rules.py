@@ -175,11 +175,11 @@ class HeldAs(object):
     }
     _rev_map = None
 
-    def __init__(self, cxx_t, clang_kind, base_cxx_t=None):
+    def __init__(self, cxx_t, clang_t, base_cxx_t=None):
         """
         :param cxx_t:                       The declaration text from the source code.
-        :param clang_kind:                  The clang kind or None.
-        :param base_cxx_t:                  Th base type, can be manually overridden.
+        :param clang_t:                     The Clang type or None.
+        :param base_cxx_t:                  The base type, can be manually overridden.
         """
         self.cxx_t = cxx_t
         if base_cxx_t is None:
@@ -199,7 +199,7 @@ class HeldAs(object):
                 self.sip_t = base_held_as
             else:
                 self.sip_t = "sipType_" + base_cxx_t.replace("::", "_")
-        self.category = HeldAs.categorise(cxx_t, clang_kind)
+        self.category = HeldAs.categorise(cxx_t, clang_t)
 
     def cxx_to_py_template(self):
         raise NotImplementedError()
@@ -208,7 +208,7 @@ class HeldAs(object):
         raise NotImplementedError()
 
     @staticmethod
-    def categorise(cxx_t, clang_kind):
+    def categorise(cxx_t, clang_t):
         """
         We would like to be able to use clang type system to determine the
         HELD_AS, but this is not always possible. For example, in a templated
@@ -219,13 +219,13 @@ class HeldAs(object):
         TODO: When we figure this out, get rid of the horrid heuristics.
 
         :param cxx_t:                       The text from the source code.
-        :param clang_kind:                  The clang kind or None.
+        :param clang_t:                     The Clang type or None.
         :return: the storage type of the object.
         """
         if cxx_t.endswith("*"):
             return HeldAs.POINTER
         elif cxx_t.endswith("&"):
-            return HeldAs.categorise(cxx_t[:-1].strip(), clang_kind)
+            return HeldAs.categorise(cxx_t[:-1].strip(), clang_t)
         elif cxx_t == HeldAs.VOID:
             return HeldAs.VOID
         elif cxx_t.startswith("type-parameter-"):
@@ -233,7 +233,7 @@ class HeldAs(object):
         #
         # The clang type should be authoritative.
         #
-        if clang_kind is not None:
+        if clang_t is not None:
             #
             # One-time init of lookup map.
             #
@@ -246,11 +246,11 @@ class HeldAs(object):
             # Lookup.
             #
             try:
-                return HeldAs._rev_map[clang_kind]
+                return HeldAs._rev_map[clang_t.kind]
             except KeyError:
-                if clang_kind == TypeKind.LVALUEREFERENCE:
-                    return HeldAs.OBJECT
-                elif clang_kind == TypeKind.VOID:
+                if clang_t.kind == TypeKind.LVALUEREFERENCE:
+                    return HeldAs.categorise(cxx_t, clang_t.get_pointee().get_canonical())
+                elif clang_t.kind == TypeKind.VOID:
                     return HeldAs.VOID
                 #
                 # We we already know it did not seem to be a pointer, so check for a templated object:
@@ -258,9 +258,9 @@ class HeldAs(object):
                 #   TypeKind.ELABORATED: 'WTF::Vector<RegDescriptor *>'
                 #   TypeKind.UNEXPOSED: 'HashMap<KJS::Interpreter *, ProtectedPtr<KJS::JSValue> >'
                 #
-                if "<" in cxx_t and clang_kind in [TypeKind.ELABORATED, TypeKind.UNEXPOSED]:
+                if "<" in cxx_t and clang_t.kind in [TypeKind.ELABORATED, TypeKind.UNEXPOSED]:
                     return HeldAs.OBJECT
-                raise AssertionError(_("Unexpected {} for {}").format(clang_kind, cxx_t))
+                return HeldAs.OBJECT
         if "<" in cxx_t:
             return HeldAs.OBJECT
         if HeldAs.RE_BYTE.search(cxx_t):
@@ -729,12 +729,12 @@ class FunctionWithTemplatesExpander(object):
         #
         # Deal with function result.
         #
-        result_h = self.return_helper(sip["fn_result"], cursor.result_type.get_canonical().kind)
+        result_h = self.return_helper(sip["fn_result"], cursor.result_type.get_canonical())
         sip["fn_result"] = result_h.py_fn_result(cursor.kind == CursorKind.CONSTRUCTOR)
         #
         # Now the function parameters.
         #
-        clang_kinds = [c.type.get_canonical() for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
+        clang_types = [c.type.get_canonical() for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
         parameters = []
         p_types = []
         p_outs = []
@@ -748,7 +748,7 @@ class FunctionWithTemplatesExpander(object):
             lhs, rhs = RE_PARAMETER_VALUE.split(p + "=")[:2]
             t, v = RE_PARAMETER_TYPE.match(lhs).groups()
             t = t.strip()
-            parameter_h = self.parameter_helper(t, clang_kinds[i].kind)
+            parameter_h = self.parameter_helper(t, clang_types[i])
             sip["parameters"][i] = parameter_h.py_parameter(t, v, rhs, annotations[i])
             parameters.append(parameter_h)
             p_types.append(t)
@@ -1002,7 +1002,7 @@ struct setcode
         if element_type.kind == TypeKind.CONSTANTARRAY:
             next_type = element_type
         else:
-            converter = RewriteArrayHelper(sip["decl"], element_type.kind)
+            converter = RewriteArrayHelper(sip["decl"], element_type)
             if converter.category == HeldAs.BYTE:
                 decl = "SIP_PYBUFFER"
                 code = _SIP_PYBUFFER_TEMPLATE
@@ -1119,7 +1119,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
     # Create a Python <-> C++ conversion helper.
     #
     variable_type = variable.type.get_canonical()
-    converter = RewriteMappedHelper(variable_type.spelling, variable_type.kind)
+    converter = RewriteMappedHelper(variable_type.spelling, variable_type)
     aliases = converter.declare_type_helpers("value", "sipErr = 1;")
     code = """
 {
