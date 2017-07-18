@@ -162,18 +162,17 @@ class SipGenerator(object):
         self.unpreprocessed_source = None
 
     @staticmethod
-    def describe(cursor, text=None, fqn=False):
+    def describe(cursor, text=None):
         if not text:
             text = cursor.spelling
-        if fqn:
-            parents = ""
-            parent = cursor.semantic_parent
-            while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-                parents = parent.spelling + "::" + parents
-                parent = parent.semantic_parent
-            if not parents:
-                parents = os.path.basename(cursor.translation_unit.spelling) + "::"
-            text = parents + text
+        parents = ""
+        parent = cursor.semantic_parent
+        while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
+            parents = parent.spelling + "::" + parents
+            parent = parent.semantic_parent
+        if not parents:
+            parents = os.path.basename(cursor.translation_unit.spelling) + "::"
+        text = parents + text
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
     def create_sip(self, h_file, include_filename):
@@ -576,8 +575,8 @@ class SipGenerator(object):
                 else:
                     SipGenerator._report_ignoring(container, member)
             if self.dump_items:
-                logger.info(_("Processing {}").format(SipGenerator.describe(member, fqn=True)))
-                body += "// Processing {}\n".format(SipGenerator.describe(member, fqn=True))
+                logger.info(_("Processing {}").format(SipGenerator.describe(member)))
+                body += "// Processing {}\n".format(SipGenerator.describe(member))
             if decl:
                 body += decl
 
