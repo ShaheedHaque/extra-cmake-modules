@@ -107,7 +107,6 @@ def container_fix_typename_hashtraits(container, sip, matcher):
     sip["base_specifiers"][0] = "__2_t"
 
 
-
 def container_fix_typename_refptrhashmap(container, sip, matcher):
     rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
                                                  "typename ValueType::second_type", "typename ValueTraits::FirstTraits",

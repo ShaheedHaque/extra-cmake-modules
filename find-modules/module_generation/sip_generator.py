@@ -1060,16 +1060,6 @@ class SipGenerator(object):
                     suffix += FN_SUFFIX_PURE
         return prefix, suffix
 
-    #
-    # There are many cases of parameter defaults we don't handle in _fn_get_parameter_default(). Try to catch those
-    # that break our simple logic...
-    #
-    UNHANDLED_DEFAULT_TYPES = re.compile(
-        r"[a-z0-9_]+<.*::.*>$|" +                           # Right-most "::" inside "<>".
-                                                            #   QSharedPointer<Syndication::RSS2::Document>
-        r"<.*\(.*\)>",                                      # Brackets "()" inside template "<>".
-                                                            #   std::function<bool(const KPluginMetaData &)>()
-        re.I)
     QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)", re.I)
 
     def _fn_get_parameter_default(self, function, parameter):
@@ -1082,31 +1072,40 @@ class SipGenerator(object):
             2. Watch for the assignment.
         """
         def _get_param_type(parameter):
-            if parameter.type.kind == TypeKind.TYPEDEF:
-                is_q_flags = False
-                for member in parameter.type.get_declaration().get_children():
-                    if member.kind == CursorKind.TEMPLATE_REF and member.spelling == QFLAGS:
-                        is_q_flags = True
-                    if is_q_flags and member.kind == CursorKind.TYPE_REF:
-                        return member.type
-            elif parameter.type.kind == TypeKind.LVALUEREFERENCE:
-                return parameter.type.get_pointee().get_canonical()
-            return parameter.type.get_canonical()
+            clang_t = parameter.type
+            if clang_t.kind == TypeKind.LVALUEREFERENCE:
+                clang_t = clang_t.get_pointee()
+            clang_spelling = clang_t.spelling
+            if clang_spelling.startswith("const "):
+                clang_spelling = clang_spelling[6:]
+            canonical_t = clang_t.get_canonical()
+            canonical_spelling = canonical_t.spelling
+            if canonical_spelling.startswith("const "):
+                canonical_spelling = canonical_spelling[6:]
+            is_q_flags = canonical_spelling.startswith(QFLAGS)
+            if is_q_flags or clang_t.kind == TypeKind.TYPEDEF:
+                for member in clang_t.get_declaration().get_children():
+                    if member.type.kind == TypeKind.ENUM:
+                        return is_q_flags, member.type, member.type, member.type.spelling, member.type.spelling
+            #
+            # Sigh 'QFlags<KCalUtils::DndFactory::PasteFlag>' has clang_t.kind of TypeKind.UNEXPOSED.
+            #
+            if is_q_flags:
+                assert clang_t.kind == TypeKind.UNEXPOSED, _("No enum for {}").format(clang_t.spelling)
+                clang_spelling = clang_spelling[len(QFLAGS) + 1:-1]
+                canonical_spelling = canonical_spelling[len(QFLAGS) + 1:-1]
+            return is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling
 
         def _get_param_value(text, parameter):
             if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
-            parameter_type = _get_param_type(parameter)
+            is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling = _get_param_type(parameter)
             if text == "{}":
-                if parameter_type.kind == TypeKind.ENUM:
+                if canonical_t.kind == TypeKind.ENUM:
                     return "0"
-                if parameter_type.kind == TypeKind.POINTER:
+                if canonical_t.kind == TypeKind.POINTER:
                     return "nullptr"
-                if parameter_type.spelling.startswith("const "):
-                    return parameter_type.spelling[6:] + "()"
-                return parameter_type.spelling + "()"
-            if "::" not in parameter_type.spelling:
-                return text
+                return canonical_spelling + "()"
             #
             # SIP wants things fully qualified. Without creating a full AST, we can only hope to cover the common
             # cases:
@@ -1121,57 +1120,29 @@ class SipGenerator(object):
             #       LookUpMode(exactOnly) | defaultOnly
             #                                   parents::LookUpMode(parents::exactOnly) | parents::defaultOnly
             #
-            parameter_spelling = parameter_type.spelling
-            if parameter_spelling.startswith("const "):
-                parameter_spelling = parameter_spelling[6:]
-            if parameter_type.kind == TypeKind.ENUM or parameter_spelling.startswith(QFLAGS):
-                #
-                # Prefix any identifier with the prefix of the enum.
-                #
-                if parameter_type.kind == TypeKind.ENUM:
-                    prefix = parameter_spelling.rsplit("::", 1)[0] + "::"
-                else:
-                    prefix = parameter_spelling[len(QFLAGS) + 1:-1].rsplit("::", 1)[0] + "::"
-                tmp = ""
-                match = SipGenerator.QUALIFIED_ID.search(text)
-                while match:
-                    tmp += match.string[:match.start()]
-                    id = match.expand("\\1")
-                    if id == QFLAGS:
-                        tmp += id
-                    else:
-                        tmp += prefix + id
-                    text = text[match.end():]
-                    match = SipGenerator.QUALIFIED_ID.search(text)
-                tmp += text
-                return tmp
+            #     So, prefix any identifier with the prefix of the enum.
             #
-            #   - Other stuff:
+            #   - For other cases, if any (qualified) id in the default value matches the RHS of the parameter
+            #     type, use the parameter type.
             #
-            #       Input                       Output
-            #       -----                       ------
-            #       QString()                   QString::QString()
-            #       QVector<const char*>()      QVector<const char *>::QVector<const char*>()
-            #       QSharedPointer<Document>    QSharedPointer<Syndication::RSS2::Document>()
-            #
-            #
-            if SipGenerator.UNHANDLED_DEFAULT_TYPES.search(parameter_spelling):
-                logger.warn(_("Default for {} has unhandled type {}").format(SipGenerator.describe(parameter),
-                                                                             parameter_type.spelling))
+            if canonical_t.kind == TypeKind.ENUM or is_q_flags:
+                prefix = canonical_spelling.rsplit("::", 1)[0] + "::"
+                mangler = lambda p, c, i: i if i == QFLAGS else p + i
+            elif "::" not in canonical_spelling:
                 return text
-            prefix = parameter_spelling.rsplit("::", 1)[0] + "::"
-            tmp = re.split("[(|)]", text)
-            if text.endswith(")"):
-                tmp = tmp[:-1]
-            tmp = [word.rsplit("::", 1)[-1] for word in tmp]
-            tmp = [prefix + word if word else "" for word in tmp]
-            result = tmp[0]
-            if len(tmp) > 1:
-                if text.endswith(")"):
-                    result += "(" + "|".join(tmp[1:]) + ")"
-                else:
-                    result = "|".join(tmp)
-            return result
+            else:
+                prefix = canonical_spelling
+                mangler = lambda p, c, i: c if p.endswith(i) or c.endswith(i) else i
+            tmp = ""
+            match = SipGenerator.QUALIFIED_ID.search(text)
+            while match:
+                tmp += match.string[:match.start()]
+                id = match.expand("\\1")
+                tmp += mangler(prefix, clang_spelling, id)
+                text = text[match.end():]
+                match = SipGenerator.QUALIFIED_ID.search(text)
+            tmp += text
+            return tmp
 
         for member in parameter.get_children():
             if member.kind.is_expression():

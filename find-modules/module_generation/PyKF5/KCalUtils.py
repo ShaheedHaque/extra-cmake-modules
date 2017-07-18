@@ -37,7 +37,7 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec","VObject", "QLatin1String",
-                                  "QDropEvent", "QDrag", "QWidget", "KCalUtils::HTMLExportSettings", "KGuiItem")\
+                                  "QDropEvent", "QDrag", "QWidget", "KCalUtils::HTMLExportSettings", "KGuiItem")
 
 
 def modulecode():
