@@ -829,6 +829,14 @@ def function_uses_templates(container, function, sip, matcher):
     """
     A FunctionDb-compatible function used to create %MethodCode expansions
     for C++ functions with templated return types and/or parameters.
+
+    Rule writers can tailor the expansion using custom subclasses of
+    FunctionWithTemplatesExpander, FunctionParameterHelper and
+    FunctionReturnHelper passed via sip attributes:
+
+        - "template"            Provide the overall template.
+        - "parameter_helper"    Tailored parameter handling.
+        - "return_helper"       Tailored return value handling.
     """
     #
     # No generated code for signals, SIP does not support that.
