@@ -54,7 +54,6 @@ gettext.install(__name__)
 # Keep PyCharm happy.
 _ = _
 
-
 EXPR_KINDS = [
     CursorKind.UNEXPOSED_EXPR,
     CursorKind.CONDITIONAL_OPERATOR, CursorKind.UNARY_OPERATOR, CursorKind.BINARY_OPERATOR,
@@ -64,6 +63,9 @@ EXPR_KINDS = [
 TEMPLATE_KINDS = [
                      CursorKind.TYPE_REF, CursorKind.TEMPLATE_REF, CursorKind.NAMESPACE_REF
                  ] + EXPR_KINDS
+VARIABLE_KINDS = [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]
+FN_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
+            CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
 #
 # All Qt-specific logic is driven from these identifiers. Setting them to
 # nonsense values would effectively disable all Qt-specific logic.
@@ -254,8 +256,10 @@ class SipGenerator(object):
         """
         We don't seem to have access to the __attribute__(())s, but at least we can look for stuff we care about.
 
+        :param parent:          Parent object.
         :param member:          The attribute.
         :param text:            The raw source corresponding to the region of member.
+        :param sip:             the sip.
         """
         if member.kind == CursorKind.UNEXPOSED_ATTR and text.find("_DEPRECATED") != -1:
             sip["annotations"].add("Deprecated")
@@ -276,7 +280,7 @@ class SipGenerator(object):
 
         :param templating_stack:    The stack of sets of template parameters.
         :param sip:                 The sip.
-        :param keys:                The keys in the sip which may need
+        :param key:                 The key in the sip which may need
                                     fixing up.
         :param no_fixups:           Cursor of current object or None.
                                     If not None, this we discard any items
@@ -341,6 +345,7 @@ class SipGenerator(object):
         :param templating_stack:    The stack of sets of template parameters.
         :return:                    A string.
         """
+
         def in_class(item):
             parent = item.semantic_parent
             while parent and parent.kind != CursorKind.CLASS_DECL:
@@ -360,22 +365,6 @@ class SipGenerator(object):
                     param_type = param_type.replace("const", "").replace("&", "").strip()
                     has_self_type = param_type == container.displayname
             return num_params == 1 and has_self_type
-
-        def has_parameter_default(parameter):
-            for member in parameter.get_children():
-                if member.kind.is_expression():
-                    return True
-            return False
-
-        def is_default_constructor(member):
-            if member.kind != CursorKind.CONSTRUCTOR:
-                return False
-            num_params = 0
-            for parameter in member.get_children():
-                if has_parameter_default(parameter):
-                    break
-                num_params += 1
-            return num_params == 0
 
         def template_parameter_found(parameter, parameter_extent, parameter_history):
             """
@@ -438,9 +427,6 @@ class SipGenerator(object):
         had_const_member = False
         modulecode = {}
         is_signal = False
-        VARIABLE_KINDS = [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]
-        FN_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
-                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
         for member in container.get_children():
             #
             # Only emit items in the translation unit.
@@ -502,7 +488,8 @@ class SipGenerator(object):
                         original = "enum {}\n".format(child.displayname or "__enum{}".format(child.extent.start.line))
                         typedef = "enum {}\n".format(member.type.spelling)
                     elif child.kind == CursorKind.STRUCT_DECL:
-                        original = "struct {}\n".format(child.displayname or "__struct{}".format(child.extent.start.line))
+                        original = "struct {}\n".format(
+                            child.displayname or "__struct{}".format(child.extent.start.line))
                         typedef = "struct {}\n".format(member.type.spelling)
                     elif child.kind == CursorKind.UNION_DECL:
                         original = "union {}\n".format(child.displayname or "__union{}".format(child.extent.start.line))
@@ -795,9 +782,8 @@ class SipGenerator(object):
         #
         # Discard inline implementations of functions declared in a class/struct.
         #
-        if container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
-            function.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL] and \
-            function.is_definition():
+        if function.is_definition() and container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
+                function.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL]:
             SipGenerator._report_ignoring(container, function, "inline method")
             return "", {}
 
@@ -1096,6 +1082,13 @@ class SipGenerator(object):
             return is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling
 
         def _get_param_value(text, parameter):
+
+            def mangler_enum(p, c, i):
+                return i if i == QFLAGS else p + i
+
+            def mangler_other(p, c, i):
+                return c if p.endswith(i) or c.endswith(i) else i
+
             if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
             is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling = _get_param_type(parameter)
@@ -1126,12 +1119,12 @@ class SipGenerator(object):
             #
             if canonical_t.kind == TypeKind.ENUM or is_q_flags:
                 prefix = canonical_spelling.rsplit("::", 1)[0] + "::"
-                mangler = lambda p, c, i: i if i == QFLAGS else p + i
+                mangler = mangler_enum
             elif "::" not in canonical_spelling:
                 return text
             else:
                 prefix = canonical_spelling
-                mangler = lambda p, c, i: c if p.endswith(i) or c.endswith(i) else i
+                mangler = mangler_other
             tmp = ""
             match = SipGenerator.QUALIFIED_ID.search(text)
             while match:
