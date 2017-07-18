@@ -54,7 +54,7 @@ RE_DICT = "QHash|QMap"
 RE_LIST = "QList|QVector"
 RE_SET = "QSet"
 RE_QPAIR = "QPair"
-RE_QSHAREDPTR = "(Q(Explicitly|)Shared(Data|)Pointer)"
+RE_QSHAREDPTR = PyQt_templates.QT_PTRS
 
 RE_DICT_TYPEDEF = "(" + RE_DICT + ")<(.*)>"
 RE_LIST_TYPEDEF = "(" + RE_LIST + ")<(.*)>"

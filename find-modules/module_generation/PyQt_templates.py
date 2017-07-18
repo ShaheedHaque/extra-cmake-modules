@@ -56,13 +56,14 @@ logger = logging.getLogger(__name__)
 # Keep PyCharm happy.
 _ = _
 
-RE_QSHAREDPTR = re.compile("(const )?(Q(Explicitly|)Shared(Data|)Pointer)<(.*)>( .)?")
+QT_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
+RE_QSHAREDPTR = re.compile("(const )?" + QT_PTRS + "<(.*)>( .)?")
 
 
 class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
     """
-    Automatic handling for templated function parameter types with auto-unwrapping of
-    Q(Explicitly|)Shared(Data|)Pointer templates.
+    Automatic handling for templated function parameter types with auto-unwrapping
+    of QT_PTRS.
     """
     def __init__(self, cxx_t, clang_kind, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
@@ -82,7 +83,16 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
         if self.is_qshared:
             code = """    typedef """ + base_type(original_type) + """ Cxx{aN}T;
     Cxx{aN}T *cxx{aN} = new Cxx{aN}T({aN});
-""".replace("{aN}", aN)
+"""
+            code = code.replace("{aN}", aN, 4)
+            #
+            # A QWeakPointer has to be constructed via an intermediate QSharedPointer.
+            #
+            is_weakptr = re.match("(const )?QWeakPointer<(.*)>( .)?", original_type)
+            if is_weakptr:
+                code = code.replace("{aN}", "QSharedPointer<" + is_weakptr.group(2) + ">(" + aN + ")")
+            else:
+                code = code.replace("{aN}", aN)
             aN = "*cxx" + aN
             return code, aN
         return super(FunctionParameterHelper, self).cxx_to_cxx(aN, original_type, is_out_paramter)
@@ -98,8 +108,8 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
 
 class FunctionReturnHelper(builtin_rules.FunctionReturnHelper):
     """
-    Automatic handling for templated function return types with auto-unwrapping of
-    Q(Explicitly|)Shared(Data|)Pointer templates.
+    Automatic handling for templated function return types with auto-unwrapping
+    of QT_PTRS templates.
     """
     def __init__(self, cxx_t, clang_kind, manual_t=None):
         is_qshared = RE_QSHAREDPTR.match(cxx_t)
@@ -939,7 +949,14 @@ class QSharedDataPointerExpander(AbstractExpander):
     }
 """
         code += value_h.release_sip_helper("value")
-        code += """    *sipCppPtr = new {qt_type}<CxxvalueT>(cxxvalue);
+        if qt_type == "QWeakPointer":
+            #
+            # A QWeakPointer has to be constructed via an intermediate QSharedPointer.
+            #
+            code += """    *sipCppPtr = new {qt_type}<CxxvalueT>(QSharedPointer<CxxvalueT>(cxxvalue));
+"""
+        else:
+            code += """    *sipCppPtr = new {qt_type}<CxxvalueT>(cxxvalue);
 """
         if value_h.cxx_t.startswith("QExplicitlySharedDataPointer"):
             code += """    cxxvalue->ref.deref();
