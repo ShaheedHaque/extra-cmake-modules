@@ -100,6 +100,50 @@ class RuleUsage(dict):
             self[rule] += usage_count
 
 
+class IncludeToImportMap(dict):
+    def __init__(self, project_root):
+        """
+        Initialise the dictionary with mappings based on the project root.
+
+        :param root:                The root we started with.
+        :param parent:              The current recursion point.
+        """
+        super(IncludeToImportMap, self).__init__()
+        self.fill_from_includes(project_root, project_root)
+        #
+        # These are the SIP files that belong to the project.
+        #
+        self.predicted_sips = list(self.values())
+
+    def __getitem__(self, item):
+        return super(IncludeToImportMap, self).__getitem__(item.lower())
+
+    def __setitem__(self, key, value):
+        super(IncludeToImportMap, self).__setitem__(key.lower(), value)
+
+    def fill_from_includes(self, root, parent):
+        """
+        Recursively fill the dictionary with mappings based on root.
+
+        :param root:                The root we started with.
+        :param parent:              The current recursion point.
+        """
+        names = ModuleGenerator.dedupe_legacy_names(sorted(os.listdir(parent)))
+        for name in names:
+            srcname = os.path.join(parent, name)
+            if os.path.isdir(srcname):
+                #
+                # Any C++ definitions picked up by #include from this dirname
+                # should match SIP definitions from this module.
+                #
+                module_dir = srcname[len(root) + len(os.path.sep):]
+                sip = os.path.join(module_dir, name + MODULE_SIP)
+                for funny in ModuleGenerator.FUNNY_CHARS:
+                    sip = sip.replace(funny, "_")
+                self[module_dir] = sip
+                self.fill_from_includes(root, srcname)
+
+
 class ModuleGenerator(object):
     def __init__(self, rules_pkg, output_dir, dump_modules=False, dump_items=False, dump_includes=False,
                  dump_privates=False):
@@ -156,21 +200,16 @@ class ModuleGenerator(object):
         #     we walk self.project_root, folding into any non-lower-case-only names when possible, and add the
         #     xxxxmod.sip name that will be created to the available set.
         #
-        self.include_to_import_cache = {}
+        self.include_to_import_cache = IncludeToImportMap(self.project_root)
         for sip_root in self.imports:
-            sips = []
-            self.find_existing_module_sips(sips, sip_root)
-            self.add_include_to_sip_mappings(sips, sip_root)
-        sips = []
-        self.predict_new_module_sips(sips, self.project_root)
-        self.add_include_to_sip_mappings(sips, self.project_root)
-        self.predicted_sips = [s[len(self.project_root) + len(os.path.sep):] for s in sips]
+            self.include_to_import_cache.fill_from_includes(sip_root, sip_root)
         self.all_features = None
         self.rule_usage = RuleUsage()
         self.omitter = None
         self.selector = None
 
-    def dedupe_legacy_names(self, names):
+    @staticmethod
+    def dedupe_legacy_names(names):
         new_style_names = [n for n in names if n != n.lower() and n.lower() in names]
         for name in new_style_names:
             #
@@ -178,40 +217,6 @@ class ModuleGenerator(object):
             #
             names.remove(name.lower())
         return names
-
-    def find_existing_module_sips(self, all_sips, root):
-        """
-        Find all existing module .sip files, folding away any non-lower-case-only duplicates.
-        """
-        names = self.dedupe_legacy_names(sorted(os.listdir(root)))
-        for name in names:
-            srcname = os.path.join(root, name)
-            if os.path.isfile(srcname):
-                if srcname.endswith(MODULE_SIP):
-                    all_sips.append(srcname)
-            elif os.path.isdir(srcname):
-                self.find_existing_module_sips(all_sips, srcname)
-
-    def predict_new_module_sips(self, all_sips, root):
-        """
-        Predict all the new module .sip files we *might* create.
-        """
-        names = self.dedupe_legacy_names(sorted(os.listdir(root)))
-        for name in names:
-            srcname = os.path.join(root, name)
-            if os.path.isdir(srcname):
-                sip = os.path.basename(srcname) + MODULE_SIP
-                sip = os.path.join(srcname, sip)
-                all_sips.append(sip)
-                self.predict_new_module_sips(all_sips, srcname)
-
-    def add_include_to_sip_mappings(self, all_sips, root):
-        for sip in all_sips:
-            sip = sip[len(root) + len(os.path.sep):]
-            module_dir = os.path.dirname(sip)
-            for funny in ModuleGenerator.FUNNY_CHARS:
-                sip = sip.replace(funny, "_")
-            self.include_to_import_cache[module_dir.lower()] = sip
 
     def process_tree(self, jobs, selector, omitter):
         """
@@ -419,7 +424,7 @@ class ModuleGenerator(object):
                 # declare the corresponding %Feature here because then we will end up with the same %Feature in
                 # both A and B which SIP also does not like.
                 #
-                if sip_import in self.predicted_sips:
+                if sip_import in self.include_to_import_cache.predicted_sips:
                     if sip_import != output_file:
                         feature = feature_for_sip_module(sip_import)
                         self.all_features.add(feature)
@@ -491,9 +496,8 @@ class ModuleGenerator(object):
             #
             if include.startswith(include_root):
                 tmp = include[len(include_root) + len(os.path.sep):]
-                parents = os.path.dirname(tmp).lower()
                 try:
-                    return self.include_to_import_cache[parents]
+                    return self.include_to_import_cache[os.path.dirname(tmp)]
                 except KeyError:
                     break
         return None
