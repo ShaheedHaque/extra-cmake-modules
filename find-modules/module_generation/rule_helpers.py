@@ -61,12 +61,12 @@ def container_discard_QSharedData_base(container, sip, matcher):
     sip["base_specifiers"].remove("QSharedData")
 
 
-def container_mark_forward_declaration_external(container, sip, matcher):
-    sip["annotations"].add("External")
-
-
 def container_mark_abstract(container, sip, matcher):
     sip["annotations"].add("Abstract")
+
+
+def forward_declaration_mark_external(container, sip, matcher):
+    sip["annotations"].add("External")
 
 
 def parameter_in(container, function, parameter, sip, matcher):
@@ -88,17 +88,8 @@ def param_rewrite_mode_t_as_int(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("mode_t", "unsigned int")
 
 
-def return_rewrite_mode_t_as_int(container, function, sip, matcher):
-    sip["fn_result"] = "unsigned int"
-
-
 def parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
-
-
-def function_discard_impl(container, function, sip, matcher):
-    if function.extent.start.column == 1:
-        sip["name"] = ""
 
 
 def modulecode_delete(basename, sip, rule, *keys):
@@ -139,9 +130,9 @@ def modulecode_make_local(basename, sip, rule, *keys):
         sip["modulecode"][key] = tmp
 
 
-def code_add_classes(basename, sip, rule, *classes):
+def module_add_classes(basename, sip, rule, *classes):
     """
-    Add code to insert missing class declarations.
+    Add missing class declarations to a module.
 
     :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
@@ -157,9 +148,9 @@ def code_add_classes(basename, sip, rule, *classes):
     sip["code"] += tmp
 
 
-def code_add_imports(basename, sip, rule, *modules):
+def module_add_imports(basename, sip, rule, *modules):
     """
-    Add code to insert missing class declarations.
+    Add missing imports to a module.
 
     :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
@@ -175,14 +166,14 @@ def code_add_imports(basename, sip, rule, *modules):
     sip["code"] += tmp
 
 
-def code_add_supplementary_typedefs(container, sip, rule, *typedefs):
+def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
     """
     There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
 
     :param container:       The container in question.
     :param sip:             The sip.
     :param rule:            The rule.
-    :param typedefs:        The types to replace.
+    :param typedefs:        The typedefs to add.
     """
     def get_template(text):
         QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)$", re.I)
@@ -208,6 +199,6 @@ def code_add_supplementary_typedefs(container, sip, rule, *typedefs):
             key += template
         tmp += "    typedef " + value + " " + key + ";\n"
         sip["body"] = sip["body"].replace(value, key)
-    trace = rules_engine.trace_generated_for(sip["name"], code_add_supplementary_typedefs, rule)
+    trace = rules_engine.trace_generated_for(sip["name"], container_add_supplementary_typedefs, rule)
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp

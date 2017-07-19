@@ -29,6 +29,10 @@ def _container_delete_base(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+def function_discard_impl(container, function, sip, matcher):
+    if function.extent.start.column == 1:
+        sip["name"] = ""
+
 
 def module_fix_mapped_types(filename, sip, entry):
     #
@@ -68,7 +72,7 @@ def function_rules():
         #
         # This class has inline implementations in the header file.
         #
-        ["KPluginName", ".*", ".*", ".*", ".*", rule_helpers.function_discard_impl],
+        ["KPluginName", ".*", ".*", ".*", ".*", function_discard_impl],
         #
         # SIP cannot handle std::function.
         #

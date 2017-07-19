@@ -48,7 +48,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def forward_declaration_rules():
     return [
-        ["kdatepicker.h", "KDateTable", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["kdatepicker.h", "KDateTable", ".*", rule_helpers.forward_declaration_mark_external],
     ]
 
 

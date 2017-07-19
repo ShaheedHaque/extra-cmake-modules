@@ -61,11 +61,11 @@ class KConfig;
 
 def forward_declaration_rules():
     return [
-        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["kgame.h", "KRandomSequence", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["(k|)highscore.h|kchatbase.h", "KConfig", ".*", rule_helpers.forward_declaration_mark_external],
+        ["kgame.h", "KRandomSequence", ".*", rule_helpers.forward_declaration_mark_external],
+        ["kgamethemeselector.h", "KConfigSkeleton", ".*", rule_helpers.forward_declaration_mark_external],
+        ["kstandardgameaction.h", "K(RecentFiles|Select|Toggle)Action", ".*", rule_helpers.forward_declaration_mark_external],
+        ["kg(ame|)difficulty.h", "KXmlGuiWindow", ".*", rule_helpers.forward_declaration_mark_external],
     ]
 
 

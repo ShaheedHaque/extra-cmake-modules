@@ -30,7 +30,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
-    rule_helpers.code_add_classes(filename, sip, entry, "KScreen::AbstractBackend")
+    rule_helpers.module_add_classes(filename, sip, entry, "KScreen::AbstractBackend")
 
 
 def _variable_declash_enum(container, variable, sip, matcher):

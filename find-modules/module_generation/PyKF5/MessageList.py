@@ -30,7 +30,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Item>")
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate", "KLocalizedString",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate", "KLocalizedString",
                                   "KXMLGUIClient", "MessageList::Core::SearchLineStatus",
                                   "MessageList::Core::MessageItem", "MessageList::Core::Widget",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")

@@ -26,7 +26,7 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget")
+    rule_helpers.module_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget")
 
 
 
@@ -34,7 +34,7 @@ def module_fix_mapped_types_private(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.code_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget",
+    rule_helpers.module_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction", "QWidget",
                                   "GlobalShortcutsRegistry", "QDBusContext")
 
 

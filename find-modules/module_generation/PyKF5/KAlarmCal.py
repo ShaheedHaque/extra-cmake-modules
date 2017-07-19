@@ -31,12 +31,12 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::Calendar>",
                                    "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::Todo>",
                                    "QVector<QSharedPointer<KCalCore::Person> >", "QVector<int>")
-    rule_helpers.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+    rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String",
                                   "KConfigGroup", "KCoreConfigSkeleton", "Akonadi::Protocol::Command",
                                   "Akonadi::ServerManagerPrivate", "KAlarmCal::CalEvent::Type", "KDateTime::SpecType",
-                                  "KDateTime::Comparison", "KHolidays::HolidayRegion")
+                                    "KDateTime::Comparison", "KHolidays::HolidayRegion")
 
 
 def function_rules():

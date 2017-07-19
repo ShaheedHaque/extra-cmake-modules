@@ -30,11 +30,11 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
-    rule_helpers.code_add_classes(filename, sip, entry, "KNSCore::Engine")
+    rule_helpers.module_add_classes(filename, sip, entry, "KNSCore::Engine")
 
 
 def module_fix_mapped_types_core(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "Attica::Provider", "KArchiveDirectory")
+    rule_helpers.module_add_classes(filename, sip, entry, "Attica::Provider", "KArchiveDirectory")
     sip["code"] += """
 %If (!KNewStuff3_KNSCore_KNSCoremod)
 %Import(name=KNewStuff3/KNS3/KNS3mod.sip)

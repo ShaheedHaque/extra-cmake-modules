@@ -41,7 +41,7 @@ def module_fix_mapped_types(filename, sip, entry):
     if sip["name"] == "KParts.KParts":
         rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
                                        "QMap<QString, QString>")
-        rule_helpers.code_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
+        rule_helpers.module_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
                                       "KSslCertificateBoxPrivate")
         sip["code"] += """
 %Import(name=SonnetCore/Sonnet/Sonnetmod.sip)

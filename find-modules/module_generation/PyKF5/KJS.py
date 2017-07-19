@@ -35,80 +35,80 @@ def function_discard_inlines(container, function, sip, matcher):
 
 
 def container_fix_template_w_literal_compilestate(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>",
                                                  "WTF::Vector<KJS::CompileState::NestInfo, 0>")
 
 
 def container_fix_template_w_literal_localstorage(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::LocalStorageEntry, 32>")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::LocalStorageEntry, 32>")
 
 
 
 def container_fix_template_w_literal_opcodes(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
 
 
 def container_fix_template_w_literal_nodes(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
 
 
 def container_fix_template_w_literal_ustring(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::UChar, 0>")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::UChar, 0>")
 
 
 def container_fix_fn_ptr(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "bool (*f)(int)",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "bool (*f)(int)",
                                                  "WTF::Vector<KJS::UChar, 0>")
 
 
 def container_fix_typename_countedset(container, sip, matcher):
     clazz = "typename HashMap<Value, unsigned int, HashFunctions, Traits, HashTraits<unsigned int> >"
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, clazz + "::iterator",
-                                                 clazz + "::const_iterator")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, clazz + "::iterator",
+                                                      clazz + "::const_iterator")
 
 
 def container_fix_typename_hashmaphm(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
                                                  "typename MappedTraitsArg::TraitType",
                                                  "typename PairHashTraits<KeyTraitsArg, MappedTraitsArg>::TraitType")
 
 
 def container_fix_typename_hashmappfe(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename PairType::first_type")
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename PairType::first_type")
 
 
 def container_fix_typename_hashmaphmt(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
                                                  "typename ValueType::second_type")
 
 
 def container_fix_typename_hashset(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
                                                  "HashSet<Value, HashFunctions, Traits>",
                                                  "typename TraitsArg::TraitType")
 
 
 def container_fix_typename_hashtable(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher,
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher,
                                                  "HashTableIterator<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>",
                                                  "HashTableConstIterator<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>",
                                                  "IdentityHashTranslator<Key, Value, HashFunctions>")
 
 
 def container_fix_typename_hashtableia(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename HashTableType::const_iterator",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename HashTableType::const_iterator",
                                                  "typename HashTableType::iterator")
 
 
 def container_fix_typename_hashtraits(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename FirstTraitsArg::TraitType",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename FirstTraitsArg::TraitType",
                                                  "typename SecondTraitsArg::TraitType",
                                                  "GenericHashTraits<pair<typename FirstTraitsArg::TraitType, typename SecondTraitsArg::TraitType> >")
     sip["base_specifiers"][0] = "__2_t"
 
 
 def container_fix_typename_refptrhashmap(container, sip, matcher):
-    rule_helpers.code_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
+    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
                                                  "typename ValueType::second_type", "typename ValueTraits::FirstTraits",
                                                  "typename ValueTraits::SecondTraits")
 

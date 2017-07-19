@@ -25,7 +25,7 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 def modulecode():

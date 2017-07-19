@@ -78,7 +78,7 @@ def module_fix_mapped_types(filename, sip, entry):
 #include <akonadi/private/protocol_p.h>
 %End
 """
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command /External/",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command /External/",
                                   "Akonadi::ServerManagerPrivate /External/", "KConfigGroup", "KCoreConfigSkeleton")
 
 
@@ -90,9 +90,9 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
                                    "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                    "QVector<Akonadi::Relation>", "QVector<Akonadi::Tag>", "QVector<QByteArray>",
                                    "QVector<long long>")
-    rule_helpers.code_add_classes(filename, sip, entry, "QDBusContext /External/", "Akonadi::ImapSet",
+    rule_helpers.module_add_classes(filename, sip, entry, "QDBusContext /External/", "Akonadi::ImapSet",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-    rule_helpers.code_add_imports(filename, sip, entry, "QtDBus/QtDBusmod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtDBus/QtDBusmod.sip")
 
 
 def module_fix_mapped_types_calendar(filename, sip, entry):
@@ -107,7 +107,7 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
                                        "QSharedPointer<KCalCore::Todo>", "QVector<Akonadi::Collection>",
                                        "QVector<Akonadi::Item>", "QVector<QSharedPointer<KCalCore::Incidence> >",
                                        "QVector<long long>")
-        rule_helpers.code_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+        rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                       "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
                                       "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
                                       "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
@@ -116,12 +116,12 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
 
 
 def module_fix_mapped_types_contact(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                   "Akonadi::AbstractContactEditorWidget", "KLineEdit", "KLocalizedString")
 
 
 def module_fix_mapped_types_debug(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
@@ -130,9 +130,9 @@ def module_fix_mapped_types_notes(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                   "KConfigGroup", "KCoreConfigSkeleton")
-    rule_helpers.code_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
 
 
 def module_fix_mapped_types_pim(filename, sip, entry):
@@ -140,12 +140,12 @@ def module_fix_mapped_types_pim(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<long long>")
-    rule_helpers.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_socialutils(filename, sip, entry):
-    rule_helpers.code_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
@@ -155,7 +155,7 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<long long>", "QVector<Akonadi::Collection>",
                                    "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>")
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_xml(filename, sip, entry):
@@ -163,7 +163,7 @@ def module_fix_mapped_types_xml(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>")
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                   "KConfigGroup", "KCoreConfigSkeleton")
     sip["code"] += """
 %ModuleHeaderCode
@@ -380,9 +380,9 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rule_helpers.container_mark_forward_declaration_external],
-        ["collectionview.h", "KXMLGUIClient", ".*", rule_helpers.container_mark_forward_declaration_external],
+        ["standard(contact|mail|calendar)actionmanager.h", "KActionCollection", ".*", rule_helpers.forward_declaration_mark_external],
+        ["agentactionmanager.h", "KActionCollection|KLocalizedString", ".*", rule_helpers.forward_declaration_mark_external],
+        ["collectionview.h", "KXMLGUIClient", ".*", rule_helpers.forward_declaration_mark_external],
     ]
 
 

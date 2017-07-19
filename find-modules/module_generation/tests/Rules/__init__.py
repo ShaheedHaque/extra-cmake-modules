@@ -120,7 +120,7 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        [".*", "ExternalFwdDecl", ".*", rule_helpers.container_mark_forward_declaration_external],
+        [".*", "ExternalFwdDecl", ".*", rule_helpers.forward_declaration_mark_external],
     ]
 
 

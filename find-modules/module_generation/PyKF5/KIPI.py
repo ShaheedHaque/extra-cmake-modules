@@ -31,7 +31,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>",
                                    "QMap<QString, QVariant>")
-    rule_helpers.code_add_classes(filename, sip, entry, "KXmlGuiWindow")
+    rule_helpers.module_add_classes(filename, sip, entry, "KXmlGuiWindow")
 
 
 def modulecode():

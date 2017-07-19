@@ -34,10 +34,10 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QSharedPointer<KMime::Message>")
-    rule_helpers.code_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
+    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
                                   "MailTransport::SentActionAttribute", "Akonadi::Protocol::Command",
                                   "Akonadi::ServerManagerPrivate", "KWallet::Wallet")
-    rule_helpers.code_add_imports(filename, sip, entry, "MailTransport/mailtransport/mailtransportmod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "MailTransport/mailtransport/mailtransportmod.sip")
 
 
 def parameter_rules():
