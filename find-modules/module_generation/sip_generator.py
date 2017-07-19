@@ -217,8 +217,9 @@ class SipGenerator(object):
             logger.log(clang_diagnostic_to_logging_diagnostic(diag.severity),
                        "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
         if self.dump_includes:
+            logger.info(_("File {} (include {})").format(h_file, include_filename))
             for include in sorted(set(self.tu.get_includes())):
-                logger.info(_("Used includes {}").format(include.include.name))
+                logger.info(_("    #includes {}").format(include.include.name))
         #
         # Run through the top level children in the translation unit.
         #
