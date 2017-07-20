@@ -48,8 +48,9 @@ import textwrap
 import traceback
 from copy import deepcopy
 
-from clang.cindex import Cursor, CursorKind
+from clang.cindex import CursorKind
 
+from clangcplus import Cursor
 import builtin_rules
 
 
@@ -81,7 +82,7 @@ def _parents(container):
     if parents:
         parents = "::".join(reversed(parents))
     else:
-        parents = os.path.basename(container.translation_unit.spelling)
+        parents = os.path.basename(parent.spelling)
     return parents
 
 

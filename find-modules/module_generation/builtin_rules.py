@@ -543,9 +543,9 @@ class FunctionWithTemplatesExpander(object):
         """
         def in_class(item):
             parent = item.semantic_parent
-            while parent and parent.kind != CursorKind.CLASS_DECL:
+            while parent and parent.kind not in [CursorKind.CLASS_DECL, CursorKind.TRANSLATION_UNIT]:
                 parent = parent.semantic_parent
-            return True if parent else False
+            return parent.kind == CursorKind.CLASS_DECL
 
         result = entries["result"]
         parameters = entries["parameters"]

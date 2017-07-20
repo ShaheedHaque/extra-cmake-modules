@@ -38,9 +38,10 @@ import os
 import re
 import sys
 import traceback
-from clang import cindex
-from clang.cindex import AccessSpecifier, CursorKind, SourceRange, StorageClass, TokenKind, TypeKind
+from clang.cindex import AccessSpecifier, Index, SourceRange, StorageClass, TokenKind, TypeKind
 
+import parser
+from parser import CursorKind
 import rules_engine
 
 
@@ -88,38 +89,6 @@ FN_PREFIX_STATIC = "static "
 FN_PREFIX_VIRTUAL = "virtual "
 FN_SUFFIX_CONST = " const"
 FN_SUFFIX_PURE = " = 0"
-
-
-def clang_diagnostic_to_logging_diagnostic(lvl):
-    """
-
-    The diagnostic levels in cindex.py are
-
-        Ignored = 0
-        Note    = 1
-        Warning = 2
-        Error   = 3
-        Fatal   = 4
-
-    and the leves in the python logging module are
-
-        NOTSET      0
-        DEBUG       10
-        INFO        20
-        WARNING     30
-        ERROR       40
-        CRITICAL    50
-
-    """
-    return (logging.NOTSET,
-            logging.INFO,
-            logging.WARNING,
-            logging.ERROR,
-            logging.CRITICAL)[lvl]
-
-
-def diagnostic_word(lvl):
-    return ("", "info", "warning", "error", "fatality")[lvl]
 
 
 def trace_discarded_by(cursor, rule, text=None):
@@ -172,8 +141,8 @@ class SipGenerator(object):
         while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
             parents = parent.spelling + "::" + parents
             parent = parent.semantic_parent
-        if not parents:
-            parents = os.path.basename(cursor.translation_unit.spelling) + "::"
+        if parent and not parents:
+            parents = os.path.basename(parent.spelling) + "::"
         text = parents + text
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
@@ -199,9 +168,8 @@ class SipGenerator(object):
         with open(source, "rU") as f:
             for line in f:
                 self.unpreprocessed_source.append(line)
-
-        index = cindex.Index.create()
-        self.tu = index.parse(source, ["-x", "c++"] + self.compile_flags)
+        tu = Index.create().parse(source, ["-x", "c++"] + self.compile_flags)
+        self.tu = parser.TranslationUnit(tu.cursor)
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
@@ -214,8 +182,7 @@ class SipGenerator(object):
             if msg in self.diagnostics:
                 continue
             self.diagnostics.add(msg)
-            logger.log(clang_diagnostic_to_logging_diagnostic(diag.severity),
-                       "Parse {}: {}".format(diagnostic_word(diag.severity), msg))
+            logger.log(diag.severity, "Parse {}: {}".format(logging.getLevelName(diag.severity), msg))
         if self.dump_includes:
             logger.info(_("File {} (include {})").format(h_file, include_filename))
             for include in sorted(set(self.tu.get_includes())):
@@ -223,7 +190,7 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body, modulecode = self._container_get(self.tu.cursor, -1, h_file, include_filename, [])
+        body, modulecode = self._container_get(self.tu, -1, h_file, include_filename, [])
         if body:
             #
             # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
@@ -353,20 +320,6 @@ class SipGenerator(object):
                 parent = parent.semantic_parent
             return True if parent else False
 
-        def is_copy_constructor(member):
-            if member.kind != CursorKind.CONSTRUCTOR:
-                return False
-            num_params = 0
-            has_self_type = False
-            for child in member.get_children():
-                num_params += 1
-                if child.kind == CursorKind.PARM_DECL:
-                    param_type = child.type.spelling
-                    param_type = param_type.split("::")[-1]
-                    param_type = param_type.replace("const", "").replace("&", "").strip()
-                    has_self_type = param_type == container.displayname
-            return num_params == 1 and has_self_type
-
         def template_parameter_found(parameter, parameter_extent, parameter_history):
             """
             Weird: nameless template parameters don't show up as members:
@@ -463,7 +416,7 @@ class SipGenerator(object):
                 #
                 if member.is_pure_virtual_method():
                     sip["annotations"].add("Abstract")
-                had_copy_constructor = had_copy_constructor or is_copy_constructor(member)
+                had_copy_constructor = had_copy_constructor or member.is_copy_constructor()
                 #
                 # SIP needs to see private functions at least for the case described in
                 # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html.
@@ -486,14 +439,13 @@ class SipGenerator(object):
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
                     if child.kind == CursorKind.ENUM_DECL:
-                        original = "enum {}\n".format(child.displayname or "__enum{}".format(child.extent.start.line))
+                        original = "enum {}\n".format(child.spelling)
                         typedef = "enum {}\n".format(member.type.spelling)
                     elif child.kind == CursorKind.STRUCT_DECL:
-                        original = "struct {}\n".format(
-                            child.displayname or "__struct{}".format(child.extent.start.line))
+                        original = "struct {}\n".format(child.spelling)
                         typedef = "struct {}\n".format(member.type.spelling)
                     elif child.kind == CursorKind.UNION_DECL:
-                        original = "union {}\n".format(child.displayname or "__union{}".format(child.extent.start.line))
+                        original = "union {}\n".format(child.spelling)
                         #
                         # Render a union as a struct. From the point of view of the accessors created for the bindings,
                         # this should behave as expected!
@@ -604,12 +556,8 @@ class SipGenerator(object):
             container_type = "class " + sip["name"]
             initial_access_specifier = "public: // Was struct"
         elif container.kind == CursorKind.STRUCT_DECL:
-            if not sip["name"]:
-                sip["name"] = "__struct{}".format(container.extent.start.line)
             container_type = "struct {}".format(sip["name"])
         elif container.kind == CursorKind.UNION_DECL:
-            if not sip["name"]:
-                sip["name"] = "__union{}".format(container.extent.start.line)
             container_type = "/* union */ struct {}".format(sip["name"])
         else:
             raise AssertionError(
@@ -737,7 +685,7 @@ class SipGenerator(object):
 
     def _enum_get(self, container, enum, level):
         sip = {
-            "name": enum.spelling or "__enum{}".format(enum.extent.start.line),
+            "name": enum.spelling,
             "annotations": set(),
         }
         modulecode = {}
