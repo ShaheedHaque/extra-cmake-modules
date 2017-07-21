@@ -42,29 +42,25 @@ class Container(clangcplus.Container, Cursor):
 
 class Enum(Cursor):
     CURSOR_KINDS = [CursorKind.ENUM_DECL]
+    NAME_FMT = "enum {}"
+    GENERATED_NAME_FMT = "__enum{}"
 
     @property
     def spelling(self):
         return self.proxied_object.spelling or self.proxied_object.displayname or \
-               "__enum{}".format(self.extent.start.line)
+               self.GENERATED_NAME_FMT.format(self.extent.start.line)
 
 
-class Struct(Cursor):
+class Struct(Enum):
     CURSOR_KINDS = [CursorKind.STRUCT_DECL]
-
-    @property
-    def spelling(self):
-        return self.proxied_object.spelling or self.proxied_object.displayname or \
-               "__struct{}".format(self.extent.start.line)
+    NAME_FMT = "struct {}"
+    GENERATED_NAME_FMT = "__struct{}"
 
 
-class Union(Cursor):
+class Union(Enum):
     CURSOR_KINDS = [CursorKind.UNION_DECL]
-
-    @property
-    def spelling(self):
-        return self.proxied_object.spelling or self.proxied_object.displayname or \
-               "__union{}".format(self.extent.start.line)
+    NAME_FMT = "union {}"
+    GENERATED_NAME_FMT = "__union{}"
 
 
 class Function(Cursor):

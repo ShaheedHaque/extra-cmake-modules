@@ -38,7 +38,7 @@ import os
 import re
 import sys
 import traceback
-from clang.cindex import AccessSpecifier, Index, SourceRange, StorageClass, TokenKind, TypeKind
+from clang.cindex import AccessSpecifier, Config, Index, SourceRange, StorageClass, TokenKind, TypeKind
 
 import parser
 from parser import CursorKind
@@ -89,6 +89,11 @@ FN_PREFIX_STATIC = "static "
 FN_PREFIX_VIRTUAL = "virtual "
 FN_SUFFIX_CONST = " const"
 FN_SUFFIX_PURE = " = 0"
+#
+# Render a union as a struct. From the point of view of the accessors created for the bindings,
+# this should behave as expected!
+#
+UNION_RENDER_FMT = "/* union */ struct {}"
 
 
 def trace_discarded_by(cursor, rule, text=None):
@@ -438,19 +443,11 @@ class SipGenerator(object):
                                                                                CursorKind.STRUCT_DECL,
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
-                    if child.kind == CursorKind.ENUM_DECL:
-                        original = "enum {}\n".format(child.spelling)
-                        typedef = "enum {}\n".format(member.type.spelling)
-                    elif child.kind == CursorKind.STRUCT_DECL:
-                        original = "struct {}\n".format(child.spelling)
-                        typedef = "struct {}\n".format(member.type.spelling)
-                    elif child.kind == CursorKind.UNION_DECL:
-                        original = "union {}\n".format(child.spelling)
-                        #
-                        # Render a union as a struct. From the point of view of the accessors created for the bindings,
-                        # this should behave as expected!
-                        #
-                        typedef = "/* union */ struct {}\n".format(member.type.spelling)
+                    original = child.NAME_FMT.format(child.spelling) + "\n"
+                    if child.kind == CursorKind.UNION_DECL:
+                        typedef = UNION_RENDER_FMT.format(member.type.spelling) + "\n"
+                    else:
+                        typedef = child.NAME_FMT.format(member.type.spelling) + "\n"
                     body = body.replace(original, typedef, 1)
                 else:
                     decl, tmp = self._typedef_get(container, member, level + 1, h_file, include_filename,
@@ -555,10 +552,11 @@ class SipGenerator(object):
             #
             container_type = "class " + sip["name"]
             initial_access_specifier = "public: // Was struct"
-        elif container.kind == CursorKind.STRUCT_DECL:
-            container_type = "struct {}".format(sip["name"])
-        elif container.kind == CursorKind.UNION_DECL:
-            container_type = "/* union */ struct {}".format(sip["name"])
+        elif container.kind in [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
+            if container.kind == CursorKind.UNION_DECL:
+                container_type = UNION_RENDER_FMT.format(sip["name"])
+            else:
+                container_type = container.NAME_FMT.format(sip["name"])
         else:
             raise AssertionError(
                 _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
@@ -1162,24 +1160,13 @@ class SipGenerator(object):
                 # Typedefs for enums are not suported by SIP, we deal wih them elsewhere.
                 #
                 assert False
-            elif child.kind == CursorKind.STRUCT_DECL:
+            elif child.kind in [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
                 if child.underlying_typedef_type:
                     #
-                    # Typedefs for inlined structs seem to be emitted twice. Refer back to original.
+                    # Typedefs for inlined structs/unions seem to be emitted twice. Refer back to original.
                     #
-                    struct = child.type.get_declaration()
-                    decl = "__struct{}".format(struct.extent.start.line)
-                else:
-                    decl, tmp = self._container_get(child, level, h_file, include_filename, templating_stack)
-                    modulecode.update(tmp)
-                args.append(decl)
-            elif child.kind == CursorKind.UNION_DECL:
-                if child.underlying_typedef_type:
-                    #
-                    # Typedefs for inlined unions seem to be emitted twice. Refer back to original.
-                    #
-                    union = child.type.get_declaration()
-                    decl = "__union{}".format(union.extent.start.line)
+                    item = child.type.get_declaration()
+                    decl = child.GENERATED_NAME_FMT.format(item.extent.start.line)
                 else:
                     decl, tmp = self._container_get(child, level, h_file, include_filename, templating_stack)
                     modulecode.update(tmp)
@@ -1404,12 +1391,8 @@ class SipGenerator(object):
             words = decl.split("(", 1)[1][:-1]
             words = re.split("[ :]", words)
             assert words[1] in ["enum", "struct", "union"]
-            #
-            # Render a union as a struct. From the point of view of the accessors created for the bindings,
-            # this should behave as expected!
-            #
             if words[1] == "union":
-                decl = "/* union */ struct __" + words[1] + words[-2]
+                decl = UNION_RENDER_FMT.format("__" + words[1] + words[-2])
             else:
                 decl = words[1] + " __" + words[1] + words[-2]
         elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
@@ -1546,7 +1529,7 @@ def main(argv=None):
         #
         # Load the given libclang.
         #
-        cindex.Config.set_library_file(args.libclang)
+        Config.set_library_file(args.libclang)
         #
         # Generate!
         #
@@ -1596,4 +1579,4 @@ if __name__ == "__main__":
     if sys.argv[-1] != "--self-check":
         sys.exit(main())
     else:
-        cindex.Config.set_library_file(sys.argv[2])
+        Config.set_library_file(sys.argv[2])
