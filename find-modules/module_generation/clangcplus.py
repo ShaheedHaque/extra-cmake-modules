@@ -31,6 +31,7 @@ import logging
 
 import clang.cindex
 
+logger = logging.getLogger(__name__)
 gettext.install(__name__)
 
 # Keep PyCharm happy.
@@ -219,7 +220,7 @@ class Cursor(_Proxy):
 
     @property
     def translation_unit(self):
-        return self._wrapped(self.proxied_object.translation_unit)
+        return self._wrapped(self.proxied_object.translation_unit.cursor)
 
     def _wrapped(self, cursor):
         """
@@ -229,25 +230,26 @@ class Cursor(_Proxy):
         :return: If possible, return the wrapped cindex_cursor, else just return the cindex_cursor.
         """
         try:
+            #
+            # A CursorKind.TRANSLATION_UNIT is not a clang.cindex.Cursor,
+            # and as such is the only thing without a "kind".
+            #
             kind = getattr(cursor, "kind", CursorKind.TRANSLATION_UNIT)
+        except ValueError as e:
+            #
+            # Some kinds result in a Clang error.
+            #
+            logger.debug(_("Unknown _kind_id {} for {}".format(e, cursor.spelling)))
+        else:
             try:
                 clazz = self.CLASS_MAP[kind]
-                cursor = clazz(cursor)
-            except AttributeError:
-                #
-                # TODO: who do we need this?
-                #
-                pass
             except KeyError:
                 #
                 # Some kinds don't have wrappers.
                 #
                 pass
-        except ValueError:
-            #
-            # Some kinds result in an error.
-            #
-            pass
+            else:
+                cursor = clazz(cursor)
         return cursor
 
 
