@@ -111,7 +111,7 @@ class Container(clangcplus.Container, Cursor):
 
 class Enum(Cursor):
     CURSOR_KINDS = [CursorKind.ENUM_DECL]
-    NAME_FMT = "enum {}"
+    SIP_TYPE_NAME = "enum"
     GENERATED_NAME_FMT = "__enum{}"
 
     @property
@@ -122,13 +122,17 @@ class Enum(Cursor):
 
 class Struct(Enum):
     CURSOR_KINDS = [CursorKind.STRUCT_DECL]
-    NAME_FMT = "struct {}"
+    SIP_TYPE_NAME = "struct"
     GENERATED_NAME_FMT = "__struct{}"
 
 
 class Union(Enum):
     CURSOR_KINDS = [CursorKind.UNION_DECL]
-    NAME_FMT = "union {}"
+    #
+    # Render a union as a struct. From the point of view of the accessors created for the bindings,
+    # this should behave as expected!
+    #
+    SIP_TYPE_NAME = "/* union */ struct"
     GENERATED_NAME_FMT = "__union{}"
 
 

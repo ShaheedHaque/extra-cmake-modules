@@ -89,11 +89,6 @@ FN_PREFIX_STATIC = "static "
 FN_PREFIX_VIRTUAL = "virtual "
 FN_SUFFIX_CONST = " const"
 FN_SUFFIX_PURE = " = 0"
-#
-# Render a union as a struct. From the point of view of the accessors created for the bindings,
-# this should behave as expected!
-#
-UNION_RENDER_FMT = "/* union */ struct {}"
 
 
 def trace_discarded_by(cursor, rule, text=None):
@@ -377,7 +372,6 @@ class SipGenerator(object):
             "name": container.spelling,
             "annotations": set()
         }
-        initial_access_specifier = ""
         body = ""
         base_specifiers = []
         template_parameters = []
@@ -443,11 +437,8 @@ class SipGenerator(object):
                                                                                CursorKind.STRUCT_DECL,
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
-                    original = child.NAME_FMT.format(child.spelling) + "\n"
-                    if child.kind == CursorKind.UNION_DECL:
-                        typedef = UNION_RENDER_FMT.format(member.type.spelling) + "\n"
-                    else:
-                        typedef = child.NAME_FMT.format(member.type.spelling) + "\n"
+                    original = child.SIP_TYPE_NAME + " " + child.spelling + "\n"
+                    typedef = child.SIP_TYPE_NAME + " " + member.type.spelling + "\n"
                     body = body.replace(original, typedef, 1)
                 else:
                     decl, tmp = self._typedef_get(container, member, level + 1, h_file, include_filename,
@@ -517,49 +508,14 @@ class SipGenerator(object):
             if decl:
                 body += decl
 
-        if container.kind == CursorKind.TRANSLATION_UNIT:
+        if isinstance(container, parser.TranslationUnit):
             self._template_stack_pop_last(templating_stack, template_parameters)
             return body, modulecode
 
-        if container.kind == CursorKind.NAMESPACE:
-            container_type = "namespace " + sip["name"]
-        elif container.kind == CursorKind.CLASS_DECL:
-            container_type = "class " + sip["name"]
-        elif container.kind in [CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]:
-            #
-            # Clang presents a templated struct as a CLASS_TEMPLATE, but does not insert an initial "public" access
-            # specifier.
-            #
-            found_start = False
-            found_end = False
-            bracket_level = 0
-            for token in container.get_tokens():
-                #
-                # Now count balanced <> till we get to the end.
-                #
-                if bracket_level == 0 and found_start and token.kind == TokenKind.KEYWORD:
-                    found_end = True
-                    break
-                elif token.spelling in "<":
-                    found_start = True
-                    bracket_level += 1
-                elif token.spelling in ">":
-                    bracket_level -= 1
-            if not found_start or not found_end:
-                raise RuntimeError(_("No start or end found for {}").format(container.spelling))
-            #
-            # OTOH, SIP does not support templated structs.
-            #
-            container_type = "class " + sip["name"]
-            initial_access_specifier = "public: // Was struct"
-        elif container.kind in [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
-            if container.kind == CursorKind.UNION_DECL:
-                container_type = UNION_RENDER_FMT.format(sip["name"])
-            else:
-                container_type = container.NAME_FMT.format(sip["name"])
+        if isinstance(container, parser.Cursor):
+            container_type = container.SIP_TYPE_NAME + " " + sip["name"]
         else:
-            raise AssertionError(
-                _("Unexpected container {}: {}[{}]").format(container.kind, sip["name"], container.extent.start.line))
+            raise AssertionError(_("Unexpected container: {}").format(SipGenerator.describe(container)))
         sip["decl"] = container_type
         sip["template_parameters"] = template_parameters
         sip["base_specifiers"] = base_specifiers
@@ -624,8 +580,8 @@ class SipGenerator(object):
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             decl += "\n" + pad + "{\n"
             decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
-            if initial_access_specifier:
-                decl += pad + initial_access_specifier + "\n"
+            if isinstance(container, parser.Container) and container.initial_access_specifier:
+                decl += pad + container.initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
             #
@@ -1390,11 +1346,8 @@ class SipGenerator(object):
             #
             words = decl.split("(", 1)[1][:-1]
             words = re.split("[ :]", words)
-            assert words[1] in ["enum", "struct", "union"]
-            if words[1] == "union":
-                decl = UNION_RENDER_FMT.format("__" + words[1] + words[-2])
-            else:
-                decl = words[1] + " __" + words[1] + words[-2]
+            kind = {"enum": parser.Enum, "struct": parser.Struct, "union": parser.Union}[words[1]]
+            decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
         elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
             #
             # Keep any typedef.
