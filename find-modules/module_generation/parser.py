@@ -77,19 +77,6 @@ class Function(Cursor):
         ]
         super(Function, self).__init__(fn, proxy_attributes)
 
-    def is_copy_constructor(self):
-        if self.kind != CursorKind.CONSTRUCTOR:
-            return False
-        num_params = 0
-        has_self_type = False
-        for child in self.get_children():
-            num_params += 1
-            if child.kind == CursorKind.PARM_DECL:
-                param_type = child.type.spelling
-                param_type = param_type.split("::")[-1]
-                param_type = param_type.replace("const", "").replace("&", "").strip()
-                has_self_type = param_type == self.semantic_parent.spelling
-        return num_params == 1 and has_self_type
 
 
 class TranslationUnit(clangcplus.TranslationUnit, Cursor):
