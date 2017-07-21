@@ -256,6 +256,7 @@ class TranslationUnit(Cursor):
     Surprise: a translation unit is also a Cursor!
     """
     CURSOR_KINDS = [CursorKind.TRANSLATION_UNIT]
+    CHECKED = False
 
     def __init__(self, tu):
         super(TranslationUnit, self).__init__(tu)
@@ -263,17 +264,19 @@ class TranslationUnit(Cursor):
         # Check that the user fully overrode the CLASS_MAP. Doing this check
         # here makes sense as this is normally the first Cursor instantiated.
         #
-        for base_class in self.__class__.mro():
-            base_class_map = getattr(base_class, "CLASS_MAP", self.CLASS_MAP)
-            if self.CLASS_MAP is not base_class_map:
-                tmp = [base_class_map[k] for k in base_class_map if k not in self.CLASS_MAP]
-                if tmp:
-                    tmp = list(set(tmp))
-                    #
-                    # The user forgot to override something.
-                    #
-                    raise AssertionError(_("CLASS_MAP items from {} not overridden by {}: {}").format(
-                        base_class, self.__class__, tmp))
+        if not TranslationUnit.CHECKED:
+            for base_class in self.__class__.mro():
+                base_class_map = getattr(base_class, "CLASS_MAP", self.CLASS_MAP)
+                if self.CLASS_MAP is not base_class_map:
+                    tmp = [base_class_map[k] for k in base_class_map if k not in self.CLASS_MAP]
+                    if tmp:
+                        tmp = list(set(tmp))
+                        #
+                        # The user forgot to override something.
+                        #
+                        raise AssertionError(_("CLASS_MAP items from {} not overridden by {}: {}").format(
+                            base_class, self.__class__, tmp))
+            TranslationUnit.CHECKED = True
         #
         # In clang.cindex, a translation unit is not a cursor. So here, we need
         # merge a couple of attributes "manually".
