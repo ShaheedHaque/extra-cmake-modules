@@ -38,18 +38,59 @@ _ = _
 CursorKind = clang.cindex.CursorKind
 
 
-class _Proxy(object):
-    def __init__(self, proxied_object, proxy_attributes):
+class MetaProxy(type):
+    def __new__(mcs, name, bases, dct):
         """
-        For each item in proxy_attributes, add a proxy from self to proxied_object.
+        Install all proxy handlers listed as PROXIES in the class, and its base classes.
+        """
+        #
+        # The function gives us eager bindng.
+        #
+        def named_property(name):
+            @property
+            def getter(self):
+                return getattr(self.proxied_object, name)
+
+            return getter
+
+        #
+        # The function gives us eager bindng.
+        #
+        def named_getter(name):
+            return lambda self: getattr(self.proxied_object, name)()
+
+        result = super(MetaProxy, mcs).__new__(mcs, name, bases, dct)
+        #
+        # MRO ordering provides for subclasses to override base classes.
+        #
+        for o in result.mro():
+            proxy_type, proxy_attributes = getattr(o, "PROXIES", (None, []))
+            for proxy_attribute in proxy_attributes:
+                #
+                #  If not present as an override in the subclass, implement the proxy.
+                #
+                if hasattr(result, proxy_attribute):
+                    continue
+                target = getattr(proxy_type, proxy_attribute)
+                if isinstance(target, property):
+                    setattr(result, proxy_attribute, named_property(proxy_attribute))
+                else:
+                    setattr(result, proxy_attribute, named_getter(proxy_attribute))
+        return result
+
+
+class _Proxy(object):
+    __metaclass__ = MetaProxy
+
+    def __init__(self, proxied_object):
+        """
+        Initialise with the default object to be proxied.
         """
         self.proxied_object = proxied_object
-        for attr in proxy_attributes:
-            self._add_proxy(self.proxied_object, attr)
 
     def _add_proxy(self, proxied_object, proxy_attribute):
         """
-        For each item in proxy_attributes, add a proxy from self to proxied_object.
+        For each item in proxy_attributes, add a proxy from self to a proxied_object.
         """
         #
         #  If not present as an override in the subclass, implement the proxy.
@@ -62,15 +103,19 @@ class Diagnostic(_Proxy):
     """
     The same as a cindex.Diagnostic, but with Pythonic severity.
     """
-    CLANG_TO_LOGGING = (logging.NOTSET, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL)
-
-    def __init__(self, diagnostic):
+    PROXIES = (
+        clang.cindex.Diagnostic,
         #
         # All attributes except severity.
         #
-        proxy_attributes = ["category_name", "category_number", "children", "disable_option", "fixits", "location",
-                            "option", "ranges", "spelling"]
-        super(Diagnostic, self).__init__(diagnostic, proxy_attributes)
+        [
+            "category_name", "category_number", "children", "disable_option", "fixits", "location", "option", "ranges", "spelling"
+        ]
+    )
+    CLANG_TO_LOGGING = (logging.NOTSET, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL)
+
+    def __init__(self, diagnostic):
+        super(Diagnostic, self).__init__(diagnostic)
 
     @property
     def severity(self):
@@ -96,7 +141,7 @@ class Diagnostic(_Proxy):
         return self.CLANG_TO_LOGGING[self.proxied_object.severity]
 
 
-class MetaCursor(type):
+class MetaCursor(MetaProxy):
     def __new__(mcs, name, bases, dct):
         """
         Register the class type against the cindex.CursorKinds it is a proxy
@@ -143,20 +188,23 @@ class Cursor(_Proxy):
     exposed as cindex.Cursor).
     """
     __metaclass__ = MetaCursor
-
+    PROXIES = (
+        clang.cindex.Cursor,
+        #
+        # All Cursors proxy some standard attributes for baseline compatibility with cindex.Cursor.
+        #
+        [
+            "access_specifier", "displayname", "extent", "kind", "location", "spelling"
+        ]
+    )
     CLASS_MAP = {}
     CURSOR_KINDS = []
 
-    def __init__(self, cursor, proxy_attributes=[]):
+    def __init__(self, cursor):
         """
         Create a wrapper around cursor, proxying proxy_attributes to it.
         """
-        #
-        # All Cursors proxy some standard attributes for baseline compatibility
-        # with cindex.Cursor.
-        #
-        proxy_attributes += ["access_specifier", "displayname", "extent", "kind", "location", "spelling"]
-        super(Cursor, self).__init__(cursor, proxy_attributes)
+        super(Cursor, self).__init__(cursor)
 
     def get_children(self):
         """
@@ -210,7 +258,7 @@ class TranslationUnit(Cursor):
     CURSOR_KINDS = [CursorKind.TRANSLATION_UNIT]
 
     def __init__(self, tu):
-        super(TranslationUnit, self).__init__(tu, [])
+        super(TranslationUnit, self).__init__(tu)
         #
         # Check that the user fully overrode the CLASS_MAP. Doing this check
         # here makes sense as this is normally the first Cursor instantiated.
@@ -245,15 +293,15 @@ class Container(Cursor):
 
 
 class Function(Cursor):
-    CURSOR_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
-                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
-
-    def __init__(self, fn):
-        proxy_attributes = [
+    PROXIES = (
+        clang.cindex.Cursor,
+        [
             "get_arguments", "get_definition", "get_num_template_arguments", "get_template_argument_kind",
             "get_template_argument_type", "get_template_argument_unsigned_value", "get_template_argument_value",
             "is_const_method", "is_converting_constructor", "is_copy_constructor", "is_default_constructor",
             "is_default_method", "is_definition", "is_move_constructor", "is_pure_virtual_method", "is_static_method",
             "is_virtual_method", "result_type",
         ]
-        super(Function, self).__init__(fn, proxy_attributes)
+    )
+    CURSOR_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
+                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]

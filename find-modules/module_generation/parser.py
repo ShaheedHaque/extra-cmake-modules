@@ -26,6 +26,7 @@
 #
 
 """A Clang-C wrapper that irons out some of the idiosyncrasies of Clang-C."""
+import clang.cindex
 
 import clangcplus
 
@@ -63,20 +64,8 @@ class Union(Enum):
     GENERATED_NAME_FMT = "__union{}"
 
 
-class Function(Cursor):
-    CURSOR_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
-                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
-
-    def __init__(self, fn):
-        proxy_attributes = [
-            "get_arguments", "get_definition", "get_num_template_arguments", "get_template_argument_kind",
-            "get_template_argument_type", "get_template_argument_unsigned_value", "get_template_argument_value",
-            "is_const_method", "is_converting_constructor", "is_copy_constructor", "is_default_constructor",
-            "is_default_method", "is_definition", "is_move_constructor", "is_pure_virtual_method", "is_static_method",
-            "is_virtual_method", "result_type",
-        ]
-        super(Function, self).__init__(fn, proxy_attributes)
-
+class Function(clangcplus.Function, Cursor):
+    pass
 
 
 class TranslationUnit(clangcplus.TranslationUnit, Cursor):
@@ -84,8 +73,10 @@ class TranslationUnit(clangcplus.TranslationUnit, Cursor):
 
 
 class Typedef(Cursor):
+    PROXIES = (
+        clang.cindex.Cursor,
+        [
+            "type", "result_type", "underlying_typedef_type",
+        ]
+    )
     CURSOR_KINDS = [CursorKind.TYPEDEF_DECL]
-
-    def __init__(self, typedef):
-        proxy_attributes = ["type", "result_type", "underlying_typedef_type"]
-        super(Typedef, self).__init__(typedef, proxy_attributes)
