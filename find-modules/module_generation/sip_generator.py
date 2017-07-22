@@ -110,24 +110,28 @@ def trace_modified_by(cursor, rule, text=None):
 
 
 class SipGenerator(object):
-    def __init__(self, rules_pkg, compile_flags, dump_modules=False, dump_items=False, dump_includes=False,
-                 dump_privates=False):
+    def __init__(self, exe_clang, rules_pkg, compile_flags, dump_modules=False, dump_items=False, dump_includes=False,
+                 dump_privates=False, verbose=False):
         """
         Constructor.
 
+        :param exe_clang:           The Clang compiler.
         :param rules_pkg:           The rules for the file.
         :param compile_flags:       The compile flags for the file.
         :param dump_modules:        Turn on tracing for modules.
         :param dump_items:          Turn on tracing for container members.
         :param dump_includes:       Turn on diagnostics for include files.
         :param dump_privates:       Turn on diagnostics for omitted private items.
+        :param verbose:             Turn on diagnostics for command lines.
         """
+        self.exe_clang = exe_clang
         self.compiled_rules = rules_engine.rules(rules_pkg)
         self.compile_flags = compile_flags
         self.dump_modules = dump_modules
         self.dump_items = dump_items
         self.dump_includes = dump_includes
         self.dump_privates = dump_privates
+        self.verbose = verbose
         self.diagnostics = set()
         self.tu = None
         self.unpreprocessed_source = None
@@ -1483,6 +1487,7 @@ def main(argv=None):
         # Load the given libclang.
         #
         Config.set_library_file(args.libclang)
+        exe_clang = "clang++-3.9"
         #
         # Generate!
         #
@@ -1491,7 +1496,7 @@ def main(argv=None):
             rules_pkg = os.path.dirname(rules_pkg)
         elif rules_pkg.endswith(".py"):
             rules_pkg = rules_pkg[:-3]
-        g = SipGenerator(rules_pkg, args.flags.lstrip().split(";"), args.verbose)
+        g = SipGenerator(exe_clang, rules_pkg, args.flags.lstrip().split(";"), verbose=args.verbose)
         body, modulecode, includes = g.create_sip(args.source, args.include_filename)
         with open(args.output, "w") as f:
             #

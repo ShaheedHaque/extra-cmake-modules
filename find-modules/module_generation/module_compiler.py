@@ -45,7 +45,7 @@ import traceback
 
 from PyQt5.QtCore import PYQT_CONFIGURATION
 
-from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module
+from module_generator import INCLUDES_EXTRACT, MODULE_SIP, feature_for_sip_module, get_platform_dependencies
 import rules_engine
 
 
@@ -73,6 +73,11 @@ class ModuleCompiler(object):
         :param input:               The source SIP directory.
         :param output:              The Python and shippable SIP output directory.
         """
+        #
+        # Find the SIP compiler..
+        #
+        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies()
+        self.exe_sip = exe_sip
         self.rules_pkg = rules_pkg
         self.compiled_rules = rules_engine.rules(self.rules_pkg)
         self.package = self.compiled_rules.sip_package()
@@ -143,8 +148,8 @@ class ModuleCompiler(object):
                 if not(selector.search(sip_file) and not omitter.search(sip_file)):
                     continue
                 per_process_args.append((sip_file, ))
-        std_args = (self.input_sips, self.imports, self.libraries, self.libdirs, self.compile_flags, self.package,
-                    self.output_so, self.output_sips, self.tmp, features, self.verbose)
+        std_args = (self.exe_sip, self.input_sips, self.imports, self.libraries, self.libdirs, self.compile_flags,
+                    self.package, self.output_so, self.output_sips, self.tmp, features, self.verbose)
         if jobs == 0:
             #
             # Debug mode.
@@ -182,12 +187,13 @@ def copy_file(input_dir, filename, output_dir):
     shutil.copy(input, output)
 
 
-def process_one(sip_file, input_sips, imports, libraries, libdirs, compile_flags, package, output_so, output_sips,
-                tmp_dir, features, verbose):
+def process_one(sip_file, exe_sip, input_sips, imports, libraries, libdirs, compile_flags, package, output_so,
+                output_sips, tmp_dir, features, verbose):
     """
     Run a SIP file.
 
     :param sip_file:            A SIP file name.
+    :param exe_sip:             The SIP compiler.
     :param input_sips:          Config
     :param imports:             Config
     :param libraries:           Config
@@ -197,7 +203,7 @@ def process_one(sip_file, input_sips, imports, libraries, libdirs, compile_flags
     :param output_sips:         Config
     :param tmp_dir:             Config
     :param features:            Is there a features file?
-    :param verbose:             Config
+    :param verbose:             Turn on diagnostics for command lines.
     :return:                    (
                                     sip_file,
                                     error,
@@ -278,7 +284,7 @@ def process_one(sip_file, input_sips, imports, libraries, libdirs, compile_flags
         make_file = os.path.join(tmp_dir, "module.Makefile")
         module_includes = os.path.join(tmp_dir, "module.includes")
         logger.info(_("Compiling {}").format(source))
-        cmd = [self_sipconfig.sip_bin, "-c", tmp_dir, "-b", build_file, "-e", "-o", "-w", "-X",
+        cmd = [exe_sip, "-c", tmp_dir, "-b", build_file, "-e", "-o", "-w", "-X",
                INCLUDES_EXTRACT + ":" + module_includes]
         if features:
             cmd += ["-x", feature]
