@@ -161,8 +161,9 @@ class ModuleGenerator(object):
         #
         # Find and load the libclang.
         #
-        sys_includes, lib_clang = get_platform_dependencies()
+        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies()
         cindex.Config.set_library_file(lib_clang)
+        self.exe_clang = exe_clang
         #
         # Get paths.
         #
@@ -738,9 +739,11 @@ def get_platform_dependencies():
     if not sys_includes:
         raise RuntimeError(_("Cannot find system includes"))
     lib_clang = data["LibClang_LIBRARY"]
-    logger.info(_("Found {}").format(sys_includes))
-    logger.info(_("Found {}").format(lib_clang))
-    return sys_includes, lib_clang
+    exe_clang = data["ClangPP_EXECUTABLE"]
+    exe_sip = data["SIP_EXECUTABLE"]
+    logger.info(_("Found Clang: {}, {}, {}").format(lib_clang, exe_clang, sys_includes))
+    logger.info(_("Found SIP: {}").format(exe_sip))
+    return lib_clang, exe_clang, sys_includes, exe_sip
 
 
 def main(argv=None):
