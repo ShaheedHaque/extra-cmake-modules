@@ -98,11 +98,22 @@ class Container(clangcplus.Container, Cursor):
                     bracket_level += 1
                 elif token.spelling in ">":
                     bracket_level -= 1
-            if found_start and not found_end:
+            if not found_start or not found_end:
                 #
-                # The worst case is that the user has to write a rule to fix this.
+                # Clang tokens did not help. Try looking in the source code.
                 #
-                logger.debug(_("Start but no end found for {}".format(container.spelling)))
+                text = self.translation_unit.source_processor.preprocessed(container.extent,
+                                                                           container.extent.start.file.name)
+                found = text.find(container.spelling)
+                if found != -1:
+                    text = text[:found].strip()
+                    if text.endswith("struct"):
+                        self.initial_access_specifier = "public: // Was struct"
+                else:
+                    #
+                    # The worst case is that the user has to write a rule to fix this.
+                    #
+                    logger.debug(_("Unable to expand {}".format(container.spelling)))
 
     @property
     def SIP_TYPE_NAME(self):

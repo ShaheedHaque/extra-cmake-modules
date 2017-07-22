@@ -283,7 +283,7 @@ class TranslationUnit(Cursor):
         # In clang.cindex, a translation unit is not a cursor. So here, we need
         # merge a couple of attributes "manually".
         #
-        proxy_attributes = ["get_includes", "get_tokens"]
+        proxy_attributes = ["get_includes", "get_tokens", "source_processor"]
         for attr in proxy_attributes:
             self._add_proxy(tu.translation_unit, attr)
 

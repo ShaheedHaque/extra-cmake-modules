@@ -36,9 +36,12 @@ import inspect
 import logging
 import os
 import re
+import subprocess
 import sys
 import traceback
+
 from clang.cindex import AccessSpecifier, Config, Index, SourceRange, StorageClass, TokenKind, TypeKind
+import pcpp.preprocessor
 
 import parser
 from parser import CursorKind
@@ -109,6 +112,138 @@ def trace_modified_by(cursor, rule, text=None):
     return trace
 
 
+class SourceProcessor(pcpp.preprocessor.Preprocessor):
+    """
+    Centralise all processing of the source.
+
+    Ideally, we'd use Clang for everything, but on occasion, we'll need access
+    to the source, both with and without pre-processing too, and for that we
+    use pcpp.preprocessor.Preprocessor. At least by keeping all the logic here,
+    we try to avoid drift between the two.
+    """
+    def __init__(self, exe_clang, compile_flags, verbose):
+        super(SourceProcessor, self).__init__()
+        self.exe_clang = exe_clang
+        self.compile_flags = compile_flags
+        self.verbose = verbose
+        self.source = None
+        self.unpreprocessed_source = []
+        self.preproc = None
+
+    def compile(self, source):
+        """
+        Use Clang to parse the source and return its AST.
+
+        :param source:              The source file.
+        """
+        if source != self.source:
+            self.unpreprocessed_source = []
+            self.preproc = None
+            self.source = source
+        if self.verbose:
+            logger.info(" ".join(self.compile_flags + [self.source]))
+        tu = Index.create().parse(self.source, self.compile_flags)
+        #
+        # Stash ourselves on the tu for later use.
+        #
+        tu.source_processor = self
+        return tu
+
+    def on_error(self, file, line, msg):
+        logger.error(msg)
+        self.return_code += 1
+
+    def on_warning(self, file, line, msg):
+        logger.error(msg)
+
+    def on_directive_unknown(self, directive, toks, ifpassthru):
+        msg = _("Unknown directive '{}'").format("".join(tok.value for tok in toks))
+        if directive.value == "warning":
+            self.on_warning(directive.source, directive.lineno, msg)
+        else:
+            self.on_error(directive.source, directive.lineno, msg)
+        return True
+
+    def on_include_not_found(self, is_system_include, curdir, includepath):
+        msg = _("Include file '{}' not found").format(includepath)
+        self.on_error(self.lastdirective.source, self.lastdirective.lineno, msg)
+
+    def unpreprocessed(self, extent):
+        """
+        Read the given range from the raw source.
+
+        :param extent:              The range of text required.
+        """
+        assert self.source, "Must call compile() first!"
+        if not self.unpreprocessed_source:
+            self.unpreprocessed_source = self._read(self.source)
+        return self._extract(self.unpreprocessed_source, extent)
+
+    def preprocessed(self, extent, alternate_source=None):
+        """
+        Read the given range from the pre-processed source.
+
+        :param extent:              The range of text required.
+        """
+        if alternate_source:
+            lines = self._read(alternate_source)
+            text = self._extract(lines, extent)
+        else:
+            text = self.unpreprocessed(extent)
+        return self.expand(text)
+
+    def expand(self, text):
+        assert self.source, "Must call compile() first!"
+        if not self.preproc:
+            #
+            # Clang cannot do -fsyntax-only...get the macros by hand.
+            #
+            cmd = [self.exe_clang] + self.compile_flags + ["-dM", "-E"] + [self.source]
+            if self.verbose:
+                logger.info(" ".join(cmd))
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            stdout, stderr = p.communicate()
+            if stderr:
+                logger.error(_("While expanding '{}':\n{})".format(text, stderr)))
+            self.preproc = pcpp.preprocessor.Preprocessor()
+            self.preproc.parser = self.preproc.parsegen(stdout)
+            #
+            # This is what takes the most time, not Clang preprocessing above!
+            #
+            self.preproc.write()
+        #
+        # Tokenize the input text (and then fixup the needed token.source).
+        #
+        tokens = self.preproc.tokenize(text)
+        for t in tokens:
+            t.source = self.source
+        #
+        # Now the actual expansion.
+        #
+        tokens = self.preproc.expand_macros(tokens)
+        text = "".join([t.value for t in tokens])
+        return text
+
+    def _read(self, source):
+        lines = []
+        with open(source, "rU") as f:
+            for line in f:
+                lines.append(line)
+        return lines
+
+    def _extract(self, lines, extent):
+        extract = lines[extent.start.line - 1:extent.end.line]
+        if extent.start.line == extent.end.line:
+            extract[0] = extract[0][extent.start.column - 1:extent.end.column - 1]
+        else:
+            extract[0] = extract[0][extent.start.column - 1:]
+            extract[-1] = extract[-1][:extent.end.column - 1]
+        #
+        # Return a single buffer of text.
+        #
+        return "".join(extract)
+
+
 class SipGenerator(object):
     def __init__(self, exe_clang, rules_pkg, compile_flags, dump_modules=False, dump_items=False, dump_includes=False,
                  dump_privates=False, verbose=False):
@@ -134,7 +269,7 @@ class SipGenerator(object):
         self.verbose = verbose
         self.diagnostics = set()
         self.tu = None
-        self.unpreprocessed_source = None
+        self.source_processor = None
 
     @staticmethod
     def describe(cursor, text=None):
@@ -148,6 +283,7 @@ class SipGenerator(object):
         if parent and not parents:
             parents = os.path.basename(parent.spelling) + "::"
         text = parents + text
+        text = text.replace("\n", "\\n")
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
     def create_sip(self, h_file, include_filename):
@@ -168,11 +304,8 @@ class SipGenerator(object):
         # Read in the original file.
         #
         source = h_file
-        self.unpreprocessed_source = []
-        with open(source, "rU") as f:
-            for line in f:
-                self.unpreprocessed_source.append(line)
-        tu = Index.create().parse(source, ["-x", "c++"] + self.compile_flags)
+        self.source_processor = SourceProcessor(self.exe_clang, ["-x", "c++"] + self.compile_flags, self.verbose)
+        tu = self.source_processor.compile(source)
         self.tu = parser.TranslationUnit(tu.cursor)
         for diag in self.tu.diagnostics:
             #
@@ -186,7 +319,7 @@ class SipGenerator(object):
             if msg in self.diagnostics:
                 continue
             self.diagnostics.add(msg)
-            logger.log(diag.severity, "Parse {}: {}".format(logging.getLevelName(diag.severity), msg))
+            logger.log(diag.severity, "While parsing: {}".format(msg))
         if self.dump_includes:
             logger.info(_("File {} (include {})").format(h_file, include_filename))
             for include in sorted(set(self.tu.get_includes())):
@@ -496,7 +629,7 @@ class SipGenerator(object):
                 decl, tmp = self._using_get(container, member, level + 1)
                 modulecode.update(tmp)
             else:
-                text = self._read_source(member.extent)
+                text = self.source_processor.unpreprocessed(member.extent)
                 if self.skippable_attribute(container, member, text, sip):
                     if not sip["name"]:
                         self._template_stack_pop_last(templating_stack, template_parameters)
@@ -529,7 +662,7 @@ class SipGenerator(object):
         # Empty containers are still useful if they provide namespaces, classes or forward declarations.
         #
         if not body:
-            text = self._read_source(container.extent)
+            text = self.source_processor.unpreprocessed(container.extent)
             if not text.endswith("}"):
                 #
                 # Forward declaration.
@@ -618,7 +751,7 @@ class SipGenerator(object):
         """
         access_specifier = ""
         is_signal = False
-        access_specifier_text = self._read_source(member.extent)
+        access_specifier_text = self.source_processor.unpreprocessed(member.extent)
         if access_specifier_text == Q_OBJECT:
             return access_specifier, is_signal
         pad = " " * ((level - 1) * 4)
@@ -796,7 +929,7 @@ class SipGenerator(object):
                 self._template_stack_push_first(templating_stack, template_parameters)
                 template_parameters.append(self._template_template_param_get(child))
             else:
-                text = self._read_source(child.extent)
+                text = self.source_processor.unpreprocessed(child.extent)
                 if self.skippable_attribute(function, child, text, sip):
                     if not sip["name"]:
                         self._template_stack_pop_last(templating_stack, template_parameters)
@@ -1143,7 +1276,7 @@ class SipGenerator(object):
                 #
                 pass
             else:
-                text = self._read_source(child.extent)
+                text = self.source_processor.unpreprocessed(child.extent)
                 if self.skippable_attribute(typedef, child, text, sip):
                     if not sip["name"]:
                         return "", modulecode
@@ -1334,7 +1467,7 @@ class SipGenerator(object):
                 #
                 pass
             else:
-                text = self._read_source(child.extent)
+                text = self.source_processor.unpreprocessed(child.extent)
                 if self.skippable_attribute(variable, child, text, sip):
                     if not sip["name"]:
                         return "", modulecode
@@ -1426,23 +1559,6 @@ class SipGenerator(object):
         elif variable.storage_class == StorageClass.EXTERN:
             prefix += "extern "
         sip["decl"] = prefix + sip["decl"]
-
-    def _read_source(self, extent):
-        """
-        Read the given range from the unpre-processed source.
-
-        :param extent:              The range of text required.
-        """
-        extract = self.unpreprocessed_source[extent.start.line - 1:extent.end.line]
-        if extent.start.line == extent.end.line:
-            extract[0] = extract[0][extent.start.column - 1:extent.end.column - 1]
-        else:
-            extract[0] = extract[0][extent.start.column - 1:]
-            extract[-1] = extract[-1][:extent.end.column - 1]
-        #
-        # Return a single line of text.
-        #
-        return "".join(extract).replace("\n", " ")
 
     @staticmethod
     def _report_ignoring(parent, child, text=None):
