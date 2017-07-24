@@ -350,7 +350,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
         """
         parents = _parents(container)
         matcher, rule = self._match(parents, sip["name"],
-                                    ", ".join(sip["template_parameters"]),
+                                    ", ".join(sip["template_parameters"] or []),
                                     sip["decl"],
                                     ", ".join(sip["base_specifiers"]))
         sip.setdefault("code", "")
@@ -424,7 +424,7 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
         """
         parents = _parents(container)
         matcher, rule = self._match(parents, sip["name"],
-                                    ", ".join(sip["template_parameters"]))
+                                    ", ".join(sip["template_parameters"] or []))
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
@@ -506,7 +506,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
         parents = _parents(function)
-        matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"]), sip["fn_result"],
+        matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"] or []), sip["fn_result"],
                                     ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})

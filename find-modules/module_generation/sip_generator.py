@@ -244,6 +244,69 @@ class SourceProcessor(pcpp.preprocessor.Preprocessor):
         return "".join(extract)
 
 
+class TemplatingStack(list):
+    """
+    A stack of sets of templated objects.
+    """
+    def _template_parameters_fixup(self, sip, key, no_fixups=None):
+        """
+        Clang seems to replace template parameter N of the form "T" with
+        "type-parameter-<depth>-N"...so we need to put "T" back.
+
+        :param sip:                 The sip.
+        :param key:                 The key in the sip which may need
+                                    fixing up.
+        :param no_fixups:           Cursor of current object or None.
+                                    If not None, this we discard any items
+                                    which are found to have templated form.
+        :return:
+        """
+        for depth, templated_object in enumerate(self):
+            template_parameters = templated_object.template_parameters
+            for clang_parameter, real_parameter in enumerate(template_parameters):
+                clang_parameter = "type-parameter-{}-{}".format(depth, clang_parameter)
+                if isinstance(real_parameter, tuple):
+                    real_parameter = real_parameter[0]
+                value = sip[key]
+                if isinstance(value, str):
+                    if no_fixups and clang_parameter in value:
+                        sip[key] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
+                    else:
+                        sip[key] = value.replace(clang_parameter, real_parameter)
+                elif isinstance(value, list):
+                    for j, item in enumerate(value):
+                        if no_fixups and clang_parameter in item:
+                            sip[key] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
+                        else:
+                            sip[key][j] = item.replace(clang_parameter, real_parameter)
+                elif isinstance(value, dict):
+                    templated_items = []
+                    for j, item in value.items():
+                        if no_fixups and clang_parameter in j:
+                            templated_items.append(j)
+                        else:
+                            sip[key][j] = item.replace(clang_parameter, real_parameter)
+                    for j in templated_items:
+                        sip[key][j] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
+
+    def _template_stack_push_first(self, templated_object, new_parameter):
+        """
+        Push a new level onto the stack, and add a new parameter.
+        """
+        if not self or self[-1] is not templated_object:
+            self.append(templated_object)
+        if not templated_object.template_parameters:
+            templated_object.template_parameters = []
+        templated_object.template_parameters.append(new_parameter)
+
+    def _template_stack_pop_last(self, templated_object):
+        """
+        Pop an old level off the stack as needed.
+        """
+        if self and self[-1] is templated_object:
+            self.pop()
+
+
 class SipGenerator(object):
     def __init__(self, exe_clang, rules_pkg, compile_flags, dump_modules=False, dump_items=False, dump_includes=False,
                  dump_privates=False, verbose=False):
@@ -327,7 +390,7 @@ class SipGenerator(object):
         #
         # Run through the top level children in the translation unit.
         #
-        body, modulecode = self._container_get(self.tu, -1, h_file, include_filename, [])
+        body, modulecode = self._container_get(self.tu, -1, h_file, include_filename, TemplatingStack())
         if body:
             #
             # Any module-related manual code (%ExportedHeaderCode, %ModuleCode, %ModuleHeaderCode or other
@@ -378,67 +441,6 @@ class SipGenerator(object):
             return True
         return False
 
-    def _template_parameters_fixup(self, templating_stack, sip, key, no_fixups=None):
-        """
-        Clang seems to replace template parameter N of the form "T" with
-        "type-parameter-<depth>-N"...so we need to put "T" back.
-
-        :param templating_stack:    The stack of sets of template parameters.
-        :param sip:                 The sip.
-        :param key:                 The key in the sip which may need
-                                    fixing up.
-        :param no_fixups:           Cursor of current object or None.
-                                    If not None, this we discard any items
-                                    which are found to have templated form.
-        :return:
-        """
-        for depth, template_parameters in enumerate(templating_stack):
-            for clang_parameter, real_parameter in enumerate(template_parameters):
-                clang_parameter = "type-parameter-{}-{}".format(depth, clang_parameter)
-                if isinstance(real_parameter, tuple):
-                    real_parameter = real_parameter[0]
-                value = sip[key]
-                if isinstance(value, str):
-                    if no_fixups and clang_parameter in value:
-                        sip[key] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
-                    else:
-                        sip[key] = value.replace(clang_parameter, real_parameter)
-                elif isinstance(value, list):
-                    for j, item in enumerate(value):
-                        if no_fixups and clang_parameter in item:
-                            sip[key] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
-                        else:
-                            sip[key][j] = item.replace(clang_parameter, real_parameter)
-                elif isinstance(value, dict):
-                    templated_items = []
-                    for j, item in value.items():
-                        if no_fixups and clang_parameter in j:
-                            templated_items.append(j)
-                        else:
-                            sip[key][j] = item.replace(clang_parameter, real_parameter)
-                    for j in templated_items:
-                        sip[key][j] = trace_discarded_by(no_fixups, "templated {} handling".format(key))
-
-    def _template_stack_push_first(self, templating_stack, template_parameters):
-        """
-        Push a new level onto the stack of template parameters as needed.
-
-        :param templating_stack:    The stack of sets of template parameters.
-        :param template_parameters: Any template parameters.
-        """
-        if not templating_stack or templating_stack[-1] is not template_parameters:
-            templating_stack.append(template_parameters)
-
-    def _template_stack_pop_last(self, templating_stack, template_parameters):
-        """
-        Pop an old level off the stack of template parameters as needed.
-
-        :param templating_stack:    The stack of sets of template parameters.
-        :param template_parameters: Any template parameters.
-        """
-        if templating_stack and templating_stack[-1] is template_parameters:
-            templating_stack.pop()
-
     def _container_get(self, container, level, h_file, include_filename, templating_stack):
         """
         Generate the (recursive) translation for a class or namespace.
@@ -457,62 +459,12 @@ class SipGenerator(object):
                 parent = parent.semantic_parent
             return True if parent else False
 
-        def template_parameter_found(parameter, parameter_extent, parameter_history):
-            """
-            Weird: nameless template parameters don't show up as members:
-
-            - Given "template <T, int U, typename V>", we get called for "int U" and "typename V", and not T.
-            - Given "template <T, int U, V>" we get called for "int U" and ">", and not T or V.
-            - Given "template <T, int U, V>" we get called for ">".
-            - Even container.displayname gets terribly confused!
-
-            :param parameter:               The parameter or None.
-            :param parameter_extent:        The extent before which any nameless template must
-                                            have ended, or after which any must start.
-            :param parameter_history:       Our memory.
-            :return: 
-            """
-            parameter_history.append((parameter, parameter_extent))
-            #
-            # Walk the tokens from the start of the container to the current point.
-            #
-            tokens = SourceRange.from_locations(container.extent.start, parameter_extent.start)
-            tokens = list(self.tu.get_tokens(extent=tokens))
-            assert tokens[1].spelling == "<"
-            tokens = tokens[2:]
-            tmp = []
-            non_missing_parameter = 0
-            for token in tokens:
-                if token.extent.end.offset <= parameter_history[non_missing_parameter][1].start.offset:
-                    if token.kind == TokenKind.IDENTIFIER:
-                        #
-                        # We found a typeless template parameter.
-                        #
-                        tmp.append(("__{}".format(len(tmp)), token.extent))
-                elif token.extent.end.offset == parameter_history[non_missing_parameter][1].end.offset:
-                    #
-                    # Consume a non-typeless template parameter.
-                    #
-                    tmp.append(parameter_history[non_missing_parameter])
-                    non_missing_parameter += 1
-            #
-            # Consume any remaining non-typeless template parameters.
-            #
-            tmp.extend(parameter_history[non_missing_parameter:])
-            parameter_history[:] = tmp
-            #
-            # Return the current list of template parameters.
-            #
-            return [i[0] for i in tmp if i[0]]
-
         sip = {
             "name": container.spelling,
             "annotations": set()
         }
         body = ""
         base_specifiers = []
-        template_parameters = []
-        parameter_history = []
         had_copy_constructor = False
         had_const_member = False
         modulecode = {}
@@ -586,19 +538,8 @@ class SipGenerator(object):
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
                 #
                 base_specifiers.append(member.type.get_canonical().spelling)
-            elif member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
-                self._template_stack_push_first(templating_stack, template_parameters)
-                template_parameters[:] = template_parameter_found(member.spelling, member.extent, parameter_history)
-            elif member.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
-                self._template_stack_push_first(templating_stack, template_parameters)
-                if member.spelling:
-                    template_parameters[:] = template_parameter_found(member.spelling, member.extent, parameter_history)
-                else:
-                    #
-                    # This is the case that given "template <T, int U, V>" we get called for ">".
-                    #
-                    extent = SourceRange.from_locations(member.location, member.location)
-                    template_parameters[:] = template_parameter_found(None, extent, parameter_history)
+            elif isinstance(member, clangparser.TemplateParameter):
+                templating_stack._template_stack_push_first(container, member.SIP_TYPE_NAME)
             elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
                 had_const_member = had_const_member or member.type.is_const_qualified() or \
                                    member.type.spelling.startswith(QScopedPointer)
@@ -632,7 +573,7 @@ class SipGenerator(object):
                 text = self.source_processor.unpreprocessed(member.extent)
                 if self.skippable_attribute(container, member, text, sip):
                     if not sip["name"]:
-                        self._template_stack_pop_last(templating_stack, template_parameters)
+                        templating_stack._template_stack_pop_last(container)
                         return "", modulecode
                 elif member.kind == CursorKind.UNEXPOSED_DECL:
                     decl, tmp = self._unexposed_get(container, member, text, level + 1)
@@ -646,7 +587,7 @@ class SipGenerator(object):
                 body += decl
 
         if isinstance(container, clangparser.TranslationUnit):
-            self._template_stack_pop_last(templating_stack, template_parameters)
+            templating_stack._template_stack_pop_last(container)
             return body, modulecode
 
         if isinstance(container, clangparser.Cursor):
@@ -654,7 +595,7 @@ class SipGenerator(object):
         else:
             raise AssertionError(_("Unexpected container: {}").format(SipGenerator.describe(container)))
         sip["decl"] = container_type
-        sip["template_parameters"] = template_parameters
+        sip["template_parameters"] = container.template_parameters
         sip["base_specifiers"] = base_specifiers
 
         pad = " " * (level * 4)
@@ -677,7 +618,7 @@ class SipGenerator(object):
                     body += ";\n"
                 else:
                     body = pad + trace_discarded_by(container, modifying_rule)
-                self._template_stack_pop_last(templating_stack, template_parameters)
+                templating_stack._template_stack_pop_last(container)
                 return body, modulecode
             else:
                 #
@@ -688,14 +629,14 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["body"] = body
-        self._template_parameters_fixup(templating_stack, sip, "body")
-        self._template_parameters_fixup(templating_stack, sip, "base_specifiers")
+        templating_stack._template_parameters_fixup(sip, "body")
+        templating_stack._template_parameters_fixup(sip, "base_specifiers")
         modifying_rule = self.compiled_rules.container_rules().apply(container, sip)
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "body")
-                self._template_parameters_fixup(templating_stack, sip, "base_specifiers")
+                templating_stack._template_parameters_fixup(sip, "body")
+                templating_stack._template_parameters_fixup(sip, "base_specifiers")
                 decl += pad + trace_modified_by(container, modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
@@ -705,8 +646,8 @@ class SipGenerator(object):
             #
             modifying_rule = self.compiled_rules.typecode(container, sip)
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "body")
-                self._template_parameters_fixup(templating_stack, sip, "base_specifiers")
+                templating_stack._template_parameters_fixup(sip, "body")
+                templating_stack._template_parameters_fixup(sip, "base_specifiers")
                 decl += pad + trace_modified_by(container, modifying_rule)
             decl += pad + sip["decl"]
             if sip["base_specifiers"]:
@@ -733,7 +674,7 @@ class SipGenerator(object):
                 modulecode.update(sip["modulecode"])
         else:
             body = pad + trace_discarded_by(container, modifying_rule)
-        self._template_stack_pop_last(templating_stack, template_parameters)
+        templating_stack._template_stack_pop_last(container)
         return body, modulecode
 
     def _get_access_specifier(self, member, level):
@@ -838,7 +779,6 @@ class SipGenerator(object):
             sip["name"] = sip["name"].split("<")[0]
         parameters = []
         parameter_modifying_rules = []
-        template_parameters = []
         modulecode = {}
         for child in function.get_children():
             if child.kind == CursorKind.PARM_DECL:
@@ -893,10 +833,10 @@ class SipGenerator(object):
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }
-                self._template_parameters_fixup(templating_stack, child_sip, "decl")
+                templating_stack._template_parameters_fixup(child_sip, "decl")
                 modifying_rule = self.compiled_rules.parameter_rules().apply(container, function, child, child_sip)
                 if modifying_rule:
-                    self._template_parameters_fixup(templating_stack, child_sip, "decl")
+                    templating_stack._template_parameters_fixup(child_sip, "decl")
                     parameter_modifying_rules.append(trace_modified_by(child, modifying_rule))
                 decl = child_sip["decl"]
                 if child_sip["annotations"]:
@@ -904,7 +844,7 @@ class SipGenerator(object):
                 if child_sip["init"]:
                     decl += " = " + child_sip["init"]
                 if child_sip["modulecode"]:
-                    self._template_parameters_fixup(templating_stack, child_sip, "modulecode", child)
+                    templating_stack._template_parameters_fixup(child_sip, "modulecode", child)
                     modulecode.update(child_sip["modulecode"])
                 parameters.append(decl)
             elif child.kind in [CursorKind.COMPOUND_STMT, CursorKind.CXX_OVERRIDE_ATTR,
@@ -918,27 +858,20 @@ class SipGenerator(object):
                 #   TEMPLATE_KINDS: The result type.
                 #
                 pass
-            elif child.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
-                self._template_stack_push_first(templating_stack, template_parameters)
-                template_parameters.append(child.displayname)
-            elif child.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
-                self._template_stack_push_first(templating_stack, template_parameters)
-                template_parameters.append(child.type.spelling + " " + child.displayname)
-            elif child.kind == CursorKind.TEMPLATE_TEMPLATE_PARAMETER:
-                self._template_stack_push_first(templating_stack, template_parameters)
-                template_parameters.append(self._template_template_param_get(child))
+            elif isinstance(child, clangparser.TemplateParameter):
+                templating_stack._template_stack_push_first(function, child.SIP_TYPE_NAME)
             else:
                 text = self.source_processor.unpreprocessed(child.extent)
                 if self.skippable_attribute(function, child, text, sip):
                     if not sip["name"]:
-                        self._template_stack_pop_last(templating_stack, template_parameters)
+                        templating_stack._template_stack_pop_last(function)
                         return "", modulecode
                 else:
                     SipGenerator._report_ignoring(function, child)
         #
         # Flesh out the SIP context for the rules engine.
         #
-        sip["template_parameters"] = template_parameters
+        sip["template_parameters"] = function.template_parameters
         if function.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
             sip["fn_result"] = ""
         else:
@@ -957,15 +890,15 @@ class SipGenerator(object):
                 sip["fn_result"] = function.result_type.spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(container, function)
-        self._template_parameters_fixup(templating_stack, sip, "fn_result")
-        self._template_parameters_fixup(templating_stack, sip, "parameters")
+        templating_stack._template_parameters_fixup(sip, "fn_result")
+        templating_stack._template_parameters_fixup(sip, "parameters")
         modifying_rule = self.compiled_rules.function_rules().apply(container, function, sip)
         pad = " " * (level * 4)
         if sip["name"]:
             decl1 = ""
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "fn_result")
-                self._template_parameters_fixup(templating_stack, sip, "parameters")
+                templating_stack._template_parameters_fixup(sip, "fn_result")
+                templating_stack._template_parameters_fixup(sip, "parameters")
                 decl1 += pad + trace_modified_by(function, modifying_rule)
             for modifying_rule in parameter_modifying_rules:
                 decl1 += pad + modifying_rule
@@ -976,17 +909,17 @@ class SipGenerator(object):
             #
             modifying_rule = self.compiled_rules.methodcode(function, sip)
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "fn_result")
-                self._template_parameters_fixup(templating_stack, sip, "parameters")
+                templating_stack._template_parameters_fixup(sip, "fn_result")
+                templating_stack._template_parameters_fixup(sip, "parameters")
                 decl1 += pad + trace_modified_by(function, modifying_rule)
             decl += self._function_render(function, sip, pad)
             decl = decl1 + decl
             if sip["modulecode"]:
-                self._template_parameters_fixup(templating_stack, sip, "modulecode", function)
+                templating_stack._template_parameters_fixup(sip, "modulecode", function)
                 modulecode.update(sip["modulecode"])
         else:
             decl = pad + trace_discarded_by(function, modifying_rule)
-        self._template_stack_pop_last(templating_stack, template_parameters)
+        templating_stack._template_stack_pop_last(function)
         return decl, modulecode
 
     def _function_render(self, function, sip, pad):
@@ -1029,25 +962,6 @@ class SipGenerator(object):
         decl += ";\n"
         decl += sip["code"]
         return decl
-
-    def _template_template_param_get(self, container):
-        """
-        Recursive template template parameter walk.
-
-        :param container:                   The template template object.
-        :return:                            String containing the template template parameter.
-        """
-        template_type_parameters = []
-        for member in container.get_children():
-            if member.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
-                template_type_parameters.append("typename")
-            elif member.kind == CursorKind.TEMPLATE_TEMPLATE_PARAMETER:
-                template_type_parameters.append(self._template_template_param_get(member))
-            else:
-                SipGenerator._report_ignoring(container, member)
-        template_type_parameters = "template <" + (", ".join(template_type_parameters)) + "> class " + \
-                                   container.displayname
-        return template_type_parameters
 
     def _fn_get_decorators(self, container, function):
         """
@@ -1317,7 +1231,7 @@ class SipGenerator(object):
                     sip["fn_result"] = sip["decl"].split(FUNC_PTR, 1)[0]
                 args = [spelling for spelling, name in args]
                 sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
-        self._template_parameters_fixup(templating_stack, sip, "decl")
+        templating_stack._template_parameters_fixup(sip, "decl")
         modifying_rule = self.compiled_rules.typedef_rules().apply(container, typedef, sip)
         #
         # Now the rules have run, add any prefix/suffix.
@@ -1326,7 +1240,7 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "decl")
+                templating_stack._template_parameters_fixup(sip, "decl")
                 decl += pad + trace_modified_by(typedef, modifying_rule)
             #
             # Any type-related code (%BIGetBufferCode, %BIGetReadBufferCode, %BIGetWriteBufferCode,
@@ -1336,7 +1250,7 @@ class SipGenerator(object):
             #
             modifying_rule = self.compiled_rules.typecode(typedef, sip)
             if modifying_rule:
-                self._template_parameters_fixup(templating_stack, sip, "decl", typedef)
+                templating_stack._template_parameters_fixup(sip, "decl", typedef)
                 decl += pad + trace_modified_by(typedef, modifying_rule)
             if sip["fn_result"]:
                 decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
@@ -1353,7 +1267,7 @@ class SipGenerator(object):
                 decl += " /" + ",".join(sip["annotations"]) + "/"
             decl += sip["code"] + ";\n"
             if sip["modulecode"]:
-                self._template_parameters_fixup(templating_stack, sip, "modulecode", typedef)
+                templating_stack._template_parameters_fixup(sip, "modulecode", typedef)
                 modulecode.update(sip["modulecode"])
         else:
             decl = pad + trace_discarded_by(typedef, modifying_rule)

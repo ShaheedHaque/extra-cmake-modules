@@ -56,6 +56,10 @@ class Container(clangcplus.Container, Cursor):
     def __init__(self, container):
         super(Container, self).__init__(container)
         #
+        # If this is an array, the container is templated.
+        #
+        self.template_parameters = None
+        #
         # Assume this is a class, not a struct.
         #
         self.initial_access_specifier = ""
@@ -120,7 +124,7 @@ class Container(clangcplus.Container, Cursor):
         return "namespace" if self.kind == CursorKind.NAMESPACE else "class"
 
 
-class Enum(Cursor):
+class Enum(Container):
     CURSOR_KINDS = [CursorKind.ENUM_DECL]
     SIP_TYPE_NAME = "enum"
     GENERATED_NAME_FMT = "__enum{}"
@@ -132,6 +136,13 @@ class Enum(Cursor):
 
 
 class Function(clangcplus.Function, Cursor):
+    def __init__(self, fn):
+        super(Function, self).__init__(fn)
+        #
+        # If this is an array, the function is templated.
+        #
+        self.template_parameters = None
+
     def is_implementation(self, container):
         """
         Is implementation of function previously declared in a class/struct.
@@ -143,6 +154,45 @@ class Function(clangcplus.Function, Cursor):
         return self.proxied_object.is_definition() and \
             container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
                 self.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL]
+
+
+class TemplateParameter(Cursor):
+    CURSOR_KINDS = [CursorKind.TEMPLATE_TYPE_PARAMETER, CursorKind.TEMPLATE_NON_TYPE_PARAMETER,
+                    CursorKind.TEMPLATE_TEMPLATE_PARAMETER]
+    PROXIES = (
+        clang.cindex.Cursor,
+        [
+            "type",
+        ]
+    )
+
+    @property
+    def SIP_TYPE_NAME(self):
+        if self.kind == CursorKind.TEMPLATE_TYPE_PARAMETER:
+            #
+            # "typename " + self.spelling
+            #
+            return self.spelling
+        elif self.kind == CursorKind.TEMPLATE_NON_TYPE_PARAMETER:
+            #
+            # self.type.spelling + " " + self.spelling
+            #
+            return self.spelling
+        elif self.kind == CursorKind.TEMPLATE_TEMPLATE_PARAMETER:
+            #
+            # Recursive template template parameter walk...
+            #
+            # template<...> class foo
+            #
+            parameter = []
+            for member in self.get_children():
+                parameter.append(member.SIP_TYPE_NAME)
+            return "template<" + (", ".join(parameter)) + "> class " + self.spelling
+
+    @property
+    def spelling(self):
+        location = self.proxied_object.location
+        return self.proxied_object.spelling or "__{}_{}".format(location.line, location.column)
 
 
 class Struct(Enum):
