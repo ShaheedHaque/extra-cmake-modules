@@ -43,8 +43,8 @@ import traceback
 from clang.cindex import AccessSpecifier, Config, Index, SourceRange, StorageClass, TokenKind, TypeKind
 import pcpp.preprocessor
 
-import parser
-from parser import CursorKind
+import clangparser
+from clangparser import CursorKind
 import rules_engine
 
 
@@ -306,7 +306,7 @@ class SipGenerator(object):
         source = h_file
         self.source_processor = SourceProcessor(self.exe_clang, ["-x", "c++"] + self.compile_flags, self.verbose)
         tu = self.source_processor.compile(source)
-        self.tu = parser.TranslationUnit(tu.cursor)
+        self.tu = clangparser.TranslationUnit(tu.cursor)
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
@@ -645,11 +645,11 @@ class SipGenerator(object):
             if decl:
                 body += decl
 
-        if isinstance(container, parser.TranslationUnit):
+        if isinstance(container, clangparser.TranslationUnit):
             self._template_stack_pop_last(templating_stack, template_parameters)
             return body, modulecode
 
-        if isinstance(container, parser.Cursor):
+        if isinstance(container, clangparser.Cursor):
             container_type = container.SIP_TYPE_NAME + " " + sip["name"]
         else:
             raise AssertionError(_("Unexpected container: {}").format(SipGenerator.describe(container)))
@@ -717,7 +717,7 @@ class SipGenerator(object):
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             decl += "\n" + pad + "{\n"
             decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
-            if isinstance(container, parser.Container) and container.initial_access_specifier:
+            if isinstance(container, clangparser.Container) and container.initial_access_specifier:
                 decl += pad + container.initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
@@ -1482,7 +1482,7 @@ class SipGenerator(object):
             #
             words = decl.split("(", 1)[1][:-1]
             words = re.split("[ :]", words)
-            kind = {"enum": parser.Enum, "struct": parser.Struct, "union": parser.Union}[words[1]]
+            kind = {"enum": clangparser.Enum, "struct": clangparser.Struct, "union": clangparser.Union}[words[1]]
             decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
         elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
             #
