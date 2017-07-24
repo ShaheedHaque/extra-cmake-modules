@@ -822,8 +822,7 @@ class SipGenerator(object):
         #
         # Discard inline implementations of functions declared in a class/struct.
         #
-        if function.is_definition() and container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
-                function.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL]:
+        if function.is_implementation(container):
             SipGenerator._report_ignoring(container, function, "inline method")
             return "", {}
 

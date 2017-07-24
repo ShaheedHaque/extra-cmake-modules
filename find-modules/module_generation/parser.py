@@ -131,6 +131,20 @@ class Enum(Cursor):
                self.GENERATED_NAME_FMT.format(self.extent.start.line)
 
 
+class Function(clangcplus.Function, Cursor):
+    def is_implementation(self, container):
+        """
+        Is implementation of function previously declared in a class/struct.
+
+        :param container:           The current container, which is not
+                                    necessarily the semantic_parent; it is this
+                                    distinction which matters.
+        """
+        return self.proxied_object.is_definition() and \
+            container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
+                self.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL]
+
+
 class Struct(Enum):
     CURSOR_KINDS = [CursorKind.STRUCT_DECL]
     SIP_TYPE_NAME = "struct"
@@ -145,10 +159,6 @@ class Union(Enum):
     #
     SIP_TYPE_NAME = "/* union */ struct"
     GENERATED_NAME_FMT = "__union{}"
-
-
-class Function(clangcplus.Function, Cursor):
-    pass
 
 
 class TranslationUnit(clangcplus.TranslationUnit, Cursor):
