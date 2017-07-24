@@ -128,7 +128,7 @@ class IncludeToImportMap(dict):
         :param root:                The root we started with.
         :param parent:              The current recursion point.
         """
-        names = ModuleGenerator.dedupe_legacy_names(sorted(os.listdir(parent)))
+        names = ModuleGenerator.included_dir_names(os.listdir(parent))
         for name in names:
             srcname = os.path.join(parent, name)
             if os.path.isdir(srcname):
@@ -172,7 +172,7 @@ class ModuleGenerator(object):
         self.compiled_rules = rules_engine.rules(self.rules_pkg)
         self.project_root = self.compiled_rules.cxx_source_root()
         self.package = self.compiled_rules.sip_package()
-        self.includes = self.dedupe_legacy_names(self.compiled_rules.cxx_includes())
+        self.includes = self.compiled_rules.cxx_includes()
         self.compile_flags = self.compiled_rules.cxx_compile_flags() + ["-isystem" + i for i in sys_includes]
         exploded_includes = list(self.includes)
         for i in self.includes:
@@ -212,14 +212,41 @@ class ModuleGenerator(object):
         self.selector = None
 
     @staticmethod
-    def dedupe_legacy_names(names):
+    def included_dir_names(names):
+        """
+        Use de-duped and sorted walks.
+        """
+        #
+        # Eliminate the duplication of forwarding directories.
+        #
         new_style_names = [n for n in names if n != n.lower() and n.lower() in names]
         for name in new_style_names:
-            #
-            # _("Ignoring legacy name for {}").format(os.path.join(root, name)))
-            #
             names.remove(name.lower())
+        names.sort(key=FILE_SORT_KEY)
         return names
+
+    def included_h_names(self, dirpath, names):
+        """
+        Use de-duped, filtered and sorted walks.
+        """
+        #
+        # Eliminate the duplication of forwarding headers.
+        #
+        new_style_names = [n for n in names if not n.endswith(".h") and n.lower() + ".h" in names]
+        for name in new_style_names:
+            names.remove(name.lower() + ".h")
+        #
+        # Eliminate non-selected and omitted headers.
+        #
+        dirpath = dirpath[len(self.project_root) + len(os.path.sep):]
+        tmp_names = []
+        for n in names:
+            h_file = os.path.join(dirpath, n)
+            if self.compiled_rules.cxx_selector.search(h_file) and not self.compiled_rules.cxx_omitter.search(h_file):
+                if self.selector.search(h_file) and not self.omitter.search(h_file):
+                    tmp_names.append(n)
+        tmp_names.sort(key=FILE_SORT_KEY)
+        return tmp_names
 
     def process_tree(self, jobs, selector, omitter):
         """
@@ -239,40 +266,15 @@ class ModuleGenerator(object):
         sources = self.compiled_rules.cxx_sources()
         if sources:
             sources = [s[len(self.project_root):] for s in sources]
-            sources = self.dedupe_legacy_names(sources)
+            sources = self.included_dir_names(sources)
             sources = [self.project_root + s for s in sources]
-            #
-            # If any of the deduped entries points to a legacy path, fix it.
-            #
-            for i, source in enumerate(sources):
-                dir, base = os.path.split(source)
-                candidates = self.dedupe_legacy_names(os.listdir(dir))
-                candidates = [c for c in candidates if c.lower() == base.lower()]
-                sources[i] = os.path.join(dir, candidates[0])
-            sources.sort(key=FILE_SORT_KEY)
         else:
             sources = [self.project_root]
         for source in sources:
             if os.path.isdir(source):
                 for dirpath, dirnames, filenames in os.walk(source):
-                    #
-                    # Eliminate the duplication of forwarding headers.
-                    #
-                    forwarding_headers = [h for h in filenames if not h.endswith(".h") and h.lower() + ".h" in filenames]
-                    for h in forwarding_headers:
-                        #
-                        # _("Ignoring legacy header for {}").format(os.path.join(dirpath, h)))
-                        #
-                        filenames.remove(h.lower() + ".h")
-                    #
-                    # Eliminate the duplication of forwarding directories.
-                    #
-                    dirnames = self.dedupe_legacy_names(dirnames)
-                    #
-                    # Use sorted walks.
-                    #
-                    dirnames.sort(key=FILE_SORT_KEY)
-                    filenames.sort(key=FILE_SORT_KEY)
+                    dirnames = self.included_dir_names(dirnames)
+                    filenames = self.included_h_names(dirpath, filenames)
                     a, f = self.process_dir(jobs, dirpath, filenames)
                     attempts += a
                     failures += f
@@ -284,6 +286,7 @@ class ModuleGenerator(object):
                 #
                 dirpath = os.path.dirname(source)
                 filenames = [os.path.basename(f) for f in glob.iglob(source) if os.path.isfile(f)]
+                filenames = self.included_h_names(dirpath, filenames)
                 a, f = self.process_dir(jobs, dirpath, filenames)
                 attempts += a
                 failures += f
@@ -311,14 +314,7 @@ class ModuleGenerator(object):
         for n in filenames:
             source = os.path.join(dirname, n)
             h_file = source[len(self.project_root) + len(os.path.sep):]
-            #
-            # Was this file selected?
-            #
-            if self.compiled_rules.cxx_selector.search(h_file) and not self.compiled_rules.cxx_omitter.search(h_file):
-                if self.selector.search(h_file) and not self.omitter.search(h_file):
-                    per_process_args.append((source, h_file))
-        if not per_process_args:
-            return attempts, failures
+            per_process_args.append((source, h_file))
         std_args = (self.exe_clang, self.project_root, self.rules_pkg, self.package, self.compile_flags,
                     self.includes, self.output_dir, self.dump_modules, self.dump_items, self.dump_includes,
                     self.dump_privates, self.verbose)
