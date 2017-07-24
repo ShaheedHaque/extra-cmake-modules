@@ -36,7 +36,7 @@ import os
 import inspect
 import logging
 import multiprocessing
-from multiprocessing.pool import Pool
+from multiprocessing.pool import Pool, ThreadPool
 import re
 import sys
 import traceback
@@ -210,6 +210,7 @@ class ModuleGenerator(object):
         self.rule_usage = RuleUsage()
         self.omitter = None
         self.selector = None
+        self.lock = multiprocessing.Lock()
 
     @staticmethod
     def included_dir_names(names):
@@ -270,16 +271,14 @@ class ModuleGenerator(object):
             sources = [self.project_root + s for s in sources]
         else:
             sources = [self.project_root]
+        per_thread_args = []
         for source in sources:
             if os.path.isdir(source):
                 for dirpath, dirnames, filenames in os.walk(source):
                     dirnames = self.included_dir_names(dirnames)
                     filenames = self.included_h_names(dirpath, filenames)
-                    a, f = self.process_dir(jobs, dirpath, filenames)
-                    attempts += a
-                    failures += f
-                    if a:
-                        directories += 1
+                    if filenames:
+                        per_thread_args.append((dirpath, filenames))
             else:
                 #
                 # Assume it is a single-directory glob.
@@ -287,11 +286,42 @@ class ModuleGenerator(object):
                 dirpath = os.path.dirname(source)
                 filenames = [os.path.basename(f) for f in glob.iglob(source) if os.path.isfile(f)]
                 filenames = self.included_h_names(dirpath, filenames)
-                a, f = self.process_dir(jobs, dirpath, filenames)
-                attempts += a
-                failures += f
-                if a:
-                    directories += 1
+                if filenames:
+                    per_thread_args.append((dirpath, filenames))
+        #
+        # When we have plenty of cores available, we can end up wasting
+        # multiprocessing opportunities when there are not enough .h
+        # files in a directory. So try a bit of threading here.
+        #
+        max_h_files = 4
+        thread_jobs = min(jobs // max_h_files, len(per_thread_args))
+        process_jobs = jobs // (thread_jobs or 1)
+        logger.info(_("Using {} threads with {} processes each").format(thread_jobs, process_jobs))
+        std_args = (process_jobs, )
+        if thread_jobs == 0:
+            #
+            # Debug mode.
+            #
+            results = [self.create_module(*(std_args + thread_args)) for thread_args in per_thread_args]
+        else:
+            #
+            # Parallel processing here...
+            #
+            tp = ThreadPool(processes=thread_jobs)
+            results = [tp.apply_async(self.create_module, std_args + thread_args) for thread_args in per_thread_args]
+            tp.close()
+            tp.join()
+            #
+            # Serial again. Order the results by the dirpath.
+            #
+            results = [r.get() for r in results]
+        results = {result[0]: result[1:] for result in results}
+        for dirpath in sorted(results.keys(), key=FILE_SORT_KEY):
+            a, f = tuple(results[dirpath])
+            attempts += a
+            failures += f
+            if a:
+                directories += 1
         feature_list = os.path.join(self.output_dir, "modules.features")
         #
         # TODO, make sure the entries are unique.
@@ -304,9 +334,10 @@ class ModuleGenerator(object):
 
     FUNNY_CHARS = "+"
 
-    def process_dir(self, jobs, dirname, filenames):
+    def create_module(self, process_jobs, dirname, filenames):
         """
-        Walk over a directory tree and for each file or directory, apply a function.
+        For a (sub)set of .h files in one directory, generate the individual SIP
+        files, plus a module-level SIP file.
         """
         attempts = 0
         failures = []
@@ -318,7 +349,7 @@ class ModuleGenerator(object):
         std_args = (self.exe_clang, self.project_root, self.rules_pkg, self.package, self.compile_flags,
                     self.includes, self.output_dir, self.dump_modules, self.dump_items, self.dump_includes,
                     self.dump_privates, self.verbose)
-        if jobs == 0:
+        if process_jobs == 0:
             #
             # Debug mode.
             #
@@ -327,7 +358,7 @@ class ModuleGenerator(object):
             #
             # Parallel processing here...
             #
-            tp = Pool()
+            tp = Pool(processes=process_jobs)
             results = [tp.apply_async(process_one, process_args + std_args) for process_args in per_process_args]
             tp.close()
             tp.join()
@@ -348,7 +379,8 @@ class ModuleGenerator(object):
             attempts += 1
             if e:
                 failures.append((source, e))
-            self.rule_usage.add_remote_stats(rule_usage)
+            with self.lock:
+                self.rule_usage.add_remote_stats(rule_usage)
             if sip_file:
                 modulecode.update(tmp)
                 sip_files.append(sip_file)
@@ -411,7 +443,8 @@ class ModuleGenerator(object):
 %End
 """
             feature = feature_for_sip_module(output_file)
-            self.all_features.add(feature)
+            with self.lock:
+                self.all_features.add(feature)
             #
             # Create something which the SIP compiler can process that includes what appears to be the
             # immediate fanout from this module.
@@ -427,7 +460,8 @@ class ModuleGenerator(object):
                 if sip_import in self.include_to_import_cache.predicted_sips:
                     if sip_import != output_file:
                         feature = feature_for_sip_module(sip_import)
-                        self.all_features.add(feature)
+                        with self.lock:
+                            self.all_features.add(feature)
                         decl += "%If ({})\n".format(feature)
                         decl += "%Import(name={})\n".format(sip_import)
                         decl += "%End\n"
@@ -459,7 +493,8 @@ class ModuleGenerator(object):
             body = ""
             if self.dump_modules:
                 logger.info(_("Processing module for {}").format(os.path.basename(full_output)))
-            modifying_rule = self.compiled_rules.modulecode(os.path.basename(full_output), sip)
+            with self.lock:
+                modifying_rule = self.compiled_rules.modulecode(os.path.basename(full_output), sip)
             if modifying_rule:
                 body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
             logger.info(_("Creating {}").format(full_output))
@@ -481,7 +516,7 @@ class ModuleGenerator(object):
                 f.write("\n")
                 f.write(sip["peers"])
                 f.write(sip["code"])
-        return attempts, failures
+        return dirname, attempts, failures
 
     def _map_include_to_import(self, include):
         """
@@ -506,7 +541,10 @@ class ModuleGenerator(object):
 def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, i_paths, output_dir,
                 dump_modules, dump_items, dump_includes, dump_privates, verbose):
     """
-    Walk over a directory tree and for each file or directory, apply a function.
+    Generate an individual SIP file for a .h file.
+
+    NOTE: this function is capable of being run using multiprocessing to take
+    advantage of multiple cores.
 
     :param h_file:              Source to be processed.
     :param h_suffix:            Source to be processed, right hand side of name.
