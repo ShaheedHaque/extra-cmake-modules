@@ -76,7 +76,7 @@ class ModuleCompiler(object):
         #
         # Find the SIP compiler..
         #
-        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies()
+        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies(output)
         self.exe_sip = exe_sip
         self.rules_pkg = rules_pkg
         self.compiled_rules = rules_engine.rules(self.rules_pkg)

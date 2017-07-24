@@ -31,6 +31,7 @@
 
 from __future__ import print_function
 
+import tempfile
 from abc import ABCMeta, abstractmethod
 import argparse
 import gettext
@@ -43,7 +44,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import textwrap
 import traceback
 from copy import deepcopy
@@ -1571,7 +1571,7 @@ def rules(rules_pkg):
     return rules_pkg.RuleSet()
 
 
-def get_platform_dependencies(for_dir):
+def get_platform_dependencies(for_dir, cache_dir=None):
     """
     Return a dictionary of platform-dependent values for a directory.
     We presently use CMake to do the heavy lifting.
@@ -1583,7 +1583,6 @@ def get_platform_dependencies(for_dir):
     :return: The JSON object converted into Python, but with any unicode
              converted to str, and any dict items with value ("$", None) removed.
     """
-
     def normalise(obj):
         """
         Unicode -> string for JSON loader. We also remove any dictionary items ("$", None).
@@ -1598,7 +1597,15 @@ def get_platform_dependencies(for_dir):
                 obj[i] = normalise(obj[i])
         return obj
 
-    tmpdir = tempfile.mkdtemp()
+    if cache_dir:
+        #
+        # Create cache for results.
+        #
+        tmpdir = os.path.join(cache_dir, "cmake")
+        if not os.path.exists(tmpdir):
+            os.makedirs(tmpdir)
+    else:
+        tmpdir = tempfile.mkdtemp()
     try:
         cmd = ["cmake", for_dir]
         try:
@@ -1614,7 +1621,8 @@ def get_platform_dependencies(for_dir):
         with open(os.path.join(tmpdir, "configure.json"), "rU",) as f:
             return normalise(json.load(f))
     finally:
-        shutil.rmtree(tmpdir)
+        if not cache_dir:
+            shutil.rmtree(tmpdir)
 
 
 def main(argv=None):

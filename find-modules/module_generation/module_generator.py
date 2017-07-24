@@ -162,7 +162,7 @@ class ModuleGenerator(object):
         #
         # Find and load the libclang.
         #
-        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies()
+        lib_clang, exe_clang, sys_includes, exe_sip = get_platform_dependencies(output_dir)
         cindex.Config.set_library_file(lib_clang)
         self.exe_clang = exe_clang
         #
@@ -768,11 +768,11 @@ def header(output_file, h_file, package):
     return template.format(output_file, package, h_file, datetime.datetime.utcnow().year)
 
 
-def get_platform_dependencies():
+def get_platform_dependencies(working_dir):
     """
     Find the system include directories and libclang.so.
     """
-    data = rules_engine.get_platform_dependencies(os.path.dirname(os.path.realpath(__file__)))
+    data = rules_engine.get_platform_dependencies(os.path.dirname(os.path.realpath(__file__)), working_dir)
     sys_includes = data["ClangPP_SYS_INCLUDES"].split(";")
     sys_includes = [str(os.path.normpath(i)) for i in sys_includes]
     if not sys_includes:
