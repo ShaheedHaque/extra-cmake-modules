@@ -540,7 +540,7 @@ class SipGenerator(object):
                 base_specifiers.append(member.type.get_canonical().spelling)
             elif isinstance(member, clangparser.TemplateParameter):
                 templating_stack._template_stack_push_first(container, member.SIP_TYPE_NAME)
-            elif member.kind in [CursorKind.VAR_DECL, CursorKind.FIELD_DECL]:
+            elif member.kind in VARIABLE_KINDS:
                 had_const_member = had_const_member or member.type.is_const_qualified() or \
                                    member.type.spelling.startswith(QScopedPointer)
                 if member.access_specifier != AccessSpecifier.PRIVATE:
@@ -1158,7 +1158,7 @@ class SipGenerator(object):
                 result_type = child.displayname
             elif child.kind == CursorKind.TYPE_REF:
                 #
-                # Sigh. For results which are pointers, we dont have a way of detecting the need for the "*".
+                # Sigh. For results which are pointers, we don't have a way of detecting the need for the "*".
                 #
                 result_type = child.type.get_canonical().spelling
             elif child.kind == CursorKind.ENUM_DECL:
@@ -1207,7 +1207,7 @@ class SipGenerator(object):
             sip["decl"] = result_type
         elif typedef.underlying_typedef_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
             #
-            # CLang makes "QString foo[size]" into "QString [size]"!!!
+            # Clang makes "QString foo[size]" into "QString [size]"!!!
             #
             sip["decl"] = typedef.underlying_typedef_type.spelling.replace("[", typedef.spelling + "[", 1)
         else:
