@@ -292,6 +292,10 @@ class TranslationUnit(Cursor):
         for d in self.proxied_object.translation_unit.diagnostics:
             yield Diagnostic(d)
 
+    @property
+    def translation_unit(self):
+        return self
+
 
 class Container(Cursor):
     CURSOR_KINDS = [CursorKind.NAMESPACE, CursorKind.CLASS_DECL]
