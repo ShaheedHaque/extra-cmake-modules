@@ -302,13 +302,14 @@ class ModuleGenerator(object):
             #
             # Debug mode.
             #
-            results = [self.create_module(*(std_args + thread_args)) for thread_args in per_thread_args]
+            results = [self.create_module_safe(*(std_args + thread_args)) for thread_args in per_thread_args]
         else:
             #
             # Parallel processing here...
             #
             tp = ThreadPool(processes=thread_jobs)
-            results = [tp.apply_async(self.create_module, std_args + thread_args) for thread_args in per_thread_args]
+            results = [tp.apply_async(self.create_module_safe, std_args + thread_args) for thread_args in
+                       per_thread_args]
             tp.close()
             tp.join()
             #
@@ -317,11 +318,16 @@ class ModuleGenerator(object):
             results = [r.get() for r in results]
         results = {result[0]: result[1:] for result in results}
         for dirpath in sorted(results.keys(), key=FILE_SORT_KEY):
-            a, f = tuple(results[dirpath])
+            a, f, e = tuple(results[dirpath])
+            #
+            # Update the global collections.
+            #
             attempts += a
             failures += f
             if a:
                 directories += 1
+            if e:
+                failures.append((dirpath, e))
         feature_list = os.path.join(self.output_dir, "modules.features")
         #
         # TODO, make sure the entries are unique.
@@ -333,6 +339,31 @@ class ModuleGenerator(object):
         return attempts, failures, directories
 
     FUNNY_CHARS = "+"
+
+    def create_module_safe(self, process_jobs, dirname, filenames):
+        """
+        Safely call create_module().
+
+        This function is capable of being run using threading to take advantage
+        of multiple cores (via multiprocessing and process_one_safe()).
+
+        As part of this, the programming contract is that no exceptions are to
+        be thrown; they are instead returned to the caller to take appropriate
+        action "synchronously".
+        """
+        #
+        # Make sure any errors mention the directory that was being processed.
+        #
+        try:
+            attempts, failures = self.create_module(process_jobs, dirname, filenames)
+        except Exception as e:
+            logger.error("{} while processing {}".format(e, dirname))
+            #
+            # Use the the same model as process_one_safe().
+            #
+            e = (e.__class__, str(e), traceback.format_exc())
+            return dirname, 0, [], e
+        return dirname, attempts, failures, None
 
     def create_module(self, process_jobs, dirname, filenames):
         """
@@ -353,13 +384,13 @@ class ModuleGenerator(object):
             #
             # Debug mode.
             #
-            results = [process_one(*(process_args + std_args)) for process_args in per_process_args]
+            results = [process_one_safe(*(process_args + std_args)) for process_args in per_process_args]
         else:
             #
             # Parallel processing here...
             #
             tp = Pool(processes=process_jobs)
-            results = [tp.apply_async(process_one, process_args + std_args) for process_args in per_process_args]
+            results = [tp.apply_async(process_one_safe, process_args + std_args) for process_args in per_process_args]
             tp.close()
             tp.join()
             #
@@ -516,7 +547,7 @@ class ModuleGenerator(object):
                 f.write("\n")
                 f.write(sip["peers"])
                 f.write(sip["code"])
-        return dirname, attempts, failures
+        return attempts, failures
 
     def _map_include_to_import(self, include):
         """
@@ -538,13 +569,47 @@ class ModuleGenerator(object):
         return None
 
 
+def process_one_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, i_paths, output_dir,
+                     dump_modules, dump_items, dump_includes, dump_privates, verbose):
+    """
+    Safely call process_one().
+
+    This function is capable of being run using multiprocessing to take
+    advantage of multiple cores.
+
+    As part of this, the programming contract is that no exceptions are to
+    be thrown; they are instead returned to the caller to take appropriate
+    action "synchronously".
+
+    :return: (
+                source,
+                ...items from process_one()...
+                error,
+            )
+    """
+    #
+    # Make sure any errors mention the file that was being processed.
+    #
+    try:
+        sip_suffix, modulecode, direct_includes, i_paths, rule_usage = process_one(h_file, h_suffix, exe_clang, h_root,
+                                                                                   rules_pkg, package, compile_flags,
+                                                                                   i_paths, output_dir, dump_modules,
+                                                                                   dump_items, dump_includes,
+                                                                                   dump_privates, verbose)
+    except Exception as e:
+        logger.error("{} while processing {}".format(e, h_file))
+        #
+        # Tracebacks cannot be pickled for use by multiprocessing.
+        #
+        e = (e.__class__, str(e), traceback.format_exc())
+        return h_file, None, {}, [], [], {}, e
+    return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, None
+
+
 def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, i_paths, output_dir,
                 dump_modules, dump_items, dump_includes, dump_privates, verbose):
     """
     Generate an individual SIP file for a .h file.
-
-    NOTE: this function is capable of being run using multiprocessing to take
-    advantage of multiple cores.
 
     :param h_file:              Source to be processed.
     :param h_suffix:            Source to be processed, right hand side of name.
@@ -560,176 +625,165 @@ def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile
     :param dump_includes:       Turn on diagnostics for include files.
     :param dump_privates:       Turn on diagnostics for omitted private items.
     :param verbose:             Turn on diagnostics for command lines.
-    :return:                    (
-                                    source,
-                                    sip_suffix,
-                                    dict(modulecode),
-                                    [direct includes from h_file],
-                                    [-I paths needed by h_file],
-                                    dict(rule_usage),
-                                    error,
-                                )
+    :return: (
+                sip_suffix,
+                dict(modulecode),
+                [direct includes from h_file],
+                [-I paths needed by h_file],
+                dict(rule_usage),
+            )
     """
     sip_suffix = None
     all_includes = lambda: []
     direct_includes = []
-    result, modulecode, rule_usage = "", {}, {},
-    #
-    # Make sure any errors mention the file that was being processed.
-    #
-    try:
-        generator = SipGenerator(exe_clang, rules_pkg, compile_flags, dump_modules=dump_modules, dump_items=dump_items,
-                                 dump_includes=dump_includes, dump_privates=dump_privates, verbose=verbose)
-        if h_suffix.endswith("_export.h"):
-            pass
-        elif h_suffix.endswith("_version.h"):
-            pass
+    result = ""
+    modulecode = {}
+    rule_usage = {}
+    generator = SipGenerator(exe_clang, rules_pkg, compile_flags, dump_modules=dump_modules, dump_items=dump_items,
+                             dump_includes=dump_includes, dump_privates=dump_privates, verbose=verbose)
+    if h_suffix.endswith("_export.h"):
+        pass
+    elif h_suffix.endswith("_version.h"):
+        pass
+        #
+        # It turns out that generating a SIP file is the wrong thing for version files. TODO: create
+        # a .py file directly.
+        #
+        if False:
+            version_defines = re.compile("^#define\s+(?P<name>\S+_VERSION\S*)\s+(?P<value>.+)")
+            with open(h_file, "rU") as f:
+                for line in f:
+                    match = version_defines.match(line)
+                    if match:
+                        result += "{} = {}\n".format(match.group("name"), match.group("value"))
+    else:
+        result, modulecode, all_includes = generator.create_sip(h_file, h_suffix)
+        direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
+    if result:
+        pass
+    elif len(direct_includes) == 1:
+        #
+        # A non-empty SIP file could not be created from the header file. That would be fine except that a
+        # common pattern is to use a single #include to create a "forwarding header" to map a legacy header
+        # (usually lower case, and ending in .h) into a CamelCase header. Handle the forwarding case...
+        #
+        if direct_includes[0].startswith(h_root):
             #
-            # It turns out that generating a SIP file is the wrong thing for version files. TODO: create
-            # a .py file directly.
+            # We could just %Include the other file, but that would ignore the issues that:
             #
-            if False:
-                version_defines = re.compile("^#define\s+(?P<name>\S+_VERSION\S*)\s+(?P<value>.+)")
-                with open(h_file, "rU") as f:
-                    for line in f:
-                        match = version_defines.match(line)
-                        if match:
-                            result += "{} = {}\n".format(match.group("name"), match.group("value"))
-        else:
-            result, modulecode, all_includes = generator.create_sip(h_file, h_suffix)
+            #    - On filesystems without case sensitive semantics (NTFS) the two filenames usually only
+            #      differ in case; actually expanding inline avoids making this problem worse (even if it
+            #      is not a full solution).
+            #    - The forwarding SIP's .so binding needs the legacy SIP's .so on the system, doubling the
+            #      number of libraries (and adding to overall confusion, and the case-sensitivity issue).
+            #
+            result, modulecode, all_includes = generator.create_sip(direct_includes[0], h_suffix)
             direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
-        if result:
-            pass
-        elif len(direct_includes) == 1:
-            #
-            # A non-empty SIP file could not be created from the header file. That would be fine except that a
-            # common pattern is to use a single #include to create a "forwarding header" to map a legacy header
-            # (usually lower case, and ending in .h) into a CamelCase header. Handle the forwarding case...
-            #
-            if direct_includes[0].startswith(h_root):
-                #
-                # We could just %Include the other file, but that would ignore the issues that:
-                #
-                #    - On filesystems without case sensitive semantics (NTFS) the two filenames usually only
-                #      differ in case; actually expanding inline avoids making this problem worse (even if it
-                #      is not a full solution).
-                #    - The forwarding SIP's .so binding needs the legacy SIP's .so on the system, doubling the
-                #      number of libraries (and adding to overall confusion, and the case-sensitivity issue).
-                #
-                result, modulecode, all_includes = generator.create_sip(direct_includes[0], h_suffix)
-                direct_includes = [i.include.name for i in all_includes() if i.depth == 1]
+    #
+    # From the set of includes, we want two things:
+    #
+    #   1. Infer the %Import'd items this SIP file depends on. We get this from the directly included files.
+    #
+    #   2. Infer the set of -I<path> paths needed to compile the SIP compiler output. We get this from all
+    #      included files (trimmed to omit ones from paths we did not explicity add to get rid of compiler-added
+    #      files and the like).
+    #
+    # First the %Import...
+    #
+    tmp = set()
+    for include in direct_includes:
         #
-        # From the set of includes, we want two things:
+        # Deal with oddities such as a/b/c/../x, or repeated separators.
         #
-        #   1. Infer the %Import'd items this SIP file depends on. We get this from the directly included files.
-        #
-        #   2. Infer the set of -I<path> paths needed to compile the SIP compiler output. We get this from all
-        #      included files (trimmed to omit ones from paths we did not explicity add to get rid of compiler-added
-        #      files and the like).
-        #
-        # First the %Import...
-        #
-        tmp = set()
-        for include in direct_includes:
-            #
-            # Deal with oddities such as a/b/c/../x, or repeated separators.
-            #
-            include = os.path.normpath(include)
-            for i_path in i_paths:
-                if include.startswith(i_path):
-                    tmp.add(include)
-                    break
-        direct_includes = list(tmp)
-        #
-        # Now the -I<path>...starting with the current file, construct a directory of sets keyed
-        # by all possible include paths.
-        #
-        tmp = {h_root: set()}
-        tmp[h_root].add(os.path.dirname(h_suffix))
+        include = os.path.normpath(include)
         for i_path in i_paths:
-            tmp.setdefault(i_path, set())
-        for include in all_includes():
-            #
-            # Deal with oddities such as a/b/c/../x, or repeated separators. Then, under the
-            # matching include path, add the suffix of the actual include file.
-            #
-            include = include.include.name
-            include = os.path.normpath(include)
-            for i_path in tmp:
-                if include.startswith(i_path):
-                    trimmed_include = include[len(i_path) + len(os.path.sep):]
-                    trimmed_include = os.path.dirname(trimmed_include)
-                    tmp[i_path].add(trimmed_include)
-                    break
+            if include.startswith(i_path):
+                tmp.add(include)
+                break
+    direct_includes = list(tmp)
+    #
+    # Now the -I<path>...starting with the current file, construct a directory of sets keyed
+    # by all possible include paths.
+    #
+    tmp = {h_root: set()}
+    tmp[h_root].add(os.path.dirname(h_suffix))
+    for i_path in i_paths:
+        tmp.setdefault(i_path, set())
+    for include in all_includes():
         #
-        # Now, construct a new version of i_paths that has *everything*.
+        # Deal with oddities such as a/b/c/../x, or repeated separators. Then, under the
+        # matching include path, add the suffix of the actual include file.
         #
-        i_paths = set()
-        for i_path, trimmed_includes in tmp.items():
-            i_paths.add(i_path)
-            for trimmed_include in trimmed_includes:
-                while trimmed_include:
-                    #
-                    # Without reading the source code, we don't know exactly how long the -I<path> had to be, so we add
-                    # all possible lengths.
-                    #
-                    possible_i_path = os.path.join(i_path, trimmed_include)
-                    i_paths.add(possible_i_path)
-                    trimmed_include = os.path.dirname(trimmed_include)
-        i_paths = list(i_paths)
-        if result:
-            #
-            # Remove funny characters: the results must be Python-valid names.
-            #
-            module_file = h_suffix
-            for funny in ModuleGenerator.FUNNY_CHARS:
-                module_file = module_file.replace(funny, "_")
-            #
-            # Generate a file header. We can always use a .sip suffix because the caller took care of any possible
-            # clash of forwarding header with a legacy header on filesystems with case-insensitive lookups (NTFS).
-            #
-            sip_basename = os.path.basename(module_file)
-            sip_basename = os.path.splitext(sip_basename)[0] + ".sip"
-            module_path = os.path.dirname(module_file)
-            #
-            # The SIP compiler ges very confused if you have a filename that matches a search path. Decollide...
-            #
-            if sip_basename == os.path.basename(module_path):
-                sip_basename += "_"
-            sip_suffix = os.path.join(module_path, sip_basename)
-            header_text = header(sip_suffix, h_suffix, package)
-            #
-            # Write the header and the body.
-            #
-            sip_file = os.path.join(output_dir, sip_suffix)
-            try:
-                os.makedirs(os.path.dirname(sip_file))
-            except OSError as e:
-                if e.errno != errno.EEXIST:
-                    raise
-            logger.info(_("Creating {}").format(sip_file))
-            with open(sip_file, "w") as f:
-                f.write(header_text)
-                f.write(result)
+        include = include.include.name
+        include = os.path.normpath(include)
+        for i_path in tmp:
+            if include.startswith(i_path):
+                trimmed_include = include[len(i_path) + len(os.path.sep):]
+                trimmed_include = os.path.dirname(trimmed_include)
+                tmp[i_path].add(trimmed_include)
+                break
+    #
+    # Now, construct a new version of i_paths that has *everything*.
+    #
+    i_paths = set()
+    for i_path, trimmed_includes in tmp.items():
+        i_paths.add(i_path)
+        for trimmed_include in trimmed_includes:
+            while trimmed_include:
+                #
+                # Without reading the source code, we don't know exactly how long the -I<path> had to be, so we add
+                # all possible lengths.
+                #
+                possible_i_path = os.path.join(i_path, trimmed_include)
+                i_paths.add(possible_i_path)
+                trimmed_include = os.path.dirname(trimmed_include)
+    i_paths = list(i_paths)
+    if result:
+        #
+        # Remove funny characters: the results must be Python-valid names.
+        #
+        module_file = h_suffix
+        for funny in ModuleGenerator.FUNNY_CHARS:
+            module_file = module_file.replace(funny, "_")
+        #
+        # Generate a file header. We can always use a .sip suffix because the caller took care of any possible
+        # clash of forwarding header with a legacy header on filesystems with case-insensitive lookups (NTFS).
+        #
+        sip_basename = os.path.basename(module_file)
+        sip_basename = os.path.splitext(sip_basename)[0] + ".sip"
+        module_path = os.path.dirname(module_file)
+        #
+        # The SIP compiler ges very confused if you have a filename that matches a search path. Decollide...
+        #
+        if sip_basename == os.path.basename(module_path):
+            sip_basename += "_"
+        sip_suffix = os.path.join(module_path, sip_basename)
+        header_text = header(sip_suffix, h_suffix, package)
+        #
+        # Write the header and the body.
+        #
+        sip_file = os.path.join(output_dir, sip_suffix)
+        try:
+            os.makedirs(os.path.dirname(sip_file))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        logger.info(_("Creating {}").format(sip_file))
+        with open(sip_file, "w") as f:
+            f.write(header_text)
+            f.write(result)
 
-            def add_used(rule, usage_count):
-                """
-                Fill the dict of the used rules.
-                """
-                if usage_count > 0:
-                    rule_usage[str(rule)] = usage_count
+        def add_used(rule, usage_count):
+            """
+            Fill the dict of the used rules.
+            """
+            if usage_count > 0:
+                rule_usage[str(rule)] = usage_count
 
-            generator.compiled_rules.dump_unused(add_used)
-        else:
-            logger.info(_("Not creating empty SIP for {}").format(h_file))
-    except Exception as e:
-        logger.error("{} while processing {}".format(e, h_file))
-        #
-        # Tracebacks cannot be pickled for use by multiprocessing.
-        #
-        e = (e.__class__, str(e), traceback.format_exc())
-        return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, e
-    return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, None
+        generator.compiled_rules.dump_unused(add_used)
+    else:
+        logger.info(_("Not creating empty SIP for {}").format(h_file))
+    return sip_suffix, modulecode, direct_includes, i_paths, rule_usage
 
 
 def header(output_file, h_file, package):
