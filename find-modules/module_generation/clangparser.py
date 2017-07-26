@@ -30,6 +30,7 @@ import gettext
 import logging
 
 import clang.cindex
+from clang.cindex import TypeKind
 
 import clangcplus
 
@@ -40,10 +41,38 @@ gettext.install(__name__)
 _ = _
 
 CursorKind = clangcplus.CursorKind
+#
+# Function pointers are a tricky area. We need to detect them by text matching.
+#
+FUNC_PTR = "(*)"
 
 
 class Cursor(clangcplus.Cursor):
     CLASS_MAP = {}
+
+    def get_children(self):
+        """
+        Get the children of this Cursor either as Cursors, or as clang.cindex.Cursor.
+        """
+        template_parameter_number = -1
+        parameter_number = -1
+        for child in self.proxied_object.get_children():
+            try:
+                kind = child.kind
+            except ValueError as e:
+                #
+                # TODO: Some kinds result in a Clang error.
+                #
+                logger.debug(_("Unknown _kind_id {} for {}".format(e, child.spelling or child.displayname)))
+            else:
+                if kind in Parameter.CURSOR_KINDS:
+                    parameter_number += 1
+                    yield Parameter(child, parameter_number)
+                elif kind in TemplateParameter.CURSOR_KINDS:
+                    template_parameter_number += 1
+                    yield TemplateParameter(child, template_parameter_number)
+                else:
+                    yield self._wrapped(child)
 
 
 class Container(clangcplus.Container, Cursor):
@@ -68,18 +97,7 @@ class Container(clangcplus.Container, Cursor):
         #
         self.template_args = None
         if container.kind in self.TEMPLATE_CURSOR_KINDS:
-            self.template_args = []
-            for child in container.get_children():
-                try:
-                    if child.kind in [CursorKind.TEMPLATE_TYPE_PARAMETER, CursorKind.TEMPLATE_NON_TYPE_PARAMETER]:
-                        self.template_args.append(child)
-                    else:
-                        break
-                except ValueError as e:
-                    #
-                    # Some kinds result in a Clang error.
-                    #
-                    logger.debug(_("Unknown _kind_id {} for {}".format(e, child.spelling)))
+            self.template_args = [c for c in self.get_children() if isinstance(c, TemplateParameter)]
             #
             # Clang presents a templated struct as a CLASS_TEMPLATE, but does not
             # insert an initial "public" access specifier. Make a best-effort attempt
@@ -168,6 +186,89 @@ class Function(Cursor):
             container.kind in [CursorKind.TRANSLATION_UNIT, CursorKind.NAMESPACE] and \
                 self.semantic_parent.kind in [CursorKind.CLASS_DECL, CursorKind.STRUCT_DECL]
 
+    @property
+    def SIP_RESULT_TYPE(self):
+        if self.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
+            decl = ""
+        else:
+            decl = self.result_type.get_canonical().spelling
+            #
+            # If the result is a self pointer, the canonical spelling is likely to be
+            # a problem for SIP. Working out if we have such a case seems hand: the approach
+            # now is the following heuristic...
+            #
+            #   - We have a pointer AND
+            #   - We see what looks like the thing Clang seems to use for a self pointer
+            #
+            if self.result_type.get_canonical().kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
+                decl = self.result_type.spelling
+            elif self.result_type.get_canonical().kind == TypeKind.MEMBERPOINTER:
+                decl = self.result_type.spelling
+        return decl
+
+
+class Parameter(Cursor):
+    CURSOR_KINDS = [CursorKind.PARM_DECL]
+    PROXIES = (
+        clang.cindex.Cursor,
+        [
+            "type",
+        ]
+    )
+
+    def __init__(self, parameter, parameter_number):
+        super(Parameter, self).__init__(parameter)
+        self.parameter_number = parameter_number
+
+    @property
+    def spelling(self):
+        return self.proxied_object.spelling or "__{}".format(self.parameter_number)
+
+    @property
+    def SIP_TYPE_NAME(self):
+        the_type = self.type.get_canonical()
+        type_spelling = the_type.spelling
+        #
+        # Get rid of any pointer const-ness and add a pointer suffix. Not removing the const-ness causes
+        # SIP to generate sequences which the C++ compiler seems to optimise away:
+        #
+        #   QObject* const a1 = 0;
+        #
+        #   if (sipParseArgs(..., &a1))
+        #
+        if the_type.kind == TypeKind.POINTER:
+            #
+            # Except that function pointers need special consideration. See elsewhere too...
+            #
+            if type_spelling.find(FUNC_PTR) == -1:
+                decl = "{} *{}".format(the_type.get_pointee().spelling, self.spelling)
+            else:
+                #
+                # SIP gets confused if we have default values for a canonical function pointer, so use the
+                # "higher" form if we have else, else just hope we don't have a default value.
+                #
+                if self.type.spelling.find("(") == -1:
+                    decl = "{} {}".format(self.type.spelling, self.spelling)
+                    decl = decl.replace("* ", "*").replace("& ", "&")
+                else:
+                    named_func_ptr = "(*{})".format(self.spelling)
+                    decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
+        elif the_type.kind == TypeKind.MEMBERPOINTER:
+            func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
+            named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, self.spelling)
+            decl = type_spelling.replace(func_ptr, named_func_ptr, 1)
+        elif the_type.kind == TypeKind.INCOMPLETEARRAY:
+            #
+            # Clang makes "const int []" into "int const[]"!!!
+            #
+            if " const[" in type_spelling:
+                type_spelling = "const " + type_spelling.replace(" const[", " [", 1)
+            decl = type_spelling.replace("[", self.spelling + "[", 1)
+        else:
+            decl = "{} {}".format(type_spelling, self.spelling)
+            decl = decl.replace("* ", "*").replace("& ", "&")
+        return decl
+
 
 class TemplateParameter(Cursor):
     CURSOR_KINDS = [CursorKind.TEMPLATE_TYPE_PARAMETER, CursorKind.TEMPLATE_NON_TYPE_PARAMETER,
@@ -178,6 +279,14 @@ class TemplateParameter(Cursor):
             "type",
         ]
     )
+
+    def __init__(self, parameter, parameter_number):
+        super(TemplateParameter, self).__init__(parameter)
+        self.parameter_number = parameter_number
+
+    @property
+    def spelling(self):
+        return self.proxied_object.spelling or "__{}".format(self.parameter_number)
 
     @property
     def SIP_TYPE_NAME(self):
@@ -197,15 +306,8 @@ class TemplateParameter(Cursor):
             #
             # template<...> class foo
             #
-            parameter = []
-            for member in self.get_children():
-                parameter.append(member.SIP_TYPE_NAME)
+            parameter = [c.SIP_TYPE_NAME for c in self.get_children()]
             return "template<" + (", ".join(parameter)) + "> class " + self.spelling
-
-    @property
-    def spelling(self):
-        location = self.proxied_object.location
-        return self.proxied_object.spelling or "__{}_{}".format(location.line, location.column)
 
 
 class Struct(Enum):
@@ -236,3 +338,56 @@ class Typedef(Cursor):
         ]
     )
     CURSOR_KINDS = [CursorKind.TYPEDEF_DECL]
+
+    @property
+    def SIP_TYPE_NAME(self):
+        the_type = self.underlying_typedef_type
+        if the_type.get_canonical().kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
+            #
+            # A function pointer!
+            #
+            args = [c.type.spelling for c in self.get_children() if isinstance(c, Parameter)]
+            decl = ", ".join(args).replace("* ", "*").replace("& ", "&")
+        elif the_type.kind == TypeKind.POINTER and the_type.spelling.find(FUNC_PTR) != -1:
+            #
+            # A function pointer!
+            #
+            decl = the_type.spelling.split(FUNC_PTR, 1)[1]
+            decl = decl.strip()[1:-1]
+        elif the_type.kind == TypeKind.RECORD:
+            decl = self.underlying_typedef_type.spelling
+        elif the_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
+            #
+            # Clang makes "QString foo[size]" into "QString [size]"!!!
+            #
+            decl = self.underlying_typedef_type.spelling.replace("[", self.spelling + "[", 1)
+        else:
+            decl = self.underlying_typedef_type.get_canonical().spelling
+        return decl
+
+    @property
+    def SIP_RESULT_TYPE(self):
+        #
+        # If the typedef is for a function pointer, the canonical spelling is likely to be
+        # a problem for SIP. Working out if we have such a case seems hard: the approach
+        # now is the following heuristic...
+        #
+        #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
+        #   (
+        #   - The self has a result OR
+        #   - We found some arguments OR
+        #   - We see what looks like the thing Clang seems to use for a function pointer
+        #   )
+        #
+        the_type = self.underlying_typedef_type.get_canonical()
+        if the_type.kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
+            result_type = self.result_type.spelling
+        elif the_type.kind == TypeKind.POINTER and the_type.spelling.find(FUNC_PTR) != -1:
+            #
+            # A function pointer!
+            #
+            result_type = the_type.spelling.split(FUNC_PTR, 1)[0]
+            result_type = result_type.strip()
+        else:
+            result_type = ""
+        return result_type

@@ -770,54 +770,12 @@ class SipGenerator(object):
         modulecode = {}
         for child in function.get_children():
             if child.kind == CursorKind.PARM_DECL:
-                parameter = child.displayname or "__{}".format(len(parameters))
                 #
                 # So far so good, but we need any default value.
                 #
-                the_type = child.type.get_canonical()
-                type_spelling = the_type.spelling
-                #
-                # Get rid of any pointer const-ness and add a pointer suffix. Not removing the const-ness causes
-                # SIP to generate sequences which the C++ compiler seems to optimise away:
-                #
-                #   QObject* const a1 = 0;
-                #
-                #   if (sipParseArgs(..., &a1))
-                #
-                if the_type.kind == TypeKind.POINTER:
-                    #
-                    # Except that function pointers need special consideration. See elsewhere too...
-                    #
-                    if type_spelling.find(FUNC_PTR) == -1:
-                        decl = "{} *{}".format(the_type.get_pointee().spelling, parameter)
-                    else:
-                        #
-                        # SIP gets confused if we have default values for a canonical function pointer, so use the
-                        # "higher" form if we have else, else just hope we don't have a default value.
-                        #
-                        if child.type.spelling.find("(") == -1:
-                            decl = "{} {}".format(child.type.spelling, parameter)
-                            decl = decl.replace("* ", "*").replace("& ", "&")
-                        else:
-                            named_func_ptr = "(*{})".format(parameter)
-                            decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
-                elif the_type.kind == TypeKind.MEMBERPOINTER:
-                    func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
-                    named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, parameter)
-                    decl = type_spelling.replace(func_ptr, named_func_ptr, 1)
-                elif the_type.kind == TypeKind.INCOMPLETEARRAY:
-                    #
-                    # CLang makes "const int []" into "int const[]"!!!
-                    #
-                    if " const[" in type_spelling:
-                        type_spelling = "const " + type_spelling.replace(" const[", " [", 1)
-                    decl = type_spelling.replace("[", parameter + "[", 1)
-                else:
-                    decl = "{} {}".format(type_spelling, parameter)
-                    decl = decl.replace("* ", "*").replace("& ", "&")
                 child_sip = {
-                    "name": parameter,
-                    "decl": decl,
+                    "name": child.spelling,
+                    "decl": child.SIP_TYPE_NAME,
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }
@@ -860,22 +818,7 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["template_parameters"] = function.template_parameters
-        if function.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
-            sip["fn_result"] = ""
-        else:
-            sip["fn_result"] = function.result_type.get_canonical().spelling
-            #
-            # If the result is a function pointer, the canonical spelling is likely to be
-            # a problem for SIP. Working out if we have such a case seems hand: the approach
-            # now is the following heuristic...
-            #
-            #   - We have a pointer AND
-            #   - We see what looks like the thing Clang seems to use for a function pointer
-            #
-            if function.result_type.get_canonical().kind == TypeKind.POINTER and sip["fn_result"].find(FUNC_PTR) != -1:
-                sip["fn_result"] = function.result_type.spelling
-            elif function.result_type.get_canonical().kind == TypeKind.MEMBERPOINTER:
-                sip["fn_result"] = function.result_type.spelling
+        sip["fn_result"] = function.SIP_RESULT_TYPE
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(container, function)
         templating_stack.parameters_fixup(sip, "fn_result")
@@ -1166,8 +1109,7 @@ class SipGenerator(object):
                     modulecode.update(tmp)
                 args.append(decl)
             elif child.kind == CursorKind.PARM_DECL:
-                decl = child.displayname or "__{}".format(len(args))
-                args.append((child.type.spelling, decl))
+                pass
             elif child.kind in EXPR_KINDS + [CursorKind.NAMESPACE_REF]:
                 #
                 # Ignore:
@@ -1186,39 +1128,8 @@ class SipGenerator(object):
         #
         # Flesh out the SIP context for the rules engine.
         #
-        sip["fn_result"] = ""
-        if typedef.underlying_typedef_type.kind == TypeKind.MEMBERPOINTER:
-            sip["fn_result"] = result_type
-            args = ["{} {}".format(spelling, name) for spelling, name in args]
-            sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
-        elif typedef.underlying_typedef_type.kind == TypeKind.RECORD:
-            sip["decl"] = result_type
-        elif typedef.underlying_typedef_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
-            #
-            # Clang makes "QString foo[size]" into "QString [size]"!!!
-            #
-            sip["decl"] = typedef.underlying_typedef_type.spelling.replace("[", typedef.spelling + "[", 1)
-        else:
-            sip["decl"] = typedef.underlying_typedef_type.get_canonical().spelling
-            #
-            # If the typedef is for a function pointer, the canonical spelling is likely to be
-            # a problem for SIP. Working out if we have such a case seems hand: the approach
-            # now is the following heuristic...
-            #
-            #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
-            #   (
-            #   - The typedef has a result OR
-            #   - We found some arguments OR
-            #   - We see what looks like the thing Clang seems to use for a function pointer
-            #   )
-            #
-            if typedef.result_type.kind != TypeKind.INVALID or args or sip["decl"].find(FUNC_PTR) != -1:
-                if typedef.result_type.kind != TypeKind.INVALID:
-                    sip["fn_result"] = typedef.result_type.spelling
-                else:
-                    sip["fn_result"] = sip["decl"].split(FUNC_PTR, 1)[0]
-                args = [spelling for spelling, name in args]
-                sip["decl"] = ", ".join(args).replace("* ", "*").replace("& ", "&")
+        sip["decl"] = typedef.SIP_TYPE_NAME
+        sip["fn_result"] = typedef.SIP_RESULT_TYPE
         templating_stack.parameters_fixup(sip, "decl")
         modifying_rule = self.compiled_rules.typedef_rules().apply(container, typedef, sip)
         #
