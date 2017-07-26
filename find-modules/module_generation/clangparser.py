@@ -135,7 +135,20 @@ class Enum(Container):
                self.GENERATED_NAME_FMT.format(self.extent.start.line)
 
 
-class Function(clangcplus.Function, Cursor):
+class Function(Cursor):
+    PROXIES = (
+        clang.cindex.Cursor,
+        [
+            "get_arguments", "get_definition", "get_num_template_arguments", "get_template_argument_kind",
+            "get_template_argument_type", "get_template_argument_unsigned_value", "get_template_argument_value",
+            "is_const_method", "is_converting_constructor", "is_copy_constructor", "is_default_constructor",
+            "is_default_method", "is_definition", "is_move_constructor", "is_pure_virtual_method", "is_static_method",
+            "is_virtual_method", "result_type",
+        ]
+    )
+    CURSOR_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
+                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
+
     def __init__(self, fn):
         super(Function, self).__init__(fn)
         #

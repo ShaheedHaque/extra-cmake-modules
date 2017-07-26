@@ -201,12 +201,6 @@ class Cursor(_Proxy):
     CLASS_MAP = {}
     CURSOR_KINDS = []
 
-    def __init__(self, cursor):
-        """
-        Create a wrapper around cursor, proxying proxy_attributes to it.
-        """
-        super(Cursor, self).__init__(cursor)
-
     def get_children(self):
         """
         Get the children of this Cursor either as Cursors, or as clang.cindex.Cursor.
@@ -299,18 +293,3 @@ class TranslationUnit(Cursor):
 
 class Container(Cursor):
     CURSOR_KINDS = [CursorKind.NAMESPACE, CursorKind.CLASS_DECL]
-
-
-class Function(Cursor):
-    PROXIES = (
-        clang.cindex.Cursor,
-        [
-            "get_arguments", "get_definition", "get_num_template_arguments", "get_template_argument_kind",
-            "get_template_argument_type", "get_template_argument_unsigned_value", "get_template_argument_value",
-            "is_const_method", "is_converting_constructor", "is_copy_constructor", "is_default_constructor",
-            "is_default_method", "is_definition", "is_move_constructor", "is_pure_virtual_method", "is_static_method",
-            "is_virtual_method", "result_type",
-        ]
-    )
-    CURSOR_KINDS = [CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL, CursorKind.FUNCTION_TEMPLATE,
-                    CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
