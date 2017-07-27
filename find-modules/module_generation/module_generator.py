@@ -298,7 +298,7 @@ class ModuleGenerator(object):
         process_jobs = jobs // (thread_jobs or 1)
         logger.info(_("Using {} threads with {} processes each").format(thread_jobs, process_jobs))
         std_args = (process_jobs, )
-        if thread_jobs == 0:
+        if thread_jobs <= 1:
             #
             # Debug mode.
             #
@@ -380,7 +380,7 @@ class ModuleGenerator(object):
         std_args = (self.exe_clang, self.project_root, self.rules_pkg, self.package, self.compile_flags,
                     self.includes, self.output_dir, self.dump_modules, self.dump_items, self.dump_includes,
                     self.dump_privates, self.verbose)
-        if process_jobs == 0:
+        if process_jobs <= 1:
             #
             # Debug mode.
             #

@@ -150,7 +150,7 @@ class ModuleCompiler(object):
                 per_process_args.append((sip_file, ))
         std_args = (self.exe_sip, self.input_sips, self.imports, self.libraries, self.libdirs, self.compile_flags,
                     self.package, self.output_so, self.output_sips, self.tmp, features, self.verbose)
-        if jobs == 0:
+        if jobs <= 1:
             #
             # Debug mode.
             #
