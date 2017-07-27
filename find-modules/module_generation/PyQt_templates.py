@@ -1195,4 +1195,4 @@ def pointer_typecode(container, typedef, sip, matcher):
         #
         return
     assert typedef.underlying_typedef_type.kind == TypeKind.UNEXPOSED
-    handler.expand_typedef(pointer_parameter, typedef, sip)
+    handler.expand_typedef(pointer_typecode, typedef, sip)
