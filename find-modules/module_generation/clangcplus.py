@@ -217,7 +217,8 @@ class Cursor(_Proxy):
     def translation_unit(self):
         return self._wrapped(self.proxied_object.translation_unit.cursor)
 
-    def _wrapped(self, cursor):
+    @classmethod
+    def _wrapped(cls, cursor):
         """
         Wrap a cindex.cursor if possible.
 
@@ -237,7 +238,7 @@ class Cursor(_Proxy):
             logger.debug(_("Unknown _kind_id {} for {}".format(e, cursor.spelling)))
         else:
             try:
-                clazz = self.CLASS_MAP[kind]
+                clazz = cls.CLASS_MAP[kind]
             except KeyError:
                 #
                 # Some kinds don't have wrappers.
@@ -353,10 +354,10 @@ class Type(_Proxy):
         ]
     )
     CLASS_MAP = {}
-    TYPE_KINDS = []
+    TYPE_KINDS = [""]
 
-    @staticmethod
-    def wrap(type_):
+    @classmethod
+    def _wrapped(cls, type_):
         """
         Wrap a cindex.type if possible.
 
@@ -364,24 +365,26 @@ class Type(_Proxy):
         :return: If possible, return the wrapped cindex_type, else just return the cindex_type.
         """
         try:
-            clazz = Type.CLASS_MAP[type_.get_canonical().kind]
+            if type_.kind == TypeKind.POINTER and \
+                            type_.get_pointee().get_canonical().kind in TypeFunction.TYPE_KINDS:
+                #
+                # Function pointer case.
+                #
+                clazz = cls.CLASS_MAP[type_.get_pointee().get_canonical().kind]
+            else:
+                clazz = cls.CLASS_MAP[type_.kind]
         except KeyError:
-            if type_.kind == TypeKind.POINTER:
-                if type_.get_pointee().get_canonical().kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
-                    #
-                    # Function pointer case.
-                    #
-                    return TypeFunction(type_)
             #
-            # Some kinds don't have wrappers.
+            # Some kinds don't have wrappers. For them, in order to provide a
+            # wrapped version of get_canonical(), we act as the wrapper.
             #
-            return Type(type_)
+            return cls.CLASS_MAP[""](type_)
         else:
             type_ = clazz(type_)
         return type_
 
     def get_canonical(self):
-        return Type.wrap(self.proxied_object.get_canonical())
+        return self._wrapped(self.proxied_object.get_canonical())
 
 
 class TypeFunction(Type):
