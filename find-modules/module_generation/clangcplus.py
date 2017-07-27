@@ -350,7 +350,7 @@ class Type(_Proxy):
         # All Types proxy some standard attributes for baseline compatibility with cindex.Type.
         #
         [
-            "kind", "spelling"
+            "is_const_qualified", "kind", "spelling",
         ]
     )
     CLASS_MAP = {}
@@ -433,4 +433,13 @@ class TypeFunction(Type):
         return type_.get_result() if type_.kind != TypeKind.POINTER else type_
 
 
-FUNC_PTR = "(*)"
+class TypePointer(Type):
+    """
+    For a pointer which is not a function pointer.
+
+    NOTE: In the pointer case, self.kind == TypeKind.POINTER, but see also TypeFunction.
+    """
+    TYPE_KINDS = [TypeKind.POINTER]
+
+    def get_pointee(self):
+        return self._wrapped(self.proxied_object.get_pointee())

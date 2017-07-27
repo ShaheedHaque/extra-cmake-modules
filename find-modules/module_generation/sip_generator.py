@@ -528,7 +528,7 @@ class SipGenerator(object):
                 base_specifiers.append(member.type.get_canonical().spelling)
             elif isinstance(member, clangparser.TemplateParameter):
                 templating_stack.push_first(container, member.SIP_TYPE_NAME)
-            elif member.kind in VARIABLE_KINDS:
+            elif isinstance(member, clangparser.Variable):
                 had_const_member = had_const_member or member.type.is_const_qualified() or \
                                    member.type.spelling.startswith(QScopedPointer)
                 if member.access_specifier != AccessSpecifier.PRIVATE:
@@ -1293,25 +1293,19 @@ class SipGenerator(object):
         #
         # Flesh out the SIP context for the rules engine.
         #
-        decl = variable.type.get_canonical().spelling
-        if variable.type.kind == TypeKind.ELABORATED and "anonymous" in decl:
+        the_type = variable.type
+        if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
             #
-            # The spelling will be of the form 'N::n::(anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5)'
+            # SIP does not generally like function pointers, so keep any typedef.
             #
-            words = decl.split("(", 1)[1][:-1]
-            words = re.split("[ :]", words)
-            kind = {"enum": clangparser.Enum, "struct": clangparser.Struct, "union": clangparser.Union}[words[1]]
-            decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
-        elif variable.type.kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
-            #
-            # Keep any typedef.
-            #
-            decl = variable.type.spelling
-        elif variable.type.kind == TypeKind.MEMBERPOINTER:
-            #
-            # Keep any typedef.
-            #
-            decl = variable.type.spelling
+            if the_type.spelling.find("(") == -1:
+                decl = the_type.spelling
+            else:
+                the_type = the_type.get_canonical()
+                args = [c.spelling for c in the_type.argument_types]
+                decl = ", ".join(args).replace("* ", "*").replace("& ", "&")
+        else:
+            decl = the_type.get_canonical().spelling
         sip["decl"] = decl
         #
         # Before the rules have run, add/remove any prefix.
@@ -1345,10 +1339,24 @@ class SipGenerator(object):
         :param pad:
         :return:
         """
-        decl = pad + sip["decl"]
-        if decl[-1] not in "*&":
-            decl += " "
-        decl += sip["name"]
+        the_type = variable.type
+        if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
+            #
+            # SIP does not generally like function pointers, so keep any typedef.
+            #
+            if the_type.spelling.find("(") == -1:
+                decl = sip["decl"] + " " + sip["name"]
+            else:
+                the_type = the_type.get_canonical()
+                clazz = the_type.is_member_of
+                name = "{}::*{}".format(clazz.spelling, sip["name"]) if clazz else sip["name"]
+                if the_type.is_pointer:
+                    name = "*" + name
+                decl = "{} ({})({})".format(the_type.result_type.spelling, name, sip["decl"])
+        else:
+            decl = sip["decl"] + " " + sip["name"]
+        decl = decl.replace("* ", "*").replace("& ", "&")
+        decl = pad + decl
         if sip["annotations"]:
             decl += " /" + ",".join(sip["annotations"]) + "/"
         decl = decl + sip["code"] + ";\n"
