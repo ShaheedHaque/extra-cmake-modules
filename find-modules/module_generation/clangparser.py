@@ -30,7 +30,7 @@ import gettext
 import logging
 
 import clang.cindex
-from clang.cindex import TypeKind
+from clang.cindex import Type as _Type
 
 import clangcplus
 
@@ -41,10 +41,7 @@ gettext.install(__name__)
 _ = _
 
 CursorKind = clangcplus.CursorKind
-#
-# Function pointers are a tricky area. We need to detect them by text matching.
-#
-FUNC_PTR = "(*)"
+TypeKind = clangcplus.TypeKind
 
 
 class Cursor(clangcplus.Cursor):
@@ -191,7 +188,8 @@ class Function(Cursor):
         if self.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
             decl = ""
         else:
-            decl = self.result_type.get_canonical().spelling
+            the_type = clangcplus.Type.wrap(self.result_type).get_canonical()
+            type_spelling = the_type.spelling
             #
             # If the result is a self pointer, the canonical spelling is likely to be
             # a problem for SIP. Working out if we have such a case seems hand: the approach
@@ -200,10 +198,10 @@ class Function(Cursor):
             #   - We have a pointer AND
             #   - We see what looks like the thing Clang seems to use for a self pointer
             #
-            if self.result_type.get_canonical().kind == TypeKind.POINTER and decl.find(FUNC_PTR) != -1:
-                decl = self.result_type.spelling
-            elif self.result_type.get_canonical().kind == TypeKind.MEMBERPOINTER:
-                decl = self.result_type.spelling
+            if isinstance(the_type, clangcplus.TypeFunction):
+                decl = the_type.result_type.spelling
+            else:
+                decl = type_spelling
         return decl
 
 
@@ -226,7 +224,7 @@ class Parameter(Cursor):
 
     @property
     def SIP_TYPE_NAME(self):
-        the_type = self.type.get_canonical()
+        the_type = clangcplus.Type.wrap(self.type).get_canonical()
         type_spelling = the_type.spelling
         #
         # Get rid of any pointer const-ness and add a pointer suffix. Not removing the const-ness causes
@@ -236,27 +234,22 @@ class Parameter(Cursor):
         #
         #   if (sipParseArgs(..., &a1))
         #
-        if the_type.kind == TypeKind.POINTER:
+        if isinstance(the_type, clangcplus.TypeFunction):
             #
-            # Except that function pointers need special consideration. See elsewhere too...
+            # SIP gets confused if we have default values for a canonical function pointer, so use the
+            # "higher" form if we have else, else just hope we don't have a default value.
             #
-            if type_spelling.find(FUNC_PTR) == -1:
-                decl = "{} *{}".format(the_type.get_pointee().spelling, self.spelling)
+            if self.type.spelling.find("(") == -1:
+                decl = "{} {}".format(self.type.spelling, self.spelling)
+                decl = decl.replace("* ", "*").replace("& ", "&")
             else:
-                #
-                # SIP gets confused if we have default values for a canonical function pointer, so use the
-                # "higher" form if we have else, else just hope we don't have a default value.
-                #
-                if self.type.spelling.find("(") == -1:
-                    decl = "{} {}".format(self.type.spelling, self.spelling)
-                    decl = decl.replace("* ", "*").replace("& ", "&")
-                else:
-                    named_func_ptr = "(*{})".format(self.spelling)
-                    decl = type_spelling.replace(FUNC_PTR, named_func_ptr, 1)
-        elif the_type.kind == TypeKind.MEMBERPOINTER:
-            func_ptr = "({}::*)".format(the_type.get_class_type().spelling)
-            named_func_ptr = "({}::*{})".format(the_type.get_class_type().spelling, self.spelling)
-            decl = type_spelling.replace(func_ptr, named_func_ptr, 1)
+                args = [c.spelling for c in the_type.argument_types]
+                args = ", ".join(args).replace("* ", "*").replace("& ", "&")
+                clazz = the_type.is_member_of
+                name = "{}::*{}".format(clazz.spelling, self.spelling) if clazz else self.spelling
+                if the_type.is_pointer:
+                    name = "*" + name
+                decl = "{} ({})({})".format(the_type.result_type.spelling, name, args)
         elif the_type.kind == TypeKind.INCOMPLETEARRAY:
             #
             # Clang makes "const int []" into "int const[]"!!!
@@ -341,28 +334,20 @@ class Typedef(Cursor):
 
     @property
     def SIP_TYPE_NAME(self):
-        the_type = self.underlying_typedef_type
-        if the_type.get_canonical().kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
-            #
-            # A function pointer!
-            #
-            args = [c.type.spelling for c in self.get_children() if isinstance(c, Parameter)]
+        the_type = clangcplus.Type.wrap(self.underlying_typedef_type)
+        type_spelling = the_type.spelling
+        if isinstance(the_type, clangcplus.TypeFunction):
+            args = [c.spelling for c in the_type.argument_types]
             decl = ", ".join(args).replace("* ", "*").replace("& ", "&")
-        elif the_type.kind == TypeKind.POINTER and the_type.spelling.find(FUNC_PTR) != -1:
-            #
-            # A function pointer!
-            #
-            decl = the_type.spelling.split(FUNC_PTR, 1)[1]
-            decl = decl.strip()[1:-1]
         elif the_type.kind == TypeKind.RECORD:
-            decl = self.underlying_typedef_type.spelling
+            decl = type_spelling
         elif the_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
             #
             # Clang makes "QString foo[size]" into "QString [size]"!!!
             #
-            decl = self.underlying_typedef_type.spelling.replace("[", self.spelling + "[", 1)
+            decl = type_spelling.replace("[", self.spelling + "[", 1)
         else:
-            decl = self.underlying_typedef_type.get_canonical().spelling
+            decl = the_type.get_canonical().spelling
         return decl
 
     @property
@@ -379,15 +364,9 @@ class Typedef(Cursor):
         #   - We see what looks like the thing Clang seems to use for a function pointer
         #   )
         #
-        the_type = self.underlying_typedef_type.get_canonical()
-        if the_type.kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
-            result_type = self.result_type.spelling
-        elif the_type.kind == TypeKind.POINTER and the_type.spelling.find(FUNC_PTR) != -1:
-            #
-            # A function pointer!
-            #
-            result_type = the_type.spelling.split(FUNC_PTR, 1)[0]
-            result_type = result_type.strip()
+        the_type = clangcplus.Type.wrap(self.underlying_typedef_type)
+        if isinstance(the_type, clangcplus.TypeFunction):
+            result_type = the_type.result_type.spelling
         else:
             result_type = ""
         return result_type

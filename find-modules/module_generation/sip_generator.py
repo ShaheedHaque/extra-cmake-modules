@@ -773,9 +773,14 @@ class SipGenerator(object):
                 #
                 # So far so good, but we need any default value.
                 #
+                decl = child.SIP_TYPE_NAME
+                #
+                # SIP does not support "const char *const foo".
+                #
+                decl = decl.replace("*const " + child.spelling, "*" + child.spelling)
                 child_sip = {
                     "name": child.spelling,
-                    "decl": child.SIP_TYPE_NAME,
+                    "decl": decl,
                     "init": self._fn_get_parameter_default(function, child),
                     "annotations": set()
                 }

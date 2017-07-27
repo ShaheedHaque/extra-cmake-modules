@@ -37,6 +37,7 @@ gettext.install(__name__)
 # Keep PyCharm happy.
 _ = _
 CursorKind = clang.cindex.CursorKind
+TypeKind = clang.cindex.TypeKind
 
 
 class MetaProxy(type):
@@ -145,8 +146,8 @@ class Diagnostic(_Proxy):
 class MetaCursor(MetaProxy):
     def __new__(mcs, name, bases, dct):
         """
-        Register the class type against the cindex.CursorKinds it is a proxy
-        for. Custom parsers can be built by:
+        Register the class against the cindex.CursorKinds it is a proxy for.
+        Custom parsers can be built by:
 
             1. Provide a base class derived from Cursor with its own CLASS_MAP:
 
@@ -293,3 +294,140 @@ class TranslationUnit(Cursor):
 
 class Container(Cursor):
     CURSOR_KINDS = [CursorKind.NAMESPACE, CursorKind.CLASS_DECL]
+
+
+class MetaType(MetaProxy):
+    def __new__(mcs, name, bases, dct):
+        """
+        Register the class against the cindex.TypeKinds it is a proxy for.
+        Custom parsers can be built by:
+
+            1. Provide a base class derived from Type with its own CLASS_MAP:
+
+                class MyType(Type):
+                    CLASS_MAP = {}
+
+            2. Override ALL the CLASS_MAP entries registered to the base
+            Type, such as TranslationUnit, by adding MyType as a right-most
+            base class:
+
+                class MyArray(Array, MyType):
+                    '''
+                    The MRO ensures we pick up MyType->CLASS_MAP (and not
+                    Array->Type->CLASS_MAP).
+                    '''
+                    pass
+
+            3. Adding any new wrappers by subclassing MyType and specifying
+            the TYPE_KINDS it wraps, and any attributes to be proxied:
+
+                class MyVector(MyType):
+                    TYPE_KINDS = [TypeKind.VECTOR]
+
+                    def __init__(self, vector):
+                        proxy_attributes = ["item_to_proxy", ...]
+                        super(MyVector, self).__init__(vector, proxy_attributes)
+        """
+        result = super(MetaType, mcs).__new__(mcs, name, bases, dct)
+        #
+        # Register the class type against the kinds it proxies.
+        #
+        for kind in getattr(result, "TYPE_KINDS"):
+            result.CLASS_MAP[kind] = result
+        return result
+
+
+class Type(_Proxy):
+    """
+    This is the base class for all objects we wrap (unwrapped objects are still
+    exposed as cindex.Type).
+    """
+    __metaclass__ = MetaType
+    PROXIES = (
+        clang.cindex.Type,
+        #
+        # All Types proxy some standard attributes for baseline compatibility with cindex.Type.
+        #
+        [
+            "kind", "spelling"
+        ]
+    )
+    CLASS_MAP = {}
+    TYPE_KINDS = []
+
+    @staticmethod
+    def wrap(type_):
+        """
+        Wrap a cindex.type if possible.
+
+        :param type_:           The cindex.Type to wrap.
+        :return: If possible, return the wrapped cindex_type, else just return the cindex_type.
+        """
+        try:
+            clazz = Type.CLASS_MAP[type_.get_canonical().kind]
+        except KeyError:
+            if type_.kind == TypeKind.POINTER:
+                if type_.get_pointee().get_canonical().kind in [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]:
+                    #
+                    # Function pointer case.
+                    #
+                    return TypeFunction(type_)
+            #
+            # Some kinds don't have wrappers.
+            #
+            return Type(type_)
+        else:
+            type_ = clazz(type_)
+        return type_
+
+    def get_canonical(self):
+        return Type.wrap(self.proxied_object.get_canonical())
+
+
+class TypeFunction(Type):
+    """
+    For a function or function pointer.
+
+    NOTE: In the function pointer case, self.kind == TypeKind.POINTER.
+    """
+    TYPE_KINDS = [TypeKind.MEMBERPOINTER, TypeKind.FUNCTIONPROTO]
+
+    @property
+    def is_pointer(self):
+        """
+        Is this a pointer-to-function?
+        """
+        return self.kind == TypeKind.POINTER
+
+    @property
+    def is_member_of(self):
+        """
+        Return the class if this is a (pointer-to-)member function, or None.
+        """
+        type_ = self.proxied_object.get_canonical()
+        if self.is_pointer:
+            type_ = type_.get_pointee().get_canonical()
+        if type_.kind == TypeKind.MEMBERPOINTER:
+            return type_.get_class_type()
+        return None
+
+    @property
+    def argument_types(self):
+        type_ = self.proxied_object.get_canonical()
+        if self.is_pointer:
+            type_ = type_.get_pointee().get_canonical()
+        if type_.kind == TypeKind.MEMBERPOINTER:
+            type_ = type_.get_pointee().get_canonical()
+        return type_.argument_types() if type_.kind != TypeKind.POINTER else []
+
+    @property
+    def result_type(self):
+        type_ = self.proxied_object.get_canonical()
+        if self.is_pointer:
+            type_ = type_.get_pointee().get_canonical()
+        if type_.kind == TypeKind.MEMBERPOINTER:
+            type_ = type_.get_pointee().get_canonical()
+        return type_.get_result() if type_.kind != TypeKind.POINTER else type_
+
+
+FUNC_PTR = "(*)"
