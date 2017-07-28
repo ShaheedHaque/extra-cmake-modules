@@ -304,7 +304,7 @@ def unexposed_rules():
         #
         # Random crap we don't like.
         #
-        ["WTF", "HashMap", "template.*\n.*HashMap", rule_helpers.unexposed_discard],
+        ["WTF", "HashMap", "template.*HashMap", rule_helpers.unexposed_discard],
     ]
 
 

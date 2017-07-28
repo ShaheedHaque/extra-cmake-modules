@@ -168,7 +168,7 @@ class SourceProcessor(pcpp.preprocessor.Preprocessor):
         msg = _("Include file '{}' not found").format(includepath)
         self.on_error(self.lastdirective.source, self.lastdirective.lineno, msg)
 
-    def unpreprocessed(self, extent):
+    def unpreprocessed(self, extent, nl=" "):
         """
         Read the given range from the raw source.
 
@@ -177,9 +177,12 @@ class SourceProcessor(pcpp.preprocessor.Preprocessor):
         assert self.source, "Must call compile() first!"
         if not self.unpreprocessed_source:
             self.unpreprocessed_source = self._read(self.source)
-        return self._extract(self.unpreprocessed_source, extent)
+        text = self._extract(self.unpreprocessed_source, extent)
+        if nl != "\n":
+            text = text.replace("\n", nl)
+        return text
 
-    def preprocessed(self, extent, alternate_source=None):
+    def preprocessed(self, extent, alternate_source=None, nl=" "):
         """
         Read the given range from the pre-processed source.
 
@@ -189,10 +192,10 @@ class SourceProcessor(pcpp.preprocessor.Preprocessor):
             lines = self._read(alternate_source)
             text = self._extract(lines, extent)
         else:
-            text = self.unpreprocessed(extent)
-        return self.expand(text)
+            text = self.unpreprocessed(extent, nl="\n")
+        return self.expand(text, nl=nl)
 
-    def expand(self, text):
+    def expand(self, text, nl=" "):
         assert self.source, "Must call compile() first!"
         if not self.preproc:
             #
@@ -222,6 +225,8 @@ class SourceProcessor(pcpp.preprocessor.Preprocessor):
         #
         tokens = self.preproc.expand_macros(tokens)
         text = "".join([t.value for t in tokens])
+        if nl != "\n":
+            text = text.replace("\n", nl)
         return text
 
     def _read(self, source):
@@ -334,7 +339,6 @@ class SipGenerator(object):
         if parent and not parents:
             parents = os.path.basename(parent.spelling) + "::"
         text = parents + text
-        text = text.replace("\n", "\\n")
         return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
 
     def create_sip(self, h_file, include_filename):
