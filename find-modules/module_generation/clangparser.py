@@ -200,19 +200,10 @@ class Function(Cursor):
             decl = ""
         else:
             the_type = self.result_type.get_canonical()
-            type_spelling = the_type.spelling
-            #
-            # If the result is a self pointer, the canonical spelling is likely to be
-            # a problem for SIP. Working out if we have such a case seems hand: the approach
-            # now is the following heuristic...
-            #
-            #   - We have a pointer AND
-            #   - We see what looks like the thing Clang seems to use for a self pointer
-            #
             if isinstance(the_type, TypeFunction):
-                decl = the_type.result_type.spelling
+                decl = self.result_type.spelling
             else:
-                decl = type_spelling
+                decl = the_type.spelling
         return decl
 
 
@@ -243,22 +234,20 @@ class Parameter(Cursor):
         #
         #   if (sipParseArgs(..., &a1))
         #
-        if isinstance(the_type, TypeFunction):
+        if isinstance(the_type.get_canonical(), TypeFunction):
             #
-            # SIP gets confused if we have default values for a canonical function pointer, so use the
-            # "higher" form if we have else, else just hope we don't have a default value.
+            # SIP does not generally like function pointers. Here the problem
+            # is that parameters just don't support canonical function pointers
+            # with default values, so use the typedef if one is known. Else,
+            # rules are needed to fix them up.
             #
             if self.type.spelling.find("(") == -1:
-                decl = "{} {}".format(self.type.spelling, self.spelling)
-                decl = decl.replace("* ", "*").replace("& ", "&")
+                decl = self.type.spelling
+                if decl[-1] not in "*&":
+                    decl += " "
+                decl = decl + self.spelling
             else:
-                args = [c.spelling for c in the_type.argument_types]
-                args = ", ".join(args).replace("* ", "*").replace("& ", "&")
-                clazz = the_type.is_member_of
-                name = "{}::*{}".format(clazz.spelling, self.spelling) if clazz else self.spelling
-                if the_type.is_pointer:
-                    name = "*" + name
-                decl = "{} ({})({})".format(the_type.result_type.spelling, name, args)
+                decl = the_type.get_canonical().fmt_declaration(self.spelling)
         elif the_type.kind == TypeKind.INCOMPLETEARRAY:
             #
             # Clang makes "const int []" into "int const[]"!!!
@@ -351,8 +340,7 @@ class Typedef(Cursor):
         type_spelling = the_type.spelling
         if isinstance(the_type.get_canonical(), TypeFunction):
             the_type = the_type.get_canonical()
-            args = [c.spelling for c in the_type.argument_types]
-            decl = ", ".join(args).replace("* ", "*").replace("& ", "&")
+            decl = the_type.fmt_args()
         elif the_type.kind == TypeKind.RECORD:
             decl = type_spelling
         elif the_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
@@ -366,22 +354,10 @@ class Typedef(Cursor):
 
     @property
     def SIP_RESULT_TYPE(self):
-        #
-        # If the typedef is for a function pointer, the canonical spelling is likely to be
-        # a problem for SIP. Working out if we have such a case seems hard: the approach
-        # now is the following heuristic...
-        #
-        #   - We are not dealing with a TypeKind.MEMBERPOINTER (handled above) AND
-        #   (
-        #   - The self has a result OR
-        #   - We found some arguments OR
-        #   - We see what looks like the thing Clang seems to use for a function pointer
-        #   )
-        #
         the_type = self.underlying_typedef_type
         if isinstance(the_type.get_canonical(), TypeFunction):
             the_type = the_type.get_canonical()
-            result_type = the_type.result_type.spelling
+            result_type = the_type.fmt_result()
         else:
             result_type = ""
         return result_type
@@ -428,7 +404,28 @@ class TypeArray(Type):
 
 
 class TypeFunction(clangcplus.TypeFunction, Type):
-    pass
+    def fmt_declaration(self, name, args=None):
+        if args is None:
+            args = self.fmt_args()
+        name = self.fmt_name(name)
+        result = self.fmt_result()
+        if result[-1] not in "*&":
+            result += " "
+        return "{}({})({})".format(result, name, args)
+
+    def fmt_args(self):
+        args = [c.spelling for c in self.argument_types]
+        return ", ".join(args)
+
+    def fmt_name(self, name):
+        clazz = self.is_member_of
+        name = "{}::*{}".format(clazz.spelling, name) if clazz else name
+        if self.is_pointer:
+            name = "*" + name
+        return name
+
+    def fmt_result(self):
+        return self.result_type.spelling
 
 
 class TypeIndirect(Type):

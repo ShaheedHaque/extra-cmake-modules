@@ -1296,14 +1296,17 @@ class SipGenerator(object):
         the_type = variable.type
         if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
             #
-            # SIP does not generally like function pointers, so keep any typedef.
+            # SIP does not generally like function pointers. Here the problem
+            # is that variables just don't support canonical function pointers,
+            # so use the typedef if one is known. Else, rules are needed to fix
+            # them up. See rule_helpers.container_add_supplementary_typedefs().
             #
             if the_type.spelling.find("(") == -1:
                 decl = the_type.spelling
             else:
                 the_type = the_type.get_canonical()
                 args = [c.spelling for c in the_type.argument_types]
-                decl = ", ".join(args).replace("* ", "*").replace("& ", "&")
+                decl = the_type.fmt_args()
         else:
             decl = the_type.get_canonical().spelling
         sip["decl"] = decl
@@ -1340,22 +1343,18 @@ class SipGenerator(object):
         :return:
         """
         the_type = variable.type
+        decl = sip["decl"]
+        space = ("" if decl[-1] in "*&" else " ")
         if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
             #
             # SIP does not generally like function pointers, so keep any typedef.
             #
             if the_type.spelling.find("(") == -1:
-                decl = sip["decl"] + " " + sip["name"]
+                decl = decl + space + sip["name"]
             else:
-                the_type = the_type.get_canonical()
-                clazz = the_type.is_member_of
-                name = "{}::*{}".format(clazz.spelling, sip["name"]) if clazz else sip["name"]
-                if the_type.is_pointer:
-                    name = "*" + name
-                decl = "{} ({})({})".format(the_type.result_type.spelling, name, sip["decl"])
+                decl = the_type.get_canonical().get_declaration(sip["name"], args=decl)
         else:
-            decl = sip["decl"] + " " + sip["name"]
-        decl = decl.replace("* ", "*").replace("& ", "&")
+            decl = decl + space + sip["name"]
         decl = pad + decl
         if sip["annotations"]:
             decl += " /" + ",".join(sip["annotations"]) + "/"
