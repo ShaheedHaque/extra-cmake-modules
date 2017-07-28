@@ -43,8 +43,8 @@ import traceback
 from clang.cindex import AccessSpecifier, Config, Index, SourceRange, StorageClass, TokenKind, TypeKind
 import pcpp.preprocessor
 
-import clangparser
-from clangparser import CursorKind
+import clangcparser
+from clangcparser import CursorKind
 import rules_engine
 
 
@@ -357,7 +357,7 @@ class SipGenerator(object):
         source = h_file
         self.source_processor = SourceProcessor(self.exe_clang, ["-x", "c++"] + self.compile_flags, self.verbose)
         tu = self.source_processor.compile(source)
-        self.tu = clangparser.TranslationUnit(tu.cursor)
+        self.tu = clangcparser.TranslationUnitCursor(tu.cursor)
         for diag in self.tu.diagnostics:
             #
             # We expect to be run over hundreds of files. Any parsing issues are likely to be very repetitive.
@@ -526,9 +526,9 @@ class SipGenerator(object):
                 # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
                 #
                 base_specifiers.append(member.type.get_canonical().spelling)
-            elif isinstance(member, clangparser.TemplateParameter):
+            elif isinstance(member, clangcparser.TemplateParameterCursor):
                 templating_stack.push_first(container, member.SIP_TYPE_NAME)
-            elif isinstance(member, clangparser.Variable):
+            elif isinstance(member, clangcparser.VariableCursor):
                 had_const_member = had_const_member or member.type.is_const_qualified() or \
                                    member.type.spelling.startswith(QScopedPointer)
                 if member.access_specifier != AccessSpecifier.PRIVATE:
@@ -574,11 +574,11 @@ class SipGenerator(object):
             if decl:
                 body += decl
 
-        if isinstance(container, clangparser.TranslationUnit):
+        if isinstance(container, clangcparser.TranslationUnitCursor):
             templating_stack.pop_last(container)
             return body, modulecode
 
-        if isinstance(container, clangparser.Cursor):
+        if isinstance(container, clangcparser.Cursor):
             container_type = container.SIP_TYPE_NAME + " " + sip["name"]
         else:
             raise AssertionError(_("Unexpected container: {}").format(SipGenerator.describe(container)))
@@ -646,7 +646,7 @@ class SipGenerator(object):
                 decl = pad + "template <" + ", ".join(sip["template_parameters"]) + ">\n" + decl
             decl += "\n" + pad + "{\n"
             decl += "%TypeHeaderCode\n#include <{}>\n%End\n".format(include_filename)
-            if isinstance(container, clangparser.Container) and container.initial_access_specifier:
+            if isinstance(container, clangcparser.ContainerCursor) and container.initial_access_specifier:
                 decl += pad + container.initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
@@ -809,7 +809,7 @@ class SipGenerator(object):
                 #   TEMPLATE_KINDS: The result type.
                 #
                 pass
-            elif isinstance(child, clangparser.TemplateParameter):
+            elif isinstance(child, clangcparser.TemplateParameterCursor):
                 templating_stack.push_first(function, child.SIP_TYPE_NAME)
             else:
                 text = self.source_processor.unpreprocessed(child.extent)
@@ -1294,7 +1294,7 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         the_type = variable.type
-        if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
+        if isinstance(the_type.get_canonical(), clangcparser.FunctionType):
             #
             # SIP does not generally like function pointers. Here the problem
             # is that variables just don't support canonical function pointers,
@@ -1345,7 +1345,7 @@ class SipGenerator(object):
         the_type = variable.type
         decl = sip["decl"]
         space = ("" if decl[-1] in "*&" else " ")
-        if isinstance(the_type.get_canonical(), clangparser.TypeFunction):
+        if isinstance(the_type.get_canonical(), clangcparser.FunctionType):
             #
             # SIP does not generally like function pointers, so keep any typedef.
             #

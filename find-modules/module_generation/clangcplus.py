@@ -155,13 +155,13 @@ class MetaCursor(MetaProxy):
                     CLASS_MAP = {}
 
             2. Override ALL the CLASS_MAP entries registered to the base
-            Cursor, such as TranslationUnit, by adding MyCursor as a right-most
+            Cursor, such as TranslationUnitCursor, by adding MyCursor as a right-most
             base class:
 
-                class MyTranslationUnit(TranslationUnit, MyCursor):
+                class MyTranslationUnit(TranslationUnitCursor, MyCursor):
                     '''
                     The MRO ensures we pick up MyCursor->CLASS_MAP (and not
-                    TranslationUnit->Cursor->CLASS_MAP).
+                    TranslationUnitCursor->Cursor->CLASS_MAP).
                     '''
                     pass
 
@@ -249,7 +249,7 @@ class Cursor(_Proxy):
         return cursor
 
 
-class TranslationUnit(Cursor):
+class TranslationUnitCursor(Cursor):
     """
     Surprise: a translation unit is also a Cursor!
     """
@@ -257,12 +257,12 @@ class TranslationUnit(Cursor):
     CHECKED = False
 
     def __init__(self, tu):
-        super(TranslationUnit, self).__init__(tu)
+        super(TranslationUnitCursor, self).__init__(tu)
         #
         # Check that the user fully overrode the CLASS_MAP. Doing this check
         # here makes sense as this is normally the first Cursor instantiated.
         #
-        if not TranslationUnit.CHECKED:
+        if not TranslationUnitCursor.CHECKED:
             for base_class in self.__class__.mro():
                 base_class_map = getattr(base_class, "CLASS_MAP", self.CLASS_MAP)
                 if self.CLASS_MAP is not base_class_map:
@@ -274,7 +274,7 @@ class TranslationUnit(Cursor):
                         #
                         raise AssertionError(_("CLASS_MAP items from {} not overridden by {}: {}").format(
                             base_class, self.__class__, tmp))
-            TranslationUnit.CHECKED = True
+            TranslationUnitCursor.CHECKED = True
         #
         # In clang.cindex, a translation unit is not a cursor. So here, we need
         # merge a couple of attributes "manually".
@@ -293,7 +293,7 @@ class TranslationUnit(Cursor):
         return self
 
 
-class Container(Cursor):
+class ContainerCursor(Cursor):
     CURSOR_KINDS = [CursorKind.NAMESPACE, CursorKind.CLASS_DECL]
 
 
@@ -309,7 +309,7 @@ class MetaType(MetaProxy):
                     CLASS_MAP = {}
 
             2. Override ALL the CLASS_MAP entries registered to the base
-            Type, such as TranslationUnit, by adding MyType as a right-most
+            Type, such as TranslationUnitCursor, by adding MyType as a right-most
             base class:
 
                 class MyArray(Array, MyType):
@@ -366,9 +366,9 @@ class Type(_Proxy):
         """
         try:
             if type_.kind == TypeKind.POINTER and \
-                            type_.get_pointee().get_canonical().kind in TypeFunction.TYPE_KINDS:
+                            type_.get_pointee().get_canonical().kind in FunctionType.TYPE_KINDS:
                 #
-                # Function pointer case.
+                # FunctionCursor pointer case.
                 #
                 clazz = cls.CLASS_MAP[type_.get_pointee().get_canonical().kind]
             else:
@@ -387,7 +387,7 @@ class Type(_Proxy):
         return self._wrapped(self.proxied_object.get_canonical())
 
 
-class TypeFunction(Type):
+class FunctionType(Type):
     """
     For a function or function pointer.
 
@@ -433,11 +433,11 @@ class TypeFunction(Type):
         return type_.get_result() if type_.kind != TypeKind.POINTER else type_
 
 
-class TypePointer(Type):
+class PointerType(Type):
     """
     For a pointer which is not a function pointer.
 
-    NOTE: In the pointer case, self.kind == TypeKind.POINTER, but see also TypeFunction.
+    NOTE: In the pointer case, self.kind == TypeKind.POINTER, but see also FunctionType.
     """
     TYPE_KINDS = [TypeKind.POINTER]
 

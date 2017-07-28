@@ -63,25 +63,25 @@ class Cursor(clangcplus.Cursor):
                 #
                 logger.debug(_("Unknown _kind_id {} for {}".format(e, child.spelling or child.displayname)))
             else:
-                if kind in Parameter.CURSOR_KINDS:
+                if kind in ParameterCursor.CURSOR_KINDS:
                     parameter_number += 1
-                    yield Parameter(child, parameter_number)
-                elif kind in TemplateParameter.CURSOR_KINDS:
+                    yield ParameterCursor(child, parameter_number)
+                elif kind in TemplateParameterCursor.CURSOR_KINDS:
                     template_parameter_number += 1
-                    yield TemplateParameter(child, template_parameter_number)
+                    yield TemplateParameterCursor(child, template_parameter_number)
                 else:
                     yield self._wrapped(child)
 
 
-class Container(clangcplus.Container, Cursor):
+class ContainerCursor(clangcplus.ContainerCursor, Cursor):
     #
     # Our CURSOR_KINDS only adds templates.
     #
     TEMPLATE_CURSOR_KINDS = [CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION]
-    CURSOR_KINDS = clangcplus.Container.CURSOR_KINDS + TEMPLATE_CURSOR_KINDS
+    CURSOR_KINDS = clangcplus.ContainerCursor.CURSOR_KINDS + TEMPLATE_CURSOR_KINDS
 
     def __init__(self, container):
-        super(Container, self).__init__(container)
+        super(ContainerCursor, self).__init__(container)
         #
         # If this is an array, the container is templated.
         #
@@ -95,7 +95,7 @@ class Container(clangcplus.Container, Cursor):
         #
         self.template_args = None
         if container.kind in self.TEMPLATE_CURSOR_KINDS:
-            self.template_args = [c for c in self.get_children() if isinstance(c, TemplateParameter)]
+            self.template_args = [c for c in self.get_children() if isinstance(c, TemplateParameterCursor)]
             #
             # Clang presents a templated struct as a CLASS_TEMPLATE, but does not
             # insert an initial "public" access specifier. Make a best-effort attempt
@@ -140,7 +140,7 @@ class Container(clangcplus.Container, Cursor):
         return "namespace" if self.kind == CursorKind.NAMESPACE else "class"
 
 
-class Enum(Container):
+class EnumCursor(ContainerCursor):
     CURSOR_KINDS = [CursorKind.ENUM_DECL]
     SIP_TYPE_NAME = "enum"
     GENERATED_NAME_FMT = "__enum{}"
@@ -157,7 +157,7 @@ class Enum(Container):
                self.GENERATED_NAME_FMT.format(self.extent.start.line)
 
 
-class Function(Cursor):
+class FunctionCursor(Cursor):
     PROXIES = (
         clang.cindex.Cursor,
         [
@@ -172,7 +172,7 @@ class Function(Cursor):
                     CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CONVERSION_FUNCTION]
 
     def __init__(self, fn):
-        super(Function, self).__init__(fn)
+        super(FunctionCursor, self).__init__(fn)
         #
         # If this is an array, the function is templated.
         #
@@ -200,18 +200,18 @@ class Function(Cursor):
             decl = ""
         else:
             the_type = self.result_type.get_canonical()
-            if isinstance(the_type, TypeFunction):
+            if isinstance(the_type, FunctionType):
                 decl = self.result_type.spelling
             else:
                 decl = the_type.spelling
         return decl
 
 
-class Parameter(Cursor):
+class ParameterCursor(Cursor):
     CURSOR_KINDS = [CursorKind.PARM_DECL]
 
     def __init__(self, parameter, parameter_number):
-        super(Parameter, self).__init__(parameter)
+        super(ParameterCursor, self).__init__(parameter)
         self.parameter_number = parameter_number
 
     @property
@@ -234,7 +234,7 @@ class Parameter(Cursor):
         #
         #   if (sipParseArgs(..., &a1))
         #
-        if isinstance(the_type.get_canonical(), TypeFunction):
+        if isinstance(the_type.get_canonical(), FunctionType):
             #
             # SIP does not generally like function pointers. Here the problem
             # is that parameters just don't support canonical function pointers
@@ -261,12 +261,12 @@ class Parameter(Cursor):
         return decl
 
 
-class TemplateParameter(Cursor):
+class TemplateParameterCursor(Cursor):
     CURSOR_KINDS = [CursorKind.TEMPLATE_TYPE_PARAMETER, CursorKind.TEMPLATE_NON_TYPE_PARAMETER,
                     CursorKind.TEMPLATE_TEMPLATE_PARAMETER]
 
     def __init__(self, parameter, parameter_number):
-        super(TemplateParameter, self).__init__(parameter)
+        super(TemplateParameterCursor, self).__init__(parameter)
         self.parameter_number = parameter_number
 
     @property
@@ -299,13 +299,13 @@ class TemplateParameter(Cursor):
             return "template<" + (", ".join(parameter)) + "> class " + self.spelling
 
 
-class Struct(Enum):
+class StructCursor(EnumCursor):
     CURSOR_KINDS = [CursorKind.STRUCT_DECL]
     SIP_TYPE_NAME = "struct"
     GENERATED_NAME_FMT = "__struct{}"
 
 
-class Union(Enum):
+class UnionCursor(EnumCursor):
     CURSOR_KINDS = [CursorKind.UNION_DECL]
     #
     # Render a union as a struct. From the point of view of the accessors created for the bindings,
@@ -315,11 +315,11 @@ class Union(Enum):
     GENERATED_NAME_FMT = "__union{}"
 
 
-class TranslationUnit(clangcplus.TranslationUnit, Cursor):
+class TranslationUnitCursor(clangcplus.TranslationUnitCursor, Cursor):
     pass
 
 
-class Typedef(Cursor):
+class TypedefCursor(Cursor):
     CURSOR_KINDS = [CursorKind.TYPEDEF_DECL]
 
     @property
@@ -338,7 +338,7 @@ class Typedef(Cursor):
     def SIP_TYPE_NAME(self):
         the_type = self.underlying_typedef_type
         type_spelling = the_type.spelling
-        if isinstance(the_type.get_canonical(), TypeFunction):
+        if isinstance(the_type.get_canonical(), FunctionType):
             the_type = the_type.get_canonical()
             decl = the_type.fmt_args()
         elif the_type.kind == TypeKind.RECORD:
@@ -355,7 +355,7 @@ class Typedef(Cursor):
     @property
     def SIP_RESULT_TYPE(self):
         the_type = self.underlying_typedef_type
-        if isinstance(the_type.get_canonical(), TypeFunction):
+        if isinstance(the_type.get_canonical(), FunctionType):
             the_type = the_type.get_canonical()
             result_type = the_type.fmt_result()
         else:
@@ -363,7 +363,7 @@ class Typedef(Cursor):
         return result_type
 
 
-class Variable(Cursor):
+class VariableCursor(Cursor):
     PROXIES = (
         clang.cindex.Cursor,
         [
@@ -381,7 +381,7 @@ class Type(clangcplus.Type):
     pass
 
 
-class TypeArray(Type):
+class ArrayType(Type):
     PROXIES = (
         clang.cindex.Type,
         [
@@ -391,7 +391,7 @@ class TypeArray(Type):
     TYPE_KINDS = [TypeKind.CONSTANTARRAY, TypeKind.VARIABLEARRAY]
 
     def __init__(self, array, element_count=None):
-        super(TypeArray, self).__init__(array)
+        super(ArrayType, self).__init__(array)
         if self.kind == TypeKind.CONSTANTARRAY:
             self._element_count = self.proxied_object.element_count
         else:
@@ -403,7 +403,7 @@ class TypeArray(Type):
         return self._element_count
 
 
-class TypeFunction(clangcplus.TypeFunction, Type):
+class FunctionType(clangcplus.FunctionType, Type):
     def fmt_declaration(self, name, args=None):
         if args is None:
             args = self.fmt_args()
@@ -428,18 +428,18 @@ class TypeFunction(clangcplus.TypeFunction, Type):
         return self.result_type.spelling
 
 
-class TypeIndirect(Type):
+class IndirectType(Type):
     TYPE_KINDS = [TypeKind.ELABORATED, TypeKind.TYPEDEF, TypeKind.UNEXPOSED]
 
     def get_declaration(self):
         return Cursor._wrapped(self.proxied_object.get_declaration())
 
 
-class TypePointer(clangcplus.TypePointer, Type):
+class PointerType(clangcplus.PointerType, Type):
     pass
 
 
-class TypeRecord(Type):
+class RecordType(Type):
     TYPE_KINDS = [TypeKind.RECORD]
 
     @property
@@ -451,11 +451,11 @@ class TypeRecord(Type):
             #
             words = decl.split("(", 1)[1][:-1]
             words = re.split("[ :]", words)
-            kind = {"enum": Enum, "struct": Struct, "union": Union}[words[1]]
+            kind = {"enum": EnumCursor, "struct": StructCursor, "union": UnionCursor}[words[1]]
             decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
         return decl
 
-class TypeReference(Type):
+class ReferenceType(Type):
     TYPE_KINDS = [TypeKind.LVALUEREFERENCE]
 
     def get_pointee(self):

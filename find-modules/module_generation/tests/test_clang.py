@@ -37,7 +37,7 @@ class Test:
         class MyCursor(clangcplus.Cursor):
             CLASS_MAP = {}
 
-        class MyTranslationUnit(clangcplus.TranslationUnit, MyCursor):
+        class MyTranslationUnitCursor(clangcplus.TranslationUnitCursor, MyCursor):
             pass
 
         class MyStruct(MyCursor):
@@ -51,13 +51,13 @@ class Test:
         # Ensure the base parser has not been affected.
         #
         self.test_base_parser()
-        assert MyTranslationUnit in MyCursor.CLASS_MAP.values()
+        assert MyTranslationUnitCursor in MyCursor.CLASS_MAP.values()
         assert MyStruct in MyCursor.CLASS_MAP.values()
-        assert MyTranslationUnit in MyTranslationUnit.CLASS_MAP.values()
+        assert MyTranslationUnitCursor in MyTranslationUnitCursor.CLASS_MAP.values()
 
     def test_base_parser(self):
         """
         test_base_parser: Test base parser.
         """
-        assert clangcplus.TranslationUnit in clangcplus.Cursor.CLASS_MAP.values()
-        assert clangcplus.TranslationUnit in clangcplus.TranslationUnit.CLASS_MAP.values()
+        assert clangcplus.TranslationUnitCursor in clangcplus.Cursor.CLASS_MAP.values()
+        assert clangcplus.TranslationUnitCursor in clangcplus.TranslationUnitCursor.CLASS_MAP.values()
