@@ -58,21 +58,16 @@ RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
 RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
 
 
-def fqn(container, child):
+def fqn(cursor, text):
     """
     A handy helper to return the full-qualified name for something.
-
-    :param container:                   Parent container.
-    :param child:                       The item whose FQN we seek.
-    :return: string name.
     """
-    result = []
-    parent = container
+    parents = ""
+    parent = cursor.semantic_parent
     while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-        result.append(parent.spelling)
+        parents = parent.spelling + "::" + parents
         parent = parent.semantic_parent
-    result = "::".join(reversed(result))
-    return result + "::" + child
+    return parents + text
 
 
 def parse_template(template, expected=None):
@@ -586,7 +581,7 @@ class FunctionWithTemplatesExpander(object):
         # is it to do with exception handling support in SIP?
         #
         if function.kind == CursorKind.CONSTRUCTOR:
-            fn = fqn(container, "")[:-2].replace("::", "_")
+            fn = fqn(function, "")[:-2].replace("::", "_")
             callsite = """    Py_BEGIN_ALLOW_THREADS
     sipCpp = new sip{fn}({args});
     Py_END_ALLOW_THREADS
@@ -609,7 +604,7 @@ class FunctionWithTemplatesExpander(object):
         else:
             fn = function.spelling
             if function.is_static_method() or not in_class(function):
-                fn = fqn(container, fn)
+                fn = fqn(function, fn)
                 callsite = """    cxxvalue = {fn}({args});
 """
             elif function.access_specifier == AccessSpecifier.PROTECTED:
@@ -624,7 +619,7 @@ class FunctionWithTemplatesExpander(object):
                         callsite = callsite.replace("{sep}", ", ", 1)
                     else:
                         callsite = callsite.replace("{sep}", "", 1)
-                    callsite = callsite.replace("{qn}", fqn(container, ""))
+                    callsite = callsite.replace("{qn}", fqn(function, ""))
                 else:
                     callsite = """#if defined(SIP_PROTECTED_IS_PUBLIC)
     cxxvalue = sipCpp->{fn}({args});
@@ -636,7 +631,7 @@ class FunctionWithTemplatesExpander(object):
                 if function.is_virtual_method():
                     callsite = """    cxxvalue = sipSelfWasArg ? sipCpp->{qn}{fn}({args}) : sipCpp->{fn}({args});
 """
-                    callsite = callsite.replace("{qn}", fqn(container, ""))
+                    callsite = callsite.replace("{qn}", fqn(function, ""))
                 else:
                     callsite = """    cxxvalue = sipCpp->{fn}({args});
 """
@@ -778,7 +773,7 @@ def container_rewrite_exception(container, sip, rule):
     :param matcher:
     :return:
     """
-    sip["name"] = fqn(container.semantic_parent, sip["name"])
+    sip["name"] = fqn(container, sip["name"])
     sip_name = sip["name"].replace("::", "_")
     py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
     base_exception = sip["base_specifiers"][0]
@@ -1107,7 +1102,7 @@ def variable_rewrite_mapped(container, variable, sip, rule):
     is_complex = converter.category in [HeldAs.POINTER, HeldAs.OBJECT]
     is_static = sip["decl"].startswith("static ")
     if is_static:
-        cxx = fqn(container, "{name}")
+        cxx = fqn(variable, "{name}")
     else:
         cxx = "sipCpp->{name}"
     code += converter.cxx_to_py("value", False, "{cxx}")
