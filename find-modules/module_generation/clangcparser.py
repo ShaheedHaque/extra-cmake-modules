@@ -340,7 +340,7 @@ class TypedefCursor(Cursor):
         type_spelling = the_type.spelling
         if isinstance(the_type.get_canonical(), FunctionType):
             the_type = the_type.get_canonical()
-            decl = the_type.fmt_args()
+            decl = the_type.fmt_args() or "void"
         elif the_type.kind == TypeKind.RECORD:
             decl = type_spelling
         elif the_type.kind == TypeKind.DEPENDENTSIZEDARRAY:

@@ -622,7 +622,8 @@ class SipGenerator(object):
             #
             # Generate private copy constructor for non-copyable types.
             #
-            if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
+            if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE and \
+                    not sip["decl"].startswith("%Exception"):
                 body += pad + "private:\n"
                 body += pad + "    " + trace_generated_for(container, "non-copyable type handling", {})
                 body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])

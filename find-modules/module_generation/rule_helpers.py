@@ -242,3 +242,22 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
     trace = trace_generated_for(sip["name"], rule, "supplementary typedefs")
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp
+
+
+def container_add_supplementary_includes(container, sip, rule, *includes):
+    """
+    There are many cases where adding a #include is a useful workaround.
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param includes:        The includes to add.
+    """
+    basename = os.path.basename(container.translation_unit.spelling)
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    tmp = ""
+    for key in includes:
+        tmp += "#include " + key + "\n"
+    trace = trace_generated_for(sip["name"], rule, "supplementary includes")
+    tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
+    sip["code"] += tmp
