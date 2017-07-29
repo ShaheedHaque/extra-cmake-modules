@@ -103,7 +103,7 @@ def methodGenerator(function, sip, entry):
         %MethodCode
             sipRes = {} + myAcumulate(a0);
         %End
-    """.format(entry["param"])
+    """.format(sip["ctx"])
 
 
 def container_rules():
@@ -224,7 +224,7 @@ def methodcode():
         "cpplib.h": {
             "anotherCustomMethod": {
                 "code": methodGenerator,
-                "param": 42
+                "ctx": 42
             }
         }
     }

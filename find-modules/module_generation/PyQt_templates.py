@@ -48,7 +48,7 @@ from clang.cindex import CursorKind, TypeKind
 
 import builtin_rules
 from builtin_rules import HeldAs, base_type, parse_template
-from sip_generator import trace_generated_for
+from rule_helpers import trace_generated_for
 
 gettext.install(os.path.basename(__file__))
 logger = logging.getLogger(__name__)
@@ -372,11 +372,11 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return builtin_rules.base_type(parameter_text)
 
-    def expand_parameter(self, fn, cursor, sip):
+    def expand_parameter(self, rule, cursor, sip):
         """
         Expand a parameter template, and return the results via the sip.
 
-        :param fn:              The function for whom the expansion is being performed.
+        :param rule:            The function for whom the expansion is being performed.
         :param cursor:          The CursorKind for whom the expansion is being performed.
                                 This is typically a typed object, such as "QMap" or "QHash".
         :param sip:             The sip. Expected keys:
@@ -410,16 +410,17 @@ class AbstractExpander(object):
         if template_args.endswith(">"):
             template_args += " "
         mapped_type = "{}<{}>".format(template_type, template_args)
-        trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
+        trace = trace_generated_for(cursor, rule, ["{}({})".format(entries[p].cxx_t, entries[p].category)
+                                                   for p in expected_parameters])
         code = self.expand_generic(template_type, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["modulecode"][mapped_type] = code
 
-    def expand_typedef(self, fn, cursor, sip):
+    def expand_typedef(self, rule, cursor, sip):
         """
         Expand a typedef template, and return the results via the sip.
 
-        :param fn:              The function for whom the expansion is being performed.
+        :param rule:            The function for whom the expansion is being performed.
         :param cursor:          The CursorKind for whom the expansion is being performed.
                                 This is typically a typed object, such as "QMap" or "QHash".
         :param sip:             The sip. Expected keys:
@@ -490,7 +491,8 @@ class AbstractExpander(object):
         if template_args.endswith(">"):
             template_args += " "
         mapped_type = "{}<{}>".format(template_type, template_args)
-        trace = trace_generated_for(cursor, fn, [[entries[p].cxx_t, entries[p].category] for p in expected_parameters])
+        trace = trace_generated_for(cursor, rule, ["{}({})".format(entries[p].cxx_t, entries[p].category)
+                                                   for p in expected_parameters])
         code = self.expand_generic(parent.spelling, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["modulecode"][mapped_type] = code
@@ -1091,98 +1093,98 @@ class SetExpander(AbstractExpander):
         return code
 
 
-def function_uses_templates(container, function, sip, matcher):
+def function_uses_templates(container, function, sip, rule):
     """
     A FunctionDb-compatible function used to create %MethodCode expansions
     for C++ functions with templated return types and/or parameters.
     """
     sip.setdefault("parameter_helper", FunctionParameterHelper)
     sip.setdefault("return_helper", FunctionReturnHelper)
-    builtin_rules.function_uses_templates(container, function, sip, matcher)
+    builtin_rules.function_uses_templates(container, function, sip, rule)
 
 
-def dict_parameter(container, function, parameter, sip, matcher):
+def dict_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
     template = DictExpander()
-    template.expand_parameter(dict_parameter, parameter, sip)
+    template.expand_parameter(rule, parameter, sip)
 
 
-def dict_typecode(container, typedef, sip, matcher):
+def dict_typecode(container, typedef, sip, rule):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
     template = DictExpander()
-    template.expand_typedef(dict_typecode, typedef, sip)
+    template.expand_typedef(rule, typedef, sip)
 
 
-def list_parameter(container, function, parameter, sip, matcher):
+def list_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for C++
     C++ types with one template argument into Python lists.
     """
     template = ListExpander()
-    template.expand_parameter(list_parameter, parameter, sip)
+    template.expand_parameter(rule, parameter, sip)
 
 
-def list_typecode(container, typedef, sip, matcher):
+def list_typecode(container, typedef, sip, rule):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python lists.
     """
     template = ListExpander()
-    template.expand_typedef(list_typecode, typedef, sip)
+    template.expand_typedef(rule, typedef, sip)
 
 
-def set_parameter(container, function, parameter, sip, matcher):
+def set_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
     template = SetExpander()
-    template.expand_parameter(set_parameter, parameter, sip)
+    template.expand_parameter(rule, parameter, sip)
 
 
-def set_typecode(container, typedef, sip, matcher):
+def set_typecode(container, typedef, sip, rule):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
     template = SetExpander()
-    template.expand_typedef(set_typecode, typedef, sip)
+    template.expand_typedef(rule, typedef, sip)
 
 
-def pair_parameter(container, function, parameter, sip, matcher):
+def pair_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
     handler = PairExpander()
-    handler.expand_parameter(pair_parameter, parameter, sip)
+    handler.expand_parameter(rule, parameter, sip)
 
 
-def pair_typecode(container, typedef, sip, matcher):
+def pair_typecode(container, typedef, sip, rule):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
     template = PairExpander()
-    template.expand_typedef(pair_typecode, typedef, sip)
+    template.expand_typedef(rule, typedef, sip)
 
 
-def pointer_parameter(container, function, parameter, sip, matcher):
+def pointer_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for a
     Qt pointer type.
     """
     handler = PointerExpander()
-    handler.expand_parameter(pointer_parameter, parameter, sip)
+    handler.expand_parameter(rule, parameter, sip)
 
 
-def pointer_typecode(container, typedef, sip, matcher):
+def pointer_typecode(container, typedef, sip, rule):
     """
     A TypeCodeDb-compatible function used to create a %MappedType for a
     Qt pointer type.
@@ -1195,4 +1197,4 @@ def pointer_typecode(container, typedef, sip, matcher):
         #
         return
     assert typedef.underlying_typedef_type.kind == TypeKind.UNEXPOSED
-    handler.expand_typedef(pointer_typecode, typedef, sip)
+    handler.expand_typedef(rule, typedef, sip)

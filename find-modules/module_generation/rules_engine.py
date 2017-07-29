@@ -31,8 +31,6 @@
 
 from __future__ import print_function
 
-import tempfile
-from abc import ABCMeta, abstractmethod
 import argparse
 import gettext
 import importlib
@@ -44,14 +42,14 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 import traceback
+from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 
-from clang.cindex import CursorKind
-
-from clangcplus import Cursor
 import builtin_rules
+from rule_helpers import cursor_parents, trace_inserted_for, trace_generated_for
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -71,40 +69,6 @@ def noop(*args):
     This action function "does nothing" but without causing a warning.
     """
     pass
-
-
-def _parents(container):
-    parents = []
-    parent = container.semantic_parent
-    while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-        parents.append(parent.spelling)
-        parent = parent.semantic_parent
-    if parents:
-        parents = "::".join(reversed(parents))
-    else:
-        parents = os.path.basename(parent.spelling)
-    return parents
-
-
-def trace_deleted_by(cursor, modifying_rule):
-    if isinstance(cursor, Cursor):
-        cursor = _parents(cursor) + ":" + cursor.spelling
-    trace = "// Deleted '{}' (by {})\n".format(cursor, modifying_rule)
-    return trace
-
-
-def trace_generated_for(cursor, fn, modifying_rule):
-    if isinstance(cursor, Cursor):
-        cursor = _parents(cursor) + ":" + cursor.spelling
-    trace = "// Generated for '{}' (by {}:{}):\n".format(cursor, os.path.basename(inspect.getfile(fn)), fn.__name__)
-    return trace
-
-
-def trace_inserted_for(cursor, modifying_rule):
-    if isinstance(cursor, Cursor):
-        cursor = _parents(cursor) + ":" + cursor.spelling
-    trace = "// Inserted for '{}' (by {}):\n".format(cursor, modifying_rule)
-    return trace
 
 
 _mapped_type_re = re.compile("^%(ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
@@ -312,7 +276,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def container_xxx(container, sip, matcher):
+        def container_xxx(container, sip, rule):
             '''
             Return a modified declaration for the given container.
 
@@ -327,9 +291,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
                                                         pair of braces.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT body and annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the container to be suppressed.
@@ -348,7 +310,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(container)
+        parents = cursor_parents(container)
         matcher, rule = self._match(parents, sip["name"],
                                     ", ".join(sip["template_parameters"] or []),
                                     sip["decl"],
@@ -357,7 +319,7 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, sip, matcher)
+            rule.fn(container, sip, rule)
             return rule.trace_result(parents, container, before, sip)
         return None
 
@@ -390,7 +352,7 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def declaration_xxx(container, sip, matcher):
+        def declaration_xxx(container, sip, rule):
             '''
             Return a modified declaration for the given container.
 
@@ -401,9 +363,7 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
                                     template_parameters Any template parameters.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT body and annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the container to be suppressed.
@@ -422,14 +382,14 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(container)
+        parents = cursor_parents(container)
         matcher, rule = self._match(parents, sip["name"],
                                     ", ".join(sip["template_parameters"] or []))
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, sip, matcher)
+            rule.fn(container, sip, rule)
             handle_mapped_types(container, sip)
             return rule.trace_result(parents, container, before, sip)
         return None
@@ -463,7 +423,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def function_xxx(container, function, sip, matcher):
+        def function_xxx(container, function, sip, rule):
             '''
             Return a modified declaration for the given function.
 
@@ -482,9 +442,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
                                     is_signal           Is this is a signal?
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the container to be suppressed.
@@ -505,7 +463,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(function)
+        parents = cursor_parents(function)
         matcher, rule = self._match(parents, sip["name"], ", ".join(sip["template_parameters"] or []), sip["fn_result"],
                                     ", ".join(sip["parameters"]), sip["prefix"], sip["suffix"])
         sip.setdefault("code", "")
@@ -514,7 +472,7 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("cxx_fn_result", "")
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, function, sip, matcher)
+            rule.fn(container, function, sip, rule)
             handle_mapped_types(function, sip)
             return rule.trace_result(parents, function, before, sip)
         return None
@@ -550,7 +508,7 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def parameter_xxx(container, function, parameter, sip, init, matcher):
+        def parameter_xxx(container, function, parameter, sip, init, rule):
             '''
             Return a modified declaration and initialiser for the given parameter.
 
@@ -564,9 +522,7 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
                                     init                Any initialiser.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values.
         '''
@@ -586,13 +542,13 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(function)
+        parents = cursor_parents(function)
         matcher, rule = self._match(parents, function.spelling, sip["name"], sip["decl"], sip["init"])
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, function, parameter, sip, matcher)
+            rule.fn(container, function, parameter, sip, rule)
             handle_mapped_types(parameter, sip)
             return rule.trace_result(parents, parameter, before, sip)
         return None
@@ -625,7 +581,7 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def typedef_xxx(container, typedef, sip, matcher):
+        def typedef_xxx(container, typedef, sip, rule):
             '''
             Return a modified declaration for the given function.
 
@@ -638,9 +594,7 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
                                     decl                The declaration.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the container to be suppressed.
@@ -660,13 +614,13 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(typedef)
+        parents = cursor_parents(typedef)
         matcher, rule = self._match(parents, sip["name"], sip["fn_result"], sip["decl"])
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, typedef, sip, matcher)
+            rule.fn(container, typedef, sip, rule)
             handle_mapped_types(typedef, sip)
             return rule.trace_result(parents, typedef, before, sip)
         return None
@@ -695,7 +649,7 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def unexposed_xxx(container, unexposed, sip, matcher):
+        def unexposed_xxx(container, unexposed, sip, rule):
             '''
             Return a modified declaration for the given container.
 
@@ -707,9 +661,7 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
                                     decl                The declaration.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the unexposed item to be suppressed.
@@ -729,13 +681,13 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(unexposed)
+        parents = cursor_parents(unexposed)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, unexposed, sip, matcher)
+            rule.fn(container, unexposed, sip, rule)
             handle_mapped_types(unexposed, sip)
             return rule.trace_result(parents, unexposed, before, sip)
         return None
@@ -765,7 +717,7 @@ class VariableRuleDb(AbstractCompiledRuleDb):
     expressions are matched, the function is called, and no further entries are
     walked. The function is called with the following contract:
 
-        def variable_xxx(container, variable, sip, matcher):
+        def variable_xxx(container, variable, sip, rule):
             '''
             Return a modified declaration for the given variable.
 
@@ -777,9 +729,7 @@ class VariableRuleDb(AbstractCompiledRuleDb):
                                     decl                The declaration.
                                     annotations         Any SIP annotations.
 
-            :param matcher:         The re.Match object. This contains named
-                                    groups corresponding to the key names above
-                                    EXCEPT annotations.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values. Setting sip.name to the
                      empty string will cause the container to be suppressed.
@@ -799,13 +749,13 @@ class VariableRuleDb(AbstractCompiledRuleDb):
         :param sip:                 The SIP dict (may be modified on return).
         :return:                    Modifying rule or None (even if a rule matched, it may not modify things).
         """
-        parents = _parents(variable)
+        parents = cursor_parents(variable)
         matcher, rule = self._match(parents, sip["name"], sip["decl"])
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, variable, sip, matcher)
+            rule.fn(container, variable, sip, rule)
             handle_mapped_types(variable, sip)
             return rule.trace_result(parents, variable, before, sip)
         return None
@@ -934,12 +884,14 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         "code":         Required. Either a string, with the %XXXCode content,
                         or a callable.
 
+        "ctx":          Optional user-defined value. If present, copied to the sip.
+
     In use, the database is directly indexed by "container" and then method
     name. If "code" entry is a string, then the other optional keys are
     interpreted as above. If "code" is a callable, it is called with the
     following contract:
 
-        def methodcode_xxx(function, sip, entry):
+        def methodcode_xxx(function, sip, rule):
             '''
             Return a modified declaration for the given function.
 
@@ -947,7 +899,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             :param sip:         A dict with keys as for function rules
                                 plus the "cxx_parameters", "cxx_fn_result" and (string)
                                 "code" keys described above.
-            :param entry:       The inner dictionary entry.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values.
             '''
@@ -980,7 +932,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         #
         # Lookup any parent-level entries.
         #
-        parents = _parents(item)
+        parents = cursor_parents(item)
         entries = self.compiled_rules.get(parents, None)
         if not entries:
             return None
@@ -1011,13 +963,15 @@ class MethodCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if entry:
+            rule = self.names[entry["ruleset"]] + ":" + sip["name"]
             before = deepcopy(sip)
+            sip["ctx"] = entry.get("ctx", None)
             if callable(entry["code"]):
                 fn = entry["code"]
-                trace = trace_generated_for(function, fn, self.names[entry["ruleset"]])
-                fn(function, sip, entry)
+                trace = trace_generated_for(function, rule, {})
+                fn(function, sip, rule)
             else:
-                trace = trace_inserted_for(function, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(function, rule)
                 sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["parameters"] = entry.get("parameters", sip["parameters"])
@@ -1035,7 +989,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
             handle_mapped_types(function, sip)
-            return self.trace_result(entry, _parents(function), function, before, sip)
+            return self.trace_result(entry, cursor_parents(function), function, before, sip)
         return None
 
     def dump_usage(self, fn):
@@ -1070,8 +1024,11 @@ class TypeCodeDb(AbstractCompiledCodeDb):
                         typedef as the name of the %MappedType. Useful for
                         adding %MappedType entries for parameters where there
                         is no explicit typedef.
+
         "code":         Required. Either a string, with the %XXXCode content,
                         or a callable.
+
+        "ctx":          Optional user-defined value. If present, copied to the sip.
 
     In use, the database is directly indexed by "container". If "code" entry
     is a string, it is used directly. Note that the use of any of
@@ -1079,14 +1036,14 @@ class TypeCodeDb(AbstractCompiledCodeDb):
     container type to be marked as a %MappedType. If "code" is a callable,
     it is called with the following contract:
 
-        def typecode_xxx(container, sip, entry):
+        def typecode_xxx(container, sip, rule):
             '''
             Return a modified declaration for the given function.
 
             :param container:   The clang.cindex.Cursor for the container.
             :param sip:         A dict with keys as for container rules
                                 plus the "code" key described above.
-            :param entry:       The dictionary entry.
+            :param rule:        The fired rule.
 
             :return: An updated set of sip.xxx values.
             '''
@@ -1113,7 +1070,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         #
         # Lookup for an actual hit.
         #
-        parents = _parents(item)
+        parents = cursor_parents(item)
         entry = self.compiled_rules.get(parents + "::" + name, None)
         if not entry:
             return None
@@ -1132,13 +1089,15 @@ class TypeCodeDb(AbstractCompiledCodeDb):
         sip.setdefault("code", "")
         sip.setdefault("modulecode", {})
         if entry:
+            rule = self.names[entry["ruleset"]] + ":" + sip["name"]
             before = deepcopy(sip)
+            sip["ctx"] = entry.get("ctx", None)
             if callable(entry["code"]):
                 fn = entry["code"]
-                trace = trace_generated_for(container, fn, self.names[entry["ruleset"]])
-                fn(container, sip, entry)
+                trace = trace_generated_for(container, rule, {})
+                fn(container, sip, rule)
             else:
-                trace = trace_inserted_for(container, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(container, rule)
                 sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
@@ -1148,7 +1107,7 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
             handle_mapped_types(container, sip)
-            return self.trace_result(entry, _parents(container), container, before, sip)
+            return self.trace_result(entry, cursor_parents(container), container, before, sip)
         return None
 
     def dump_usage(self, fn):
@@ -1175,9 +1134,11 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         "code":         Required. Either a string, with the %XXXCode content,
                         or a callable.
 
+        "ctx":          Optional user-defined value. If present, copied to the sip.
+
     If "code" is a callable, it is called with the following contract:
 
-        def module_xxx(filename, sip, entry):
+        def module_xxx(filename, sip, rule):
             '''
             Return a string to insert for the file.
 
@@ -1185,7 +1146,7 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
             :param sip:         A dict with the key "name" for the filename,
                                 "decl" for the module body plus the "code" key
                                 described above.
-            :param entry:       The dictionary entry.
+            :param rule:        The fired rule.
 
             :return: A string.
             '''
@@ -1229,13 +1190,15 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
         entry = self._get(filename)
         sip.setdefault("code", "")
         if entry:
+            rule = self.names[entry["ruleset"]] + ":" + filename
             before = deepcopy(sip)
+            sip["ctx"] = entry.get("ctx", None)
             if callable(entry["code"]):
                 fn = entry["code"]
-                trace = trace_generated_for(filename, fn, self.names[entry["ruleset"]])
-                fn(filename, sip, entry)
+                trace = trace_generated_for(filename, rule, {})
+                fn(filename, sip, rule)
             else:
-                trace = trace_inserted_for(filename, self.names[entry["ruleset"]])
+                trace = trace_inserted_for(filename, rule)
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
                 #

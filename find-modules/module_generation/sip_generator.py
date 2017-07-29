@@ -46,6 +46,7 @@ import pcpp.preprocessor
 import clangcparser
 from clangcparser import CursorKind
 import rules_engine
+from rule_helpers import item_describe, trace_discarded_by, trace_generated_for, trace_modified_by
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -92,24 +93,6 @@ FN_PREFIX_STATIC = "static "
 FN_PREFIX_VIRTUAL = "virtual "
 FN_SUFFIX_CONST = " const"
 FN_SUFFIX_PURE = " = 0"
-
-
-def trace_discarded_by(cursor, rule, text=None):
-    trace = "// Discarded {} (by {})\n".format(SipGenerator.describe(cursor, text), rule)
-    return trace
-
-
-def trace_generated_for(cursor, fn, extra, text=None):
-    trace = "// Generated for {}, {} (by {}:{}): {}\n".format(os.path.basename(cursor.extent.start.file.name),
-                                                              SipGenerator.describe(cursor, text),
-                                                              os.path.basename(inspect.getfile(fn)), fn.__name__,
-                                                              extra)
-    return trace
-
-
-def trace_modified_by(cursor, rule, text=None):
-    trace = "// Modified {} (by {}):\n".format(SipGenerator.describe(cursor, text), rule)
-    return trace
 
 
 class SourceProcessor(pcpp.preprocessor.Preprocessor):
@@ -327,20 +310,6 @@ class SipGenerator(object):
         self.tu = None
         self.source_processor = None
 
-    @staticmethod
-    def describe(cursor, text=None):
-        if not text:
-            text = cursor.spelling
-        parents = ""
-        parent = cursor.semantic_parent
-        while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-            parents = parent.spelling + "::" + parents
-            parent = parent.semantic_parent
-        if parent and not parents:
-            parents = os.path.basename(parent.spelling) + "::"
-        text = parents + text
-        return "{} on line {} '{}'".format(cursor.kind.name, cursor.extent.start.line, text)
-
     def create_sip(self, h_file, include_filename):
         """
         Actually convert the given source header file into its SIP equivalent.
@@ -428,7 +397,7 @@ class SipGenerator(object):
             return False
         if member.spelling == "hidden":
             if self.dump_privates:
-                logger.info(_("Ignoring private {}").format(SipGenerator.describe(parent)))
+                SipGenerator._report_ignoring(parent, "hidden")
             sip["name"] = ""
             return True
         return False
@@ -487,7 +456,7 @@ class SipGenerator(object):
                     pass
                 else:
                     if self.dump_privates:
-                        logger.info(_("Ignoring private {}").format(SipGenerator.describe(member)))
+                        SipGenerator._report_ignoring(member, "private")
                     continue
             decl = ""
             if member.kind in FN_KINDS:
@@ -539,7 +508,7 @@ class SipGenerator(object):
                     decl, tmp = self._var_get(container, member, level + 1)
                     modulecode.update(tmp)
                 elif self.dump_privates:
-                    logger.info(_("Ignoring private {}").format(SipGenerator.describe(member)))
+                    SipGenerator._report_ignoring(member, "private")
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
@@ -571,10 +540,10 @@ class SipGenerator(object):
                     decl, tmp = self._unexposed_get(container, member, text, level + 1)
                     modulecode.update(tmp)
                 else:
-                    SipGenerator._report_ignoring(container, member)
+                    SipGenerator._report_ignoring(member, "unusable")
             if self.dump_items:
-                logger.info(_("Processing {}").format(SipGenerator.describe(member)))
-                body += "// Processing {}\n".format(SipGenerator.describe(member))
+                logger.info(_("Processing {}").format(item_describe(member)))
+                body += "// Processing {}\n".format(item_describe(member))
             if decl:
                 body += decl
 
@@ -582,11 +551,7 @@ class SipGenerator(object):
             templating_stack.pop_last(container)
             return body, modulecode
 
-        if isinstance(container, clangcparser.Cursor):
-            container_type = container.SIP_TYPE_NAME + " " + sip["name"]
-        else:
-            raise AssertionError(_("Unexpected container: {}").format(SipGenerator.describe(container)))
-        sip["decl"] = container_type
+        sip["decl"] = container.SIP_TYPE_NAME + " " + sip["name"]
         sip["template_parameters"] = container.template_parameters
         sip["base_specifiers"] = base_specifiers
 
@@ -659,7 +624,7 @@ class SipGenerator(object):
             #
             if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE:
                 body += pad + "private:\n"
-                body += pad + "    " + trace_generated_for(container, self._container_get, "non-copyable type handling")
+                body += pad + "    " + trace_generated_for(container, "non-copyable type handling", {})
                 body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
             body += pad + "};\n"
             if sip["modulecode"]:
@@ -756,7 +721,7 @@ class SipGenerator(object):
         # Discard inline implementations of functions declared in a class/struct.
         #
         if function.is_implementation(container):
-            SipGenerator._report_ignoring(container, function, "inline method")
+            SipGenerator._report_ignoring(function, "inline method")
             return "", {}
 
         sip = {
@@ -822,7 +787,7 @@ class SipGenerator(object):
                         templating_stack.pop_last(function)
                         return "", modulecode
                 else:
-                    SipGenerator._report_ignoring(function, child)
+                    SipGenerator._report_ignoring(child, "unusable")
         #
         # Flesh out the SIP context for the rules engine.
         #
@@ -1133,7 +1098,7 @@ class SipGenerator(object):
                     if not sip["name"]:
                         return "", modulecode
                 else:
-                    SipGenerator._report_ignoring(typedef, child)
+                    SipGenerator._report_ignoring(child, "unusable")
         #
         # Flesh out the SIP context for the rules engine.
         #
@@ -1206,14 +1171,16 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + trace_modified_by(unexposed, modifying_rule, text)
+                item = item_describe(unexposed, " ".join(text.split(None, 3)[:3]))
+                decl += pad + trace_modified_by(item, modifying_rule)
             decl += pad + sip["decl"] + "\n"
             if sip["modulecode"]:
                 modulecode.update(sip["modulecode"])
         else:
             if not modifying_rule:
                 modifying_rule = "default unexposed handling"
-            decl = pad + trace_discarded_by(unexposed, modifying_rule, text)
+            item = item_describe(unexposed, " ".join(text.split(None, 3)[:3]))
+            decl = pad + trace_discarded_by(item, modifying_rule)
         return decl, modulecode
 
     def _using_get(self, container, using, level):
@@ -1254,7 +1221,8 @@ class SipGenerator(object):
         if sip["name"]:
             decl = ""
             if modifying_rule:
-                decl += pad + trace_modified_by(using, modifying_rule, using_class + "::" + using.spelling)
+                item = item_describe(using, using.spelling + " -> " + using_class)
+                decl += pad + trace_modified_by(item, modifying_rule)
             if is_function:
                 decl += self._function_render(using, sip, pad)
             else:
@@ -1262,7 +1230,8 @@ class SipGenerator(object):
             if sip["modulecode"]:
                 modulecode.update(sip["modulecode"])
         else:
-            decl = pad + trace_discarded_by(using, modifying_rule, using_class + "::" + using.spelling)
+            item = item_describe(using, using.spelling + " -> " + using_class)
+            decl = pad + trace_discarded_by(item, modifying_rule)
         return decl, modulecode
 
     def _var_get(self, container, variable, level):
@@ -1293,7 +1262,7 @@ class SipGenerator(object):
                     if not sip["name"]:
                         return "", modulecode
                 else:
-                    SipGenerator._report_ignoring(variable, child)
+                    SipGenerator._report_ignoring(child, "unusable")
         #
         # Flesh out the SIP context for the rules engine.
         #
@@ -1389,11 +1358,8 @@ class SipGenerator(object):
         sip["decl"] = prefix + sip["decl"]
 
     @staticmethod
-    def _report_ignoring(parent, child, text=None):
-        if not text:
-            text = child.displayname or child.spelling
-        logger.debug(_("Ignoring {} {} child {}").format(parent.kind.name, parent.spelling,
-                                                         SipGenerator.describe(child, text)))
+    def _report_ignoring(child, reason):
+        logger.debug(_("Ignoring {} {}").format(reason, item_describe(child)))
 
 
 def main(argv=None):

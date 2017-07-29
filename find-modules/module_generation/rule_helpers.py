@@ -26,11 +26,51 @@
 #
 
 """Some common rule actions, as a convenience for rule writers."""
-
 import os
 import re
 
-import rules_engine
+from clangcparser import CursorKind
+
+
+def cursor_parents(cursor):
+    parents = ""
+    parent = cursor.semantic_parent
+    while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
+        parents = parent.spelling + "::" + parents
+        parent = parent.semantic_parent
+    if parent and not parents:
+        return os.path.basename(parent.spelling)
+    return parents[:-2]
+
+
+def item_describe(item, alternate_spelling=None):
+    if isinstance(item, str):
+        return item
+    if alternate_spelling is None:
+        text = item.spelling
+    else:
+        text = alternate_spelling
+    return "{} on line {} '{}::{}'".format(item.kind.name, item.extent.start.line, cursor_parents(item), text)
+
+
+def trace_inserted_for(item, rule):
+    trace = "// Inserted for {} (by {}):\n".format(item_describe(item), rule)
+    return trace
+
+
+def trace_discarded_by(item, rule):
+    trace = "// Discarded {} (by {})\n".format(item_describe(item), rule)
+    return trace
+
+
+def trace_generated_for(item, rule, extra):
+    trace = "// Generated for {} (by {}): {}\n".format(item_describe(item), rule, extra)
+    return trace
+
+
+def trace_modified_by(item, rule):
+    trace = "// Modified {} (by {}):\n".format(item_describe(item), rule)
+    return trace
 
 
 def container_discard(container, sip, matcher):
@@ -104,7 +144,7 @@ def modulecode_delete(basename, sip, rule, *keys):
     :param keys:            The keys to the entries.
     """
     for key in keys:
-        trace = rules_engine.trace_deleted_by(key, "duplicate delete")
+        trace = trace_discarded_by(key, rule)
         del sip["modulecode"][key]
         sip["modulecode"][key] = trace
 
@@ -125,7 +165,7 @@ def modulecode_make_local(basename, sip, rule, *keys):
     feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
     for key in keys:
         tmp = sip["modulecode"][key]
-        trace = rules_engine.trace_inserted_for(key, "duplicate make local")
+        trace = trace_inserted_for(key, rule)
         tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
         sip["modulecode"][key] = tmp
 
@@ -143,7 +183,7 @@ def module_add_classes(basename, sip, rule, *classes):
     tmp = ""
     for key in classes:
         tmp += "class " + key + ";\n"
-    trace = rules_engine.trace_generated_for(sip["name"], rule["code"], "missing classes")
+    trace = trace_generated_for(sip["name"], rule, "missing classes")
     tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
     sip["code"] += tmp
 
@@ -161,7 +201,7 @@ def module_add_imports(basename, sip, rule, *modules):
     tmp = ""
     for key in modules:
         tmp += "%Import(name=" + key + ")\n"
-    trace = rules_engine.trace_generated_for(sip["name"], rule["code"], "missing imports")
+    trace = trace_generated_for(sip["name"], rule, "missing imports")
     tmp = trace + "%If (!" + feature + ")\n" + tmp + "%End\n"
     sip["code"] += tmp
 
@@ -199,6 +239,6 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
             key += template
         tmp += "    typedef " + value + " " + key + ";\n"
         sip["body"] = sip["body"].replace(value, key)
-    trace = rules_engine.trace_generated_for(sip["name"], container_add_supplementary_typedefs, rule)
+    trace = trace_generated_for(sip["name"], rule, "supplementary typedefs")
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp

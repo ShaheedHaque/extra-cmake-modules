@@ -41,7 +41,7 @@ import re
 from clang.cindex import AccessSpecifier, CursorKind, TypeKind
 
 import rule_helpers
-from sip_generator import trace_generated_for
+from rule_helpers import trace_generated_for
 
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
@@ -712,11 +712,11 @@ class FunctionWithTemplatesExpander(object):
 """
         return code
 
-    def analyse_function(self, fn, cursor, sip):
+    def analyse_function(self, rule, cursor, sip):
         """
         Analyse a function, and return the results via the sip.
 
-        :param fn:              The caller asking for the template expansion.
+        :param rule:            The caller asking for the template expansion.
         :param cursor:          The CursorKind for whom the expansion is being performed.
                                 This is the function whose parameters and/or return type
                                 uses templates.
@@ -756,8 +756,8 @@ class FunctionWithTemplatesExpander(object):
         #
         # Run the template handler...
         #
-        trace = trace_generated_for(cursor, fn, [(result_h.cxx_t, result_h.category),
-                                                 [(p.cxx_t, p.category) for p in parameters]])
+        trace = trace_generated_for(cursor, rule, {"{}({})".format(result_h.cxx_t, result_h.category):
+                                                       ["{}({})".format(p.cxx_t, p.category) for p in parameters]})
         entries = {
             "result": result_h,
             "parameters": parameters,
@@ -769,7 +769,7 @@ class FunctionWithTemplatesExpander(object):
         return entries
 
 
-def container_rewrite_exception(container, sip, matcher):
+def container_rewrite_exception(container, sip, rule):
     """
     Convert a class which is an exception into a %Exception.
 
@@ -795,17 +795,12 @@ def container_rewrite_exception(container, sip, matcher):
 """.format(sip_name)
 
 
-def container_rewrite_std_exception(container, sip, matcher):
+def container_rewrite_std_exception(container, sip, rule):
     """
     Synthesise an %Exception for std::<exception>.
-
-    :param container:
-    :param sip:
-    :param matcher:
-    :return:
     """
     std_exception = sip["base_specifiers"][0]
-    container_rewrite_exception(container, sip, matcher)
+    container_rewrite_exception(container, sip, rule)
     sip_name = std_exception.replace("::", "_")
     py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
     sip["modulecode"][std_exception] = """%Exception {}(SIP_Exception) /PyName={}/
@@ -825,7 +820,7 @@ def container_rewrite_std_exception(container, sip, matcher):
 """.format(std_exception, py_name, sip_name)
 
 
-def function_uses_templates(container, function, sip, matcher):
+def function_uses_templates(container, function, sip, rule):
     """
     A FunctionDb-compatible function used to create %MethodCode expansions
     for C++ functions with templated return types and/or parameters.
@@ -847,20 +842,14 @@ def function_uses_templates(container, function, sip, matcher):
     parameter_helper = sip.get("parameter_helper", FunctionParameterHelper)
     return_helper = sip.get("return_helper", FunctionReturnHelper)
     template = template(parameter_helper, return_helper)
-    entries = template.analyse_function(function_uses_templates, function, sip)
+    entries = template.analyse_function(rule, function, sip)
     code = template.expand_template(function, entries)
     sip["code"] = code
 
 
-def variable_rewrite_array_fixed(container, variable, sip, matcher):
+def variable_rewrite_array_fixed(container, variable, sip, rule):
     """
     Handle n-dimensional fixed size arrays.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
     """
     #
     # A template for a SIP_PYBUFFER.
@@ -1016,7 +1005,7 @@ struct setcode
                 code = code.replace("{aliases}", aliases_)
                 code = code.replace("{cxx_to_py}", cxx_to_py)
                 code = code.replace("{py_to_cxx}", py_to_cxx)
-            trace = trace_generated_for(variable, variable_rewrite_array_fixed, {})
+            trace = trace_generated_for(variable, rule, {})
             code = code.replace("{trace}", trace)
             break
     #
@@ -1040,7 +1029,7 @@ struct setcode
         sip["code"] = code
 
 
-def variable_rewrite_array_nonfixed(container, variable, sip, matcher):
+def variable_rewrite_array_nonfixed(container, variable, sip, rule):
     dims = VARIABLE_ARRAY_RE.match(sip["decl"]).groups()
     if len(dims) == 1:
         sip["decl"] = sip["decl"].replace("[]", "*")
@@ -1052,34 +1041,22 @@ def variable_rewrite_array_nonfixed(container, variable, sip, matcher):
         sip["annotations"].add("NoSetter")
 
 
-def variable_rewrite_extern(container, variable, sip, matcher):
+def variable_rewrite_extern(container, variable, sip, rule):
     """
     SIP does not support "extern", so drop the keyword.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
     """
     sip["decl"] = sip["decl"][7:]
     if MAPPED_TYPE_RE.match(sip["decl"]):
-        variable_rewrite_mapped(container, variable, sip, matcher)
+        variable_rewrite_mapped(container, variable, sip, rule)
     elif FIXED_ARRAY_RE.match(sip["decl"]):
-        variable_rewrite_array_fixed(container, variable, sip, matcher)
+        variable_rewrite_array_fixed(container, variable, sip, rule)
     elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-        variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+        variable_rewrite_array_nonfixed(container, variable, sip, rule)
 
 
-def variable_rewrite_static(container, variable, sip, matcher):
+def variable_rewrite_static(container, variable, sip, rule):
     """
     SIP does not support "static", so handle static variables.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
     """
     while container.kind == CursorKind.NAMESPACE:
         container = container.semantic_parent
@@ -1090,30 +1067,24 @@ def variable_rewrite_static(container, variable, sip, matcher):
         #
         sip["decl"] = sip["decl"][7:]
         if FIXED_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_fixed(container, variable, sip, matcher)
+            variable_rewrite_array_fixed(container, variable, sip, rule)
         elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+            variable_rewrite_array_nonfixed(container, variable, sip, rule)
     else:
         #
         # Inside a class, "static" is fine. Do we need %GetCode/%SetCode?
         #
         if MAPPED_TYPE_RE.match(sip["decl"]):
-            variable_rewrite_mapped(container, variable, sip, matcher)
+            variable_rewrite_mapped(container, variable, sip, rule)
         elif FIXED_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_fixed(container, variable, sip, matcher)
+            variable_rewrite_array_fixed(container, variable, sip, rule)
         elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_nonfixed(container, variable, sip, matcher)
+            variable_rewrite_array_nonfixed(container, variable, sip, rule)
 
 
-def variable_rewrite_mapped(container, variable, sip, matcher):
+def variable_rewrite_mapped(container, variable, sip, rule):
     """
     Handle class-static variables.
-
-    :param container:
-    :param variable:
-    :param sip:
-    :param matcher:
-    :return:
     """
     #
     # Create a Python <-> C++ conversion helper.
@@ -1169,7 +1140,7 @@ def variable_rewrite_mapped(container, variable, sip, matcher):
 }"""
     code = code.replace("{cxx}", cxx)
     code = code.replace("{name}", sip["name"])
-    trace = trace_generated_for(variable, variable_rewrite_mapped, {})
+    trace = trace_generated_for(variable, rule, {})
     code = code.replace("{trace}", trace)
     sip["code"] = code
 

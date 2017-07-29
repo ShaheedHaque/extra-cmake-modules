@@ -65,7 +65,7 @@ def _kcoreconfigskeleton_add_item_xxx(function, sip, entry):
         sipCpp->addItem(sipRes, *a0);
         Py_END_ALLOW_THREADS
 %End
-""".format(entry["ctx"])
+""".format(sip["ctx"])
 
 
 def _kcoreconfigskeleton_item_xxx(function, sip, entry):
@@ -77,7 +77,7 @@ def _kcoreconfigskeleton_item_xxx(function, sip, entry):
         sipCpp = (sipKCoreConfigSkeleton_Item{} *)(new KCoreConfigSkeleton::Item{}(*a0, *a1, a2, a3));
         Py_END_ALLOW_THREADS
 %End
-""".replace("{}", entry["ctx"])
+""".replace("{}", sip["ctx"])
     sip["parameters"][2] = sip["parameters"][2].replace("&", "")
 
 
@@ -90,7 +90,7 @@ def _kcoreconfigskeleton_item_enum(function, sip, entry):
         sipCpp = (sipKCoreConfigSkeleton_Item{} *)(new KCoreConfigSkeleton::Item{}(*a0, *a1, a2, *a3, a4));
         Py_END_ALLOW_THREADS
 %End
-""".replace("{}", entry["ctx"])
+""".replace("{}", sip["ctx"])
     sip["parameters"][2] = sip["parameters"][2].replace("&", "")
 
 
