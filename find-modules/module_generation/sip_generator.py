@@ -447,7 +447,6 @@ class SipGenerator(object):
                 #   - Any destructors and virtuals (for SIP as per
                 #     https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html).
                 #   - VARIABLE_KINDS to see any const variables (no-copy constructor support).
-                #   - CursorKind.CXX_BASE_SPECIFIER just to preserve any inheritance (is this actually needed?).
                 #   - CursorKind.CXX_ACCESS_SPEC_DECL so that changes in visibility are seen.
                 #   - CursorKind.USING_DECLARATION for any functions being access-tweaked.
                 #
@@ -455,8 +454,7 @@ class SipGenerator(object):
                     pass
                 elif member.kind in FN_KINDS and member.is_virtual_method():
                     pass
-                elif member.kind in VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL, CursorKind.CXX_BASE_SPECIFIER,
-                                                      CursorKind.USING_DECLARATION]:
+                elif member.kind in VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL, CursorKind.USING_DECLARATION]:
                     pass
                 else:
                     if self.dump_privates:
@@ -496,9 +494,10 @@ class SipGenerator(object):
                     modulecode.update(tmp)
             elif member.kind == CursorKind.CXX_BASE_SPECIFIER:
                 #
-                # Strip off the leading "class". Except for TypeKind.UNEXPOSED...
+                # SIP does not want protected or private base specifiers...
                 #
-                base_specifiers.append(member.type.get_canonical().spelling)
+                if member.access_specifier == AccessSpecifier.PUBLIC:
+                    base_specifiers.append(member.type.get_canonical().spelling)
             elif isinstance(member, clangcparser.TemplateParameterCursor):
                 templating_stack.push_first(container, member.SIP_TYPE_NAME)
             elif isinstance(member, clangcparser.VariableCursor):
