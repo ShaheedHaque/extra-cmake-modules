@@ -86,7 +86,7 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QSet<Akonadi::Tag>", "QSet<QByteArray>",
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSet<Akonadi::Tag>", "QSet<QByteArray>",
                                    "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                    "QVector<Akonadi::Relation>", "QVector<Akonadi::Tag>", "QVector<QByteArray>",
                                    "QVector<long long>")

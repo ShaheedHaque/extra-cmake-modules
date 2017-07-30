@@ -37,10 +37,6 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
                                    "QList<QVariant>")
-    #
-    # No such things a KServiceOffer?
-    #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KServiceOffer>")
     sip["code"] = """
 %ModuleHeaderCode
 #include <QExplicitlySharedDataPointer>

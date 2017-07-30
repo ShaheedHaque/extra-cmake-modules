@@ -26,10 +26,6 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QMap<QString, QString>")
     rule_helpers.module_add_classes(filename, sip, entry, "DOM::CSSRuleImpl")
 
 def module_fix_mapped_types_dom(filename, sip, entry):

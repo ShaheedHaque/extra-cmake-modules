@@ -443,16 +443,20 @@ class SipGenerator(object):
                 #
                 # We need to see:
                 #
-                #   - FN_KINDS for any existing constructors (no-copy constructor support) and any pure virtuals (for
-                #     /Abstract/ support).
+                #   - Any existing constructors (no-copy constructor support).
+                #   - Any destructors and virtuals (for SIP as per
+                #     https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html).
                 #   - VARIABLE_KINDS to see any const variables (no-copy constructor support).
                 #   - CursorKind.CXX_BASE_SPECIFIER just to preserve any inheritance (is this actually needed?).
                 #   - CursorKind.CXX_ACCESS_SPEC_DECL so that changes in visibility are seen.
                 #   - CursorKind.USING_DECLARATION for any functions being access-tweaked.
                 #
-                if member.kind in FN_KINDS + VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL,
-                                                               CursorKind.CXX_BASE_SPECIFIER,
-                                                               CursorKind.USING_DECLARATION]:
+                if member.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
+                    pass
+                elif member.kind in FN_KINDS and member.is_virtual_method():
+                    pass
+                elif member.kind in VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL, CursorKind.CXX_BASE_SPECIFIER,
+                                                      CursorKind.USING_DECLARATION]:
                     pass
                 else:
                     if self.dump_privates:
@@ -466,10 +470,6 @@ class SipGenerator(object):
                 if member.is_pure_virtual_method():
                     sip["annotations"].add("Abstract")
                 had_copy_constructor = had_copy_constructor or member.is_copy_constructor()
-                #
-                # SIP needs to see private functions at least for the case described in
-                # https://www.riverbankcomputing.com/pipermail/pyqt/2017-March/038944.html.
-                #
                 decl, tmp = self._fn_get(container, member, level + 1, is_signal, templating_stack)
                 modulecode.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:

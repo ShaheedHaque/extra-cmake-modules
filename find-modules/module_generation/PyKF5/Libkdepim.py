@@ -29,7 +29,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Tag>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Tag>")
     rule_helpers.module_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "KSslCertificateBoxPrivate",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
