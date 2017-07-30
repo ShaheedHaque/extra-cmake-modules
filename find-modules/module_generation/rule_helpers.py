@@ -32,7 +32,31 @@ import re
 from clangcparser import CursorKind
 
 
+#
+# By default, rules return None. This causes the rule-firing logic to emit
+# diagnostics recording what, if anything, changed. Rules which want to
+# suppress "nothing changed" messages should return SILENT_NOOP.
+#
+SILENT_NOOP = "do-not-report-lack-of-changes"
+
+
+def noop(*args):
+    """
+    This action function "does nothing" but without causing a warning.
+    For example, using this as the action in an ForwardDeclarationDb entry can
+    be used to override the default "drop forward declarations" rule.
+    """
+    return SILENT_NOOP
+
+
 def cursor_parents(cursor):
+    """
+    A helper function which returns the parents of a cursor in the forms:
+
+        - A::B::C::...N for non-top level entities.
+        - filename.h    for top level entities.
+        - ""            in exceptional cases of having no parents.
+    """
     parents = ""
     parent = cursor.semantic_parent
     while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
@@ -44,6 +68,10 @@ def cursor_parents(cursor):
 
 
 def item_describe(item, alternate_spelling=None):
+    """
+    A helper function providing a standardised description for an item,
+    which may be a cursor.
+    """
     if isinstance(item, str):
         return item
     if alternate_spelling is None:

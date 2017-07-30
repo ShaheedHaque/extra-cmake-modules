@@ -65,7 +65,7 @@ def parameter_rules():
         #
         # Override the default "parent" rule.
         #
-        ["KMessageBox", ".*", "parent", ".*", ".*", rules_engine.noop],
+        ["KMessageBox", ".*", "parent", ".*", ".*", rule_helpers.noop],
         ["KMessageBox", "createKMessageBox", "checkboxReturn", ".*", ".*", rule_helpers.parameter_out],
     ]
 

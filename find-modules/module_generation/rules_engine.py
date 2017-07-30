@@ -49,6 +49,7 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 
 import builtin_rules
+import rule_helpers
 from rule_helpers import cursor_parents, trace_inserted_for, trace_generated_for
 
 
@@ -62,14 +63,6 @@ _SEPARATOR = "\x00"
 
 # Keep PyCharm happy.
 _ = _
-
-
-def noop(*args):
-    """
-    This action function "does nothing" but without causing a warning.
-    """
-    pass
-
 
 _mapped_type_re = re.compile("^%(ConvertToTypeCode|ConvertFromTypeCode)", re.MULTILINE)
 
@@ -106,7 +99,7 @@ class Rule(object):
     def match(self, candidate):
         return self.matcher.match(candidate)
 
-    def trace_result(self, parents, item, original, modified):
+    def trace_result(self, result, parents, item, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
@@ -114,9 +107,9 @@ class Rule(object):
         :return: Modifying rule or None.
         """
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
-        return self._trace_result(fqn, original, modified)
+        return self._trace_result(result, fqn, original, modified)
 
-    def _trace_result(self, fqn, original, modified):
+    def _trace_result(self, result, fqn, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
@@ -134,7 +127,7 @@ class Rule(object):
             if delta:
                 logger.debug(_("Rule {} modified {}, {}->{}").format(self, fqn, original, modified))
             else:
-                if self.fn is not noop:
+                if result != rule_helpers.SILENT_NOOP:
                     logger.warn(_("Rule {} did not modify {}, {}").format(self, fqn, original))
                 return None
         return self
@@ -319,8 +312,8 @@ class ContainerRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, sip, rule)
-            return rule.trace_result(parents, container, before, sip)
+            result = rule.fn(container, sip, rule)
+            return rule.trace_result(result, parents, container, before, sip)
         return None
 
 
@@ -389,9 +382,9 @@ class ForwardDeclarationRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, sip, rule)
+            result = rule.fn(container, sip, rule)
             handle_mapped_types(container, sip)
-            return rule.trace_result(parents, container, before, sip)
+            return rule.trace_result(result, parents, container, before, sip)
         return None
 
 
@@ -472,9 +465,9 @@ class FunctionRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("cxx_fn_result", "")
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, function, sip, rule)
+            result = rule.fn(container, function, sip, rule)
             handle_mapped_types(function, sip)
-            return rule.trace_result(parents, function, before, sip)
+            return rule.trace_result(result, parents, function, before, sip)
         return None
 
 
@@ -548,9 +541,9 @@ class ParameterRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, function, parameter, sip, rule)
+            result = rule.fn(container, function, parameter, sip, rule)
             handle_mapped_types(parameter, sip)
-            return rule.trace_result(parents, parameter, before, sip)
+            return rule.trace_result(result, parents, parameter, before, sip)
         return None
 
 
@@ -620,9 +613,9 @@ class TypedefRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, typedef, sip, rule)
+            result = rule.fn(container, typedef, sip, rule)
             handle_mapped_types(typedef, sip)
-            return rule.trace_result(parents, typedef, before, sip)
+            return rule.trace_result(result, parents, typedef, before, sip)
         return None
 
 
@@ -687,9 +680,9 @@ class UnexposedRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, unexposed, sip, rule)
+            result = rule.fn(container, unexposed, sip, rule)
             handle_mapped_types(unexposed, sip)
-            return rule.trace_result(parents, unexposed, before, sip)
+            return rule.trace_result(result, parents, unexposed, before, sip)
         return None
 
 
@@ -755,9 +748,9 @@ class VariableRuleDb(AbstractCompiledRuleDb):
         sip.setdefault("modulecode", {})
         if matcher:
             before = deepcopy(sip)
-            rule.fn(container, variable, sip, rule)
+            result = rule.fn(container, variable, sip, rule)
             handle_mapped_types(variable, sip)
-            return rule.trace_result(parents, variable, before, sip)
+            return rule.trace_result(result, parents, variable, before, sip)
         return None
 
 
@@ -812,7 +805,7 @@ class AbstractCompiledCodeDb(object):
     def apply(self, function, sip):
         raise NotImplemented(_("Missing subclass"))
 
-    def trace_result(self, rule, parents, item, original, modified):
+    def trace_result(self, result, rule, parents, item, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
@@ -820,9 +813,9 @@ class AbstractCompiledCodeDb(object):
         :return: Modifying rule or None.
         """
         fqn = parents + "::" + original["name"] + "[" + str(item.extent.start.line) + "]"
-        return self._trace_result(rule, fqn, original, modified)
+        return self._trace_result(result, rule, fqn, original, modified)
 
-    def _trace_result(self, rule, fqn, original, modified):
+    def _trace_result(self, result, rule, fqn, original, modified):
         """
         Record any modification both in the log and the returned result. If a rule fired, but
         caused no modification, that is logged.
@@ -841,7 +834,8 @@ class AbstractCompiledCodeDb(object):
             if delta:
                 logger.debug(_("Rule {} modified {}, {}->{}").format(ruleset, fqn, original, modified))
             else:
-                logger.warn(_("Rule {} did not modify {}, {}").format(ruleset, fqn, original))
+                if result != rule_helpers.SILENT_NOOP:
+                    logger.warn(_("Rule {} did not modify {}, {}").format(ruleset, fqn, original))
                 return None
         return ruleset
 
@@ -969,7 +963,7 @@ class MethodCodeDb(AbstractCompiledCodeDb):
             if callable(entry["code"]):
                 fn = entry["code"]
                 trace = trace_generated_for(function, rule, {})
-                fn(function, sip, rule)
+                result = fn(function, sip, rule)
             else:
                 trace = trace_inserted_for(function, rule)
                 sip["name"] = entry.get("name", sip["name"])
@@ -983,13 +977,14 @@ class MethodCodeDb(AbstractCompiledCodeDb):
                 if "cxx_parameters" in entry or "cxx_fn_result" in entry:
                     sip["cxx_parameters"] = entry.get("cxx_parameters", sip["parameters"])
                     sip["cxx_fn_result"] = entry.get("cxx_fn_result", sip["cxx_fn_result"])
+                result = None
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
             handle_mapped_types(function, sip)
-            return self.trace_result(entry, cursor_parents(function), function, before, sip)
+            return self.trace_result(result, entry, cursor_parents(function), function, before, sip)
         return None
 
     def dump_usage(self, fn):
@@ -1095,19 +1090,20 @@ class TypeCodeDb(AbstractCompiledCodeDb):
             if callable(entry["code"]):
                 fn = entry["code"]
                 trace = trace_generated_for(container, rule, {})
-                fn(container, sip, rule)
+                result = fn(container, sip, rule)
             else:
                 trace = trace_inserted_for(container, rule)
                 sip["name"] = entry.get("name", sip["name"])
                 sip["code"] = entry["code"]
                 sip["decl"] = entry.get("decl", sip["decl"])
+                result = None
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
             handle_mapped_types(container, sip)
-            return self.trace_result(entry, cursor_parents(container), container, before, sip)
+            return self.trace_result(result, entry, cursor_parents(container), container, before, sip)
         return None
 
     def dump_usage(self, fn):
@@ -1196,7 +1192,7 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
             if callable(entry["code"]):
                 fn = entry["code"]
                 trace = trace_generated_for(filename, rule, {})
-                fn(filename, sip, rule)
+                result = fn(filename, sip, rule)
             else:
                 trace = trace_inserted_for(filename, rule)
                 sip["code"] = entry["code"]
@@ -1210,13 +1206,14 @@ class ModuleCodeDb(AbstractCompiledCodeDb):
                 tmp = sip.get("peers", None)
                 if tmp:
                     sip["peers"] = entry.get("peers", tmp)
+                result = None
             #
             # Fetch/format the code.
             #
             sip["code"] = textwrap.dedent(sip["code"]).strip() + "\n"
             sip["code"] = trace + sip["code"]
             fqn = filename
-            return self._trace_result(entry, fqn, before, sip)
+            return self._trace_result(result, entry, fqn, before, sip)
         return None
 
     def dump_usage(self, fn):

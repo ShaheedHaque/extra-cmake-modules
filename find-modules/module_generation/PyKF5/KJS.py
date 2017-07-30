@@ -224,7 +224,7 @@ def container_rules():
 
 def forward_declaration_rules():
     return [
-        ["KJS", "AttachedInterpreter", ".*", rules_engine.noop],
+        ["KJS", "AttachedInterpreter", ".*", rule_helpers.noop],
     ]
 
 

@@ -122,7 +122,7 @@ def parameter_rules():
         #
         #  Override the default "parent" rule.
         #
-        ["KStandardGameAction", ".*", "parent", ".*", ".*", rules_engine.noop]
+        ["KStandardGameAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
     ]
 
 

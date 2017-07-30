@@ -156,7 +156,7 @@ def container_rules():
         #
         # Emit templated containers.
         #
-        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rules_engine.noop],
+        ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rule_helpers.noop],
         #
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.
