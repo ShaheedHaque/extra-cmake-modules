@@ -40,3 +40,26 @@ def modulecode():
             "code": module_fix_mapped_types,
         },
     }
+
+
+def typecode():
+    return {
+        "KIPI::EditHintScope": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKIPI_EditHintScope KIPI::EditHintScope
+                %End
+                """
+        },
+        "KIPI::PluginLoader::Info": {
+            "code":
+                """
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKIPI_PluginLoader_Info KIPI::PluginLoader::Info
+                %End
+                """
+        },
+    }
