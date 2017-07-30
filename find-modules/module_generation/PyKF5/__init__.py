@@ -47,6 +47,7 @@ import rules_engine
 import common_methodcode
 import common_modulecode
 import common_typecode
+from clangcparser import CursorKind
 
 
 QT_DICT = "QHash|QMap"
@@ -101,6 +102,12 @@ def _parameter_rewrite_without_colons(container, fn, parameter, sip, matcher):
 
 
 def _parameter_transfer_to_parent(container, fn, parameter, sip, matcher):
+    if fn.kind != CursorKind.CONSTRUCTOR and \
+        not fn.spelling.startswith("create"):
+        #
+        # This does not look like a constructor or a factory method.
+        #
+        return rule_helpers.SILENT_NOOP
     if fn.is_static_method():
         sip["annotations"].add("Transfer")
     else:

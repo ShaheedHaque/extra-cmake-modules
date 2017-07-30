@@ -52,3 +52,48 @@ def modulecode():
             "code": module_fix_mapped_types_ksettings,
         },
     }
+
+
+def typecode():
+    return {
+        # DISABLED until I figure out an approach for CTSCC.
+        "DISABLED kcmoduleproxy.h::KCModuleProxy": {
+            "code":
+                """
+                %ConvertToSubClassCode
+                    // CTSCC for subclasses of 'QObject'
+                    sipType = NULL;
+
+                    if (dynamic_cast<KEmoticons*>(sipCpp))
+                        sipType = sipType_KEmoticons;
+                    else if (dynamic_cast<KEmoticonsProvider*>(sipCpp))
+                        sipType = sipType_KEmoticonsProvider;
+                    else if (dynamic_cast<KIdleTime*>(sipCpp))
+                        sipType = sipType_KIdleTime;
+                    else if (dynamic_cast<KSettings::PluginPage*>(sipCpp))
+                        sipType = sipType_KSettings_PluginPage;
+                    else if (dynamic_cast<KCModuleProxy*>(sipCpp))
+                        sipType = sipType_KCModuleProxy;
+                    else if (dynamic_cast<KPluginSelector*>(sipCpp))
+                        sipType = sipType_KPluginSelector;
+                    else if (dynamic_cast<KCMultiDialog*>(sipCpp))
+                        {
+                        sipType = sipType_KCMultiDialog;
+                        if (dynamic_cast<KSettings::Dialog*>(sipCpp))
+                            sipType = sipType_KSettings_Dialog;
+                        }
+                    else if (dynamic_cast<KPrintPreview*>(sipCpp))
+                        sipType = sipType_KPrintPreview;
+                %End
+                """
+        },
+        "kcmoduleinfo.h::KCModuleInfo": {
+            "code":
+                '''
+                %TypeHeaderCode
+                // SIP does not always generate a derived class. Fake one!
+                #define sipKCModuleInfo KCModuleInfo
+                %End
+                '''
+        },
+    }
