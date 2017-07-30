@@ -339,6 +339,7 @@ class RuleSet(rules_engine.RuleSet):
             "KNotifications",
             "KPackage",
             "KParts",
+            "KPty",
             "Kross",
             "KRunner",
             "KScreen",
