@@ -331,12 +331,12 @@ class TypedefCursor(Cursor):
         return Type._wrapped(self.proxied_object.result_type)
 
     @property
-    def underlying_typedef_type(self):
+    def underlying_type(self):
         return Type._wrapped(self.proxied_object.underlying_typedef_type)
 
     @property
     def SIP_TYPE_NAME(self):
-        the_type = self.underlying_typedef_type
+        the_type = self.underlying_type
         type_spelling = the_type.spelling
         if isinstance(the_type.get_canonical(), FunctionType):
             the_type = the_type.get_canonical()
@@ -354,7 +354,7 @@ class TypedefCursor(Cursor):
 
     @property
     def SIP_RESULT_TYPE(self):
-        the_type = self.underlying_typedef_type
+        the_type = self.underlying_type
         if isinstance(the_type.get_canonical(), FunctionType):
             the_type = the_type.get_canonical()
             result_type = the_type.fmt_result()
@@ -431,6 +431,10 @@ class FunctionType(clangcplus.FunctionType, Type):
 class IndirectType(Type):
     TYPE_KINDS = [TypeKind.ELABORATED, TypeKind.TYPEDEF, TypeKind.UNEXPOSED]
 
+    @property
+    def underlying_type(self):
+        return Type._wrapped(self.proxied_object.get_canonical())
+
     def get_declaration(self):
         return Cursor._wrapped(self.proxied_object.get_declaration())
 
@@ -454,9 +458,3 @@ class RecordType(Type):
             kind = {"enum": EnumCursor, "struct": StructCursor, "union": UnionCursor}[words[1]]
             decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
         return decl
-
-class ReferenceType(Type):
-    TYPE_KINDS = [TypeKind.LVALUEREFERENCE]
-
-    def get_pointee(self):
-        return self._wrapped(self.proxied_object.get_pointee())

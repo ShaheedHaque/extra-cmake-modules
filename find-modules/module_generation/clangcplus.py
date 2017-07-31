@@ -439,7 +439,8 @@ class PointerType(Type):
 
     NOTE: In the pointer case, self.kind == TypeKind.POINTER, but see also FunctionType.
     """
-    TYPE_KINDS = [TypeKind.POINTER]
+    TYPE_KINDS = [TypeKind.POINTER, TypeKind.LVALUEREFERENCE]
 
-    def get_pointee(self):
+    @property
+    def underlying_type(self):
         return self._wrapped(self.proxied_object.get_pointee())

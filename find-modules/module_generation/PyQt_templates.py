@@ -44,9 +44,8 @@ import gettext
 import os
 import re
 
-from clang.cindex import CursorKind, TypeKind
-
 import builtin_rules
+from clangcparser import CursorKind, TypeKind
 from builtin_rules import HeldAs, base_type, parse_template
 from rule_helpers import trace_generated_for
 
@@ -372,63 +371,21 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return builtin_rules.base_type(parameter_text)
 
-    def expand_parameter(self, rule, cursor, sip):
+    def expand(self, rule, cursor, text, sip):
         """
-        Expand a parameter template, and return the results via the sip.
+        Expand a template, and return the results via the sip.
 
-        :param rule:            The function for whom the expansion is being performed.
-        :param cursor:          The CursorKind for whom the expansion is being performed.
+        :param rule:            The rule requesting the expansion.
+        :param cursor:          The item Cursor for whom the expansion is being performed.
                                 This is typically a typed object, such as "QMap" or "QHash".
-        :param sip:             The sip. Expected keys:
-
-                                    decl            Optional. Name of the typedef.
-                                    foo             dd
+        :param text:            The item text to be expanded.
+        :param sip:             The sip.
         """
         expected_parameters = self.variables
         #
         # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
         #
-        template_type, template_args = parse_template(sip["decl"], len(expected_parameters))
-        #
-        # Compose the parent type, and the dicts for the parameters and a default declaration.
-        #
-        entries = {}
-        parameters = []
-        for i, parameter in enumerate(expected_parameters):
-            actual_type = self.actual_type(None, template_args[i], None)
-            base_type =  self.base_type(None, template_args[i], None)
-            p = {
-                "type": actual_type,
-                "base_type": base_type,
-            }
-            entries[parameter] = GenerateMappedHelper(p, None)
-            parameters.append(actual_type)
-        template_args = ", ".join(parameters)
-        #
-        # Run the template handler...
-        #
-        if template_args.endswith(">"):
-            template_args += " "
-        mapped_type = "{}<{}>".format(template_type, template_args)
-        trace = trace_generated_for(cursor, rule, ["{}({})".format(entries[p].cxx_t, entries[p].category)
-                                                   for p in expected_parameters])
-        code = self.expand_generic(template_type, entries)
-        code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
-        sip["modulecode"][mapped_type] = code
-
-    def expand_typedef(self, rule, cursor, sip):
-        """
-        Expand a typedef template, and return the results via the sip.
-
-        :param rule:            The function for whom the expansion is being performed.
-        :param cursor:          The CursorKind for whom the expansion is being performed.
-                                This is typically a typed object, such as "QMap" or "QHash".
-        :param sip:             The sip. Expected keys:
-
-                                    decl            Optional. Name of the typedef.
-                                    foo             dd
-        """
-        expected_parameters = self.variables
+        text_type, text_args = parse_template(text, len(expected_parameters))
         #
         # We would like to be able to use clang type system to determine the HELD_AS etc, but the number of children of
         # the typedef is variable (i.e. the structure of an AST is not represented). Also, for example, int types are
@@ -436,37 +393,39 @@ class AbstractExpander(object):
         #
         # So we proceed by get matching arrays of the clang template parameters and the corresponding texts.
         #
-        # Start with the clang type system...
-        #
-        children = list(cursor.get_children())
-        if False:
-            # Debug
-            print("TEMPLATE BEGIN {}".format(sip["decl"]))
-            for i, c in enumerate(children):
-                if children[i].type.kind == TypeKind.INVALID:
-                    tmp = children[i].kind
-                else:
-                    tmp = children[i].type.kind
-                print("    CHILD{}".format(i), tmp, children[i].spelling)
-            print("TEMPLATE END")
+        clang_type = None
+        clang_args = []
         #
         # We are only interested in things that can affect the type of the parameters.
         #
-        children = [c for c in children if c.kind not in [CursorKind.NAMESPACE_REF, CursorKind.UNEXPOSED_ATTR]]
-        parent = children[0]
-        assert parent.kind in [CursorKind.TEMPLATE_REF, CursorKind.TYPE_REF], \
-            _("Parent {} with kind {}").format(parent.spelling, parent.kind)
+        tmp = [c for c in cursor.get_children() if c.kind not in [CursorKind.NAMESPACE_REF, CursorKind.UNEXPOSED_ATTR]]
+        for c in tmp:
+            if c.referenced:
+                spelling = c.referenced.type.get_canonical().spelling
+            else:
+                spelling = c.type.get_canonical().spelling
+            if spelling in text_args:
+                clang_args.append(c)
+            elif c.kind in [CursorKind.TEMPLATE_REF, CursorKind.TYPE_REF]:
+                clang_type = c
         #
         # We only use the information if it matches the cases we understand (i.e. a non-trivial AST is implied).
         #
-        if len(children) == len(expected_parameters) + 1:
-            types = children[1:]
+        if clang_type and len(clang_args) == len(text_args):
+            pass
         else:
-            types = [None] * len(expected_parameters)
-        #
-        # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
-        #
-        template_type, template_args = parse_template(sip["decl"], len(expected_parameters))
+            if False:
+                # Debug
+                print("TEMPLATE BEGIN {}".format(text))
+                print("    PARENT {}".format(clang_type.spelling))
+                for i, c in enumerate(clang_args):
+                    if clang_args[i].type.kind == TypeKind.INVALID:
+                        tmp = clang_args[i].kind
+                    else:
+                        tmp = clang_args[i].type.kind
+                    print("    CHILD{}".format(i), tmp, clang_args[i].spelling)
+                print("TEMPLATE END")
+            clang_args = [None] * len(expected_parameters)
         #
         # Compose the parent type, and the dicts for the parameters and a default declaration.
         #
@@ -475,28 +434,27 @@ class AbstractExpander(object):
         entries = {}
         parameters = []
         for i, parameter in enumerate(expected_parameters):
-            actual_type = self.actual_type(manual_types[i], template_args[i], types[i])
-            base_type =  self.base_type(manual_base_types[i], actual_type, types[i])
+            actual_type = self.actual_type(manual_types[i], text_args[i], clang_args[i])
+            base_type =  self.base_type(manual_base_types[i], actual_type, clang_args[i])
             p = {
                 "type": actual_type,
                 "base_type": base_type,
             }
-            clang_t = types[i].type.get_canonical() if types[i] else None
+            clang_t = clang_args[i].type.get_canonical() if clang_args[i] else None
             entries[parameter] = GenerateMappedHelper(p, clang_t)
             parameters.append(actual_type)
-        template_args = ", ".join(parameters)
+        text_args = ", ".join(parameters)
         #
         # Run the template handler...
         #
-        if template_args.endswith(">"):
-            template_args += " "
-        mapped_type = "{}<{}>".format(template_type, template_args)
+        if text_args.endswith(">"):
+            text_args += " "
+        mapped_type = "{}<{}>".format(text_type, text_args)
         trace = trace_generated_for(cursor, rule, ["{}({})".format(entries[p].cxx_t, entries[p].category)
                                                    for p in expected_parameters])
-        code = self.expand_generic(parent.spelling, entries)
+        code = self.expand_generic(text_type, entries)
         code = "%MappedType " + mapped_type + "\n{\n" + trace + code + "};\n"
         sip["modulecode"][mapped_type] = code
-
 
 class DictExpander(AbstractExpander):
 
@@ -1109,7 +1067,7 @@ def dict_parameter(container, function, parameter, sip, rule):
     types with two template arguments into Python dicts.
     """
     template = DictExpander()
-    template.expand_parameter(rule, parameter, sip)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def dict_typecode(container, typedef, sip, rule):
@@ -1118,7 +1076,7 @@ def dict_typecode(container, typedef, sip, rule):
     types with two template arguments into Python dicts.
     """
     template = DictExpander()
-    template.expand_typedef(rule, typedef, sip)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def list_parameter(container, function, parameter, sip, rule):
@@ -1127,7 +1085,7 @@ def list_parameter(container, function, parameter, sip, rule):
     C++ types with one template argument into Python lists.
     """
     template = ListExpander()
-    template.expand_parameter(rule, parameter, sip)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def list_typecode(container, typedef, sip, rule):
@@ -1136,7 +1094,7 @@ def list_typecode(container, typedef, sip, rule):
     types with one template argument into Python lists.
     """
     template = ListExpander()
-    template.expand_typedef(rule, typedef, sip)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def set_parameter(container, function, parameter, sip, rule):
@@ -1145,7 +1103,7 @@ def set_parameter(container, function, parameter, sip, rule):
     types with one template argument into Python sets.
     """
     template = SetExpander()
-    template.expand_parameter(rule, parameter, sip)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def set_typecode(container, typedef, sip, rule):
@@ -1154,7 +1112,7 @@ def set_typecode(container, typedef, sip, rule):
     types with one template argument into Python sets.
     """
     template = SetExpander()
-    template.expand_typedef(rule, typedef, sip)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def pair_parameter(container, function, parameter, sip, rule):
@@ -1163,7 +1121,7 @@ def pair_parameter(container, function, parameter, sip, rule):
     QPair<> (using a 2-tuple).
     """
     handler = PairExpander()
-    handler.expand_parameter(rule, parameter, sip)
+    handler.expand(rule, parameter, sip["decl"], sip)
 
 
 def pair_typecode(container, typedef, sip, rule):
@@ -1172,7 +1130,7 @@ def pair_typecode(container, typedef, sip, rule):
     QPair<> (using a 2-tuple).
     """
     template = PairExpander()
-    template.expand_typedef(rule, typedef, sip)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def pointer_parameter(container, function, parameter, sip, rule):
@@ -1181,7 +1139,7 @@ def pointer_parameter(container, function, parameter, sip, rule):
     Qt pointer type.
     """
     handler = PointerExpander()
-    handler.expand_parameter(rule, parameter, sip)
+    handler.expand(rule, parameter, sip["decl"], sip)
 
 
 def pointer_typecode(container, typedef, sip, rule):
@@ -1190,11 +1148,11 @@ def pointer_typecode(container, typedef, sip, rule):
     Qt pointer type.
     """
     handler = PointerExpander()
-    if typedef.underlying_typedef_type.kind == TypeKind.ELABORATED:
+    if typedef.underlying_type.kind == TypeKind.ELABORATED:
         #
         # This is a typedef of a typedef, and Clang gets the template
         # parameters wrong, so abort.
         #
         return
-    assert typedef.underlying_typedef_type.kind == TypeKind.UNEXPOSED
-    handler.expand_typedef(rule, typedef, sip)
+    assert typedef.underlying_type.kind == TypeKind.UNEXPOSED
+    handler.expand(rule, typedef, sip["decl"], sip)

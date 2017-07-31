@@ -244,7 +244,7 @@ class HeldAs(object):
                 return HeldAs._rev_map[clang_t.kind]
             except KeyError:
                 if clang_t.kind == TypeKind.LVALUEREFERENCE:
-                    return HeldAs.categorise(cxx_t, clang_t.get_pointee().get_canonical())
+                    return HeldAs.categorise(cxx_t, clang_t.underlying_type.get_canonical())
                 elif clang_t.kind == TypeKind.VOID:
                     return HeldAs.VOID
                 #

@@ -914,7 +914,7 @@ class SipGenerator(object):
         def _get_param_type(parameter):
             clang_t = parameter.type
             if clang_t.kind == TypeKind.LVALUEREFERENCE:
-                clang_t = clang_t.get_pointee()
+                clang_t = clang_t.underlying_type
             clang_spelling = clang_t.spelling
             if clang_spelling.startswith("const "):
                 clang_spelling = clang_spelling[6:]
@@ -1054,7 +1054,7 @@ class SipGenerator(object):
         }
         modulecode = {}
         for child in typedef.get_children():
-            if child.kind in [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL] and not child.underlying_typedef_type:
+            if child.kind in [CursorKind.STRUCT_DECL, CursorKind.UNION_DECL] and not child.underlying_type:
                 decl, tmp = self._container_get(child, level, h_file, include_filename, templating_stack)
                 modulecode.update(tmp)
             else:
@@ -1093,7 +1093,7 @@ class SipGenerator(object):
             if sip["fn_result"]:
                 decl += pad + "typedef {} (*{})({})".format(sip["fn_result"], sip["name"], sip["decl"])
                 decl = decl.replace("* ", "*").replace("& ", "&")
-            elif typedef.underlying_typedef_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
+            elif typedef.underlying_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
                 decl += pad + "typedef {}".format(sip["decl"])
             else:
                 decl += pad + "typedef {} {}".format(sip["decl"], sip["name"])
