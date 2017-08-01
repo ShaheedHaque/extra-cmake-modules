@@ -966,7 +966,7 @@ class SetExpander(AbstractExpander):
     {qt_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += value_h.cxx_to_py("value", True, "sipCpp->value(i)", "*i")
+        code += value_h.cxx_to_py("value", True, "*i", "*i")
         code += """
         if (value == NULL || PySet_Add(set, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into set");
