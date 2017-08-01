@@ -196,7 +196,7 @@ class Cursor(_Proxy):
         # All Cursors proxy some standard attributes for baseline compatibility with cindex.Cursor.
         #
         [
-            "access_specifier", "displayname", "extent", "kind", "location", "spelling"
+            "access_specifier", "displayname", "extent", "kind", "location", "referenced", "spelling",
         ]
     )
     CLASS_MAP = {}

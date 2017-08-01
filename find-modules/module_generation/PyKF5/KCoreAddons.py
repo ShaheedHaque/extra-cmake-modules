@@ -38,7 +38,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<T>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<T>", "QMap<QString, QString>")
     rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QUrl>", "QList<QVariant>")
 
 

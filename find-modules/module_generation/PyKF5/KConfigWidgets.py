@@ -43,7 +43,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>", "QList<QUrl>")
 
 
 def function_rules():

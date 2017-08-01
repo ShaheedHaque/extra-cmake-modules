@@ -145,7 +145,7 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>",
                                        "QList<QUrl>", "QList<QVariant>")
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QList<T>", "QMap<QString, QString>")
 
 
 def container_rules():

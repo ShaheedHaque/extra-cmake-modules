@@ -147,6 +147,9 @@ class GenerateMappedHelper(HeldAs):
             """        Cxx{name}T *cxx{name} = new Cxx{name}T({cxx_po});
         PyObject *{name} = sipConvertFromNewType((void *)cxx{name}, gen{name}T, sipTransferObj);
 """,
+        HeldAs.FLOAT:
+            """        PyObject *{name} = PyFloat_FromDouble((double)*({cxx_i}));
+""",
     }
 
     py_to_cxx_templates = {
@@ -167,6 +170,9 @@ class GenerateMappedHelper(HeldAs):
             """        int {name}State;
         Cxx{name}T *cxx{name} = NULL;
         cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
+""",
+        HeldAs.FLOAT:
+            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyFloat_AsDouble({name});
 """,
     }
 
@@ -240,6 +246,11 @@ class GenerateMappedHelper(HeldAs):
                 {extra}return 0;
             }
 """,
+            HeldAs.FLOAT:
+                """            if (!PyFloat_Check({name})) {
+                {extra}return 0;
+            }
+""",
         }
         ptr_options = {
             HeldAs.BYTE:
@@ -280,6 +291,8 @@ class GenerateMappedHelper(HeldAs):
             HeldAs.POINTER:
                 """        sipReleaseType((void *)cxx{name}, gen{name}T, {name}State);
 """,
+            HeldAs.FLOAT:
+                "",
         }
         if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
             code = ""
@@ -294,6 +307,7 @@ class GenerateMappedHelper(HeldAs):
             HeldAs.INTEGER: "cxx{name}",
             HeldAs.POINTER: "cxx{name}",
             HeldAs.OBJECT: "*cxx{name}",
+            HeldAs.FLOAT: "cxx{name}",
         }
         code = options[self.category]
         code = code.replace("{name}", name)
@@ -1061,6 +1075,18 @@ def function_uses_templates(container, function, sip, rule):
     builtin_rules.function_uses_templates(container, function, sip, rule)
 
 
+def dict_fn_result(container, function, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+
+    All call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = DictExpander()
+    template.expand(rule, function, sip["fn_result"], sip)
+    function_uses_templates(container, function, sip, rule)
+
+
 def dict_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for C++
@@ -1079,10 +1105,22 @@ def dict_typecode(container, typedef, sip, rule):
     template.expand(rule, typedef, sip["decl"], sip)
 
 
+def list_fn_result(container, function, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+
+    All call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = ListExpander()
+    template.expand(rule, function, sip["fn_result"], sip)
+    function_uses_templates(container, function, sip, rule)
+
+
 def list_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for C++
-    C++ types with one template argument into Python lists.
+    types with one template argument into Python lists.
     """
     template = ListExpander()
     template.expand(rule, parameter, sip["decl"], sip)
@@ -1095,6 +1133,18 @@ def list_typecode(container, typedef, sip, rule):
     """
     template = ListExpander()
     template.expand(rule, typedef, sip["decl"], sip)
+
+
+def set_fn_result(container, function, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+
+    All call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = SetExpander()
+    template.expand(rule, function, sip["fn_result"], sip)
+    function_uses_templates(container, function, sip, rule)
 
 
 def set_parameter(container, function, parameter, sip, rule):
@@ -1115,6 +1165,18 @@ def set_typecode(container, typedef, sip, rule):
     template.expand(rule, typedef, sip["decl"], sip)
 
 
+def pair_fn_result(container, function, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
+
+    All call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = PairExpander()
+    template.expand(rule, function, sip["fn_result"], sip)
+    function_uses_templates(container, function, sip, rule)
+
+
 def pair_parameter(container, function, parameter, sip, rule):
     """
     A ParameterDb-compatible function used to create a %MappedType for a
@@ -1131,6 +1193,18 @@ def pair_typecode(container, typedef, sip, rule):
     """
     template = PairExpander()
     template.expand(rule, typedef, sip["decl"], sip)
+
+
+def pointer_fn_result(container, function, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for a
+    Qt pointer type.
+
+    All call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = PointerExpander()
+    template.expand(rule, function, sip["fn_result"], sip)
+    function_uses_templates(container, function, sip, rule)
 
 
 def pointer_parameter(container, function, parameter, sip, rule):

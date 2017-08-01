@@ -29,10 +29,10 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
-    rule_helpers.module_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "Plasma::Package",
-                                  "Plasma::DataEngine", "QAction", "QWidget")
-
+    rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<KPluginInfo>")
+    rule_helpers.module_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "QAction", "QWidget",
+                                    "KConfigLoader", "KActionCollection")
+    rule_helpers.module_add_imports(filename, sip, entry, "Plasma/Plasmamod.sip")
 
 def modulecode():
     return {

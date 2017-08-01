@@ -29,7 +29,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>",
+                                   "QHash<QString, QStringList>")
 
 
 def modulecode():

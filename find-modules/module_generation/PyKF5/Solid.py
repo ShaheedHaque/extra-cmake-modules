@@ -24,6 +24,13 @@ SIP binding customisation for PyKF5.Solid. This modules describes:
 import rule_helpers
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
+
+
 def function_rules():
     return [
         #
@@ -31,6 +38,14 @@ def function_rules():
         #
         ["Solid::Device", "asDeviceInterface", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
     ]
+
+
+def modulecode():
+    return {
+        "Solidmod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }
 
 
 def typecode():

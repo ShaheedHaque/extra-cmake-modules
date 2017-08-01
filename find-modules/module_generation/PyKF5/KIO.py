@@ -203,7 +203,8 @@ class KIO::MetaData /External/;
 %End
 """
     elif sip["name"] == "KIOCore.KIO":
-        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>")
+        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>",
+                                       "QVector<unsigned int>")
         rule_helpers.modulecode_make_local(filename, sip, matcher, "QMap<QString, QVariant>")
         sip["code"] = """
 %Import(name=KIOCore/kio/kiomod.sip)
@@ -267,7 +268,9 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>", "QList<KServiceAction>",
+                                   "QList<QAction *>", "QExplicitlySharedDataPointer<KService>",
+                                   "QList<QExplicitlySharedDataPointer<KService> >")
     rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QModelIndex>")
     sip["code"] = """
 %If (!KIOWidgets_KIOWidgetsmod)

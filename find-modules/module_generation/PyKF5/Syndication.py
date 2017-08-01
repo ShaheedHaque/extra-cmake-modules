@@ -28,8 +28,8 @@ import rule_helpers
 import PyQt_templates
 
 
-def _function_fixup_template_params(container, function, sip, matcher):
-    sip["parameters"][-1] = sip["parameters"][-1].replace("type-parameter-0-0", "T", 1)
+def param_fully_qualify_default(container, function, parameter, sip, matcher):
+    sip["init"] = sip["init"].replace("Document", "Syndication::RSS2::Document", 1)
 
 
 def typedef_duplicate_discard(container, typedef, sip, matcher):
@@ -52,18 +52,58 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
         PyQt_templates.pointer_typecode(container, typedef, sip, matcher)
 
 
+
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<T>")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "Rss2/Rss2mod.sip", "Rdf/Rdfmod.sip",
+                                    "Atom/Atommod.sip")
+
+
+def module_fix_mapped_types_atom(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QDomElement>",
+                                   "QSharedPointer<Syndication::SpecificDocument>")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rss2/Rss2mod.sip",
+                                    "../Rdf/Rdfmod.sip")
+
+
+def module_fix_mapped_types_rdf(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<Syndication::SpecificDocument>")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rss2/Rss2mod.sip",
+                                    "../Atom/Atommod.sip")
+
+
+def module_fix_mapped_types_rss2(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QDomElement>",
+                                   "QSharedPointer<Syndication::SpecificDocument>")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rdf/Rdfmod.sip",
+                                    "../Atom/Atommod.sip")
+
+
 def function_rules():
     return [
         ["Syndication.*", "operator QString", ".*", ".*", ".*", rule_helpers.function_discard],
-        ["Syndication::ParserCollection", "registerParser|changeMapper", ".*", ".*", ".*", _function_fixup_template_params],
         #
         # Provide %MethodCode and a C++ signature.
         #
         ["Syndication", "parserCollection", ".*", ".*", ".*", rule_helpers.function_discard],
-        #
-        # Broken C++, missing ">"!!!
-        #
-        #["Syndication::RSS2::Item", "Item", ".*", ".*", ".*doc.*", rule_helpers.function_discard],
+    ]
+
+
+def parameter_rules():
+    return [
+        ["Syndication::RSS2::Item", "Item", "doc", ".*", ".*", param_fully_qualify_default],
     ]
 
 
@@ -75,19 +115,16 @@ def typedef_rules():
 
 def modulecode():
     return {
+        "Atommod.sip": {
+            "code": module_fix_mapped_types_atom,
+        },
+        "Rdfmod.sip": {
+            "code": module_fix_mapped_types_rdf,
+        },
+        "Rss2mod.sip": {
+            "code": module_fix_mapped_types_rss2,
+        },
         "Syndicationmod.sip": {
-            "code":
-                """
-                class KIO::Job /External/;
-                class KJob /External/;
-                %Import(name=QtXml/QtXmlmod.sip)
-                class Syndication::Atom::EntryDocument /External/;
-                class Syndication::Atom::FeedDocument /External/;
-                class Syndication::Atom::Entry /External/;
-                class Syndication::RDF::Document /External/;
-                class Syndication::RDF::Item /External/;
-                class Syndication::RSS2::Document /External/;
-                class Syndication::RSS2::Item /External/;
-                """
+            "code": module_fix_mapped_types,
         },
     }

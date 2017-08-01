@@ -40,7 +40,8 @@ def module_fix_mapped_types_ksettings(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KPluginInfo>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KPluginInfo>",
+                                   "QExplicitlySharedDataPointer<KSharedConfig>")
 
 
 def modulecode():

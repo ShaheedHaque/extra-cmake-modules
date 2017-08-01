@@ -36,7 +36,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
-                                   "QList<QVariant>")
+                                   "QList<QVariant>", "QVector<KPluginMetaData>")
     sip["code"] = """
 %ModuleHeaderCode
 #include <QExplicitlySharedDataPointer>

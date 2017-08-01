@@ -34,13 +34,17 @@ def function_rules():
     ]
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QMap<QString, QVariant>")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtWidgets/QtWidgetsmod.sip")
+
+
 def modulecode():
     return {
-    "KAuthmod.sip": {
-        "code":
-            """
-            // KAuthAction.sip needs this.
-            %Import(name=QtWidgets/QtWidgetsmod.sip)
-            """
+        "KAuthmod.sip": {
+            "code": module_fix_mapped_types,
         },
     }

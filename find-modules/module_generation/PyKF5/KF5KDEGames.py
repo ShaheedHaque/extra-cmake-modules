@@ -52,11 +52,16 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
-    sip["code"] = """
-%ModuleHeaderCode
-class KConfig;
-%End
-"""
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfig", "QMatrix")
+
+
+def module_fix_mapped_types_private(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QMap<QByteArray, QString>", "QMap<int, QByteArray>",
+                                   "QPair<QByteArray, QString>")
+    rule_helpers.module_add_classes(filename, sip, entry, "QMatrix /External/")
 
 
 def forward_declaration_rules():
@@ -135,10 +140,7 @@ def modulecode():
                 """
         },
         "libkdegamesprivatemod.sip": {
-            "code":
-                """
-                class QMatrix /External/;
-                """
+            "code": module_fix_mapped_types_private,
         },
         "kgamemod.sip": {
             "code": module_fix_mapped_types,

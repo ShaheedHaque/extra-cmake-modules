@@ -25,6 +25,13 @@ SIP binding customisation for PyKF5.KPackage. This modules describes:
 import rule_helpers
 
 
+def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>")
+
+
 def function_rules():
     return [
         #
@@ -32,3 +39,11 @@ def function_rules():
         #
         ["KPackage::PackageLoader", "findPackages", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
+
+
+def modulecode():
+    return {
+        "KPackagemod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }

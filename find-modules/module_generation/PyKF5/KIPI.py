@@ -30,7 +30,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>",
-                                   "QMap<QString, QVariant>")
+                                   "QMap<QString, QVariant>", "QList<QAction *>")
     rule_helpers.module_add_classes(filename, sip, entry, "KXmlGuiWindow")
 
 

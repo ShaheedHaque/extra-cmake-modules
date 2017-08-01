@@ -62,16 +62,11 @@ RE_QT_SET_TYPEDEF = QT_SET + "<(.*)>"
 RE_QT_PAIR_TYPEDEF = QT_PAIR + "<(.*)>"
 RE_QT_PTRS_TYPEDEF = QT_PTRS + "<(.*)>"
 
-RE_QT_DICT_PARAMETER = "(const )?" + RE_QT_DICT_TYPEDEF + ".*"
-RE_QT_LIST_PARAMETER = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
-RE_QT_SET_PARAMETER = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
-RE_QT_PAIR_PARAMETER = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
-RE_QT_PTRS_PARAMETER = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
-
-KNOWN_TEMPLATES = [
-    QT_DICT, QT_LIST, QT_SET, QT_PAIR, QT_PTRS
-]
-RE_KNOWN_RESULTS = "(const )?((" + ")|(".join(KNOWN_TEMPLATES) + "))<(.*)>"
+RE_QT_DICT = "(const )?" + RE_QT_DICT_TYPEDEF + ".*"
+RE_QT_LIST = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
+RE_QT_SET = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
+RE_QT_PAIR = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
+RE_QT_PTRS = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
 
 
 def _container_discard_templated_bases(container, sip, matcher):
@@ -181,8 +176,24 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rule_helpers.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rule_helpers.function_discard],
-        [".*", ".*", ".*", RE_KNOWN_RESULTS + "( [&*]+)?", ".*", PyQt_templates.function_uses_templates],
-        [".*", ".*", ".*", ".*", ".*" + RE_KNOWN_RESULTS + "( .*|[&*].*)", PyQt_templates.function_uses_templates],
+        #
+        # Supplement Qt templates with %MappedTypes for the function result, and call
+        # PyQt_templates.function_uses_templates too.
+        #
+        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt_templates.dict_fn_result],
+        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt_templates.list_fn_result],
+        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt_templates.set_fn_result],
+        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt_templates.pair_fn_result],
+        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt_templates.pointer_fn_result],
+        #
+        # Call PyQt_templates.function_uses_templates...the parameters have been dealt
+        # with elsewhere.
+        #
+        [".*", ".*", ".*", ".*", RE_QT_DICT, PyQt_templates.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_LIST, PyQt_templates.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_SET, PyQt_templates.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_PAIR, PyQt_templates.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_PTRS, PyQt_templates.function_uses_templates],
         #
         # This class has inline implementations in the header file.
         #
@@ -232,11 +243,11 @@ def parameter_rules():
         #
         # Supplement Qt templates with %MappedTypes.
         #
-        [".*", ".*", ".*", RE_QT_DICT_PARAMETER, ".*", PyQt_templates.dict_parameter],
-        [".*", ".*", ".*", RE_QT_LIST_PARAMETER, ".*", PyQt_templates.list_parameter],
-        [".*", ".*", ".*", RE_QT_SET_PARAMETER, ".*", PyQt_templates.set_parameter],
-        [".*", ".*", ".*", RE_QT_PAIR_PARAMETER, ".*", PyQt_templates.pair_parameter],
-        [".*", ".*", ".*", RE_QT_PTRS_PARAMETER, ".*", PyQt_templates.pointer_parameter],
+        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt_templates.dict_parameter],
+        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt_templates.list_parameter],
+        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt_templates.set_parameter],
+        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt_templates.pair_parameter],
+        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt_templates.pointer_parameter],
     ]
 
 
@@ -362,6 +373,7 @@ class RuleSet(rules_engine.RuleSet):
             "MailTransport",
             "MessageCore",
             "MessageList",
+            "Plasma",
             "SendLater",
             "Solid",
             "Sonnet",
