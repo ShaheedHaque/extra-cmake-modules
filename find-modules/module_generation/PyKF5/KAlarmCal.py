@@ -30,7 +30,9 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::Calendar>",
                                    "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::Todo>",
-                                   "QVector<QSharedPointer<KCalCore::Person> >", "QVector<int>")
+                                   "QVector<QSharedPointer<KCalCore::Person> >", "QVector<int>",
+                                   "QList<KCalCore::RecurrenceRule::WDayPos>", "QList<int>",
+                                   "QMap<QByteArray, QString>")
     rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                   "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
                                   "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "VObject", "QLatin1String",

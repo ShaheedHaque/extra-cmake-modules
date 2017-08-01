@@ -26,7 +26,7 @@ import rule_helpers
 
 def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
-                                   "QVector<long long>")
+                                   "QVector<long long>", "QMap<QByteArray, QByteArray>")
 
 
 def modulecode():

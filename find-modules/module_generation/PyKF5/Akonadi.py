@@ -116,6 +116,11 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
 
 
 def module_fix_mapped_types_contact(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+                                   "QVector<KContacts::ContactGroup>")
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                   "Akonadi::AbstractContactEditorWidget", "KLineEdit", "KLocalizedString")
 

@@ -30,7 +30,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QList<long long>",
-                                   "QVector<KMime::Types::Mailbox>")
+                                   "QVector<KMime::Types::Mailbox>", "QVector<KMime::Types::Address>")
     rule_helpers.module_add_classes(filename, sip, entry, "MessageCore::MessageCoreSettingsBase",
                                   "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QUrl>")
