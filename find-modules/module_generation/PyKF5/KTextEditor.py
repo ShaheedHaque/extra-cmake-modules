@@ -30,13 +30,12 @@ def _function_make_public(container, function, sip, matcher):
 
 
 def module_fix_mapped_types(filename, sip, entry):
-    sip["code"] = """
-%If (!KTextEditor_KTextEditor_KTextEditormod)
-class KXmlGuiWindow /External/;
-class KIconLoader;
-class KSslCertificateBoxPrivate;
-%End
-"""
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QAction *>", "QSet<QString>")
+    rule_helpers.module_add_classes(filename, sip, entry, "KXmlGuiWindow /External/", "KIconLoader",
+                                    "KSslCertificateBoxPrivate")
 
 
 _ktexteditor_qobject_ctscc = """

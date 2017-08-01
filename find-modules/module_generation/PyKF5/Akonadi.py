@@ -134,7 +134,7 @@ def module_fix_mapped_types_notes(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QMap<QString, QString>")
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                   "KConfigGroup", "KCoreConfigSkeleton")
     rule_helpers.module_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")

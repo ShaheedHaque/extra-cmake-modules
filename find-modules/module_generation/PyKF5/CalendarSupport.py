@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.Kross. This modules describes:
+SIP binding customisation for PyKF5.CalendarSupport. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -29,12 +29,20 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QVariant>", "QMap<QString, QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QList<long long>",
+                                   "QSharedPointer<Akonadi::ETMCalendar>", "QSharedPointer<KCalCore::Attendee>",
+                                   "QSharedPointer<KCalCore::Calendar>", "QSharedPointer<KCalCore::Event>",
+                                   "QSharedPointer<KCalCore::FreeBusy>", "QSharedPointer<KCalCore::Incidence>",
+                                   "QSharedPointer<KCalCore::Journal>", "QSharedPointer<KCalCore::Todo>",
+                                   "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+                                   "QVector<KCalCore::Period>", "QVector<QSharedPointer<KCalCore::Event> >",
+                                   "QVector<QSharedPointer<KCalCore::Incidence> >",
+                                   "QVector<QSharedPointer<KCalCore::Todo> >")
 
 
 def modulecode():
     return {
-        "Coremod.sip": {
+        "CalendarSupportmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

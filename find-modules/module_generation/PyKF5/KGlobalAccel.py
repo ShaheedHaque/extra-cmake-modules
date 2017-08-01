@@ -41,6 +41,8 @@ def module_fix_mapped_types_private(filename, sip, entry):
                                         "QWidget", "GlobalShortcutsRegistry", "QDBusContext")
     elif sip["name"] == "KIdleTime.private":
         rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
+    elif sip["name"] == "KWindowSystem.private":
+        rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSize>", "QList<unsigned long long>")
 
 
 def modulecode():

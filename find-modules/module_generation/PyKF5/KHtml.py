@@ -26,14 +26,19 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, entry):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KParts::ReadOnlyPart *>")
     rule_helpers.module_add_classes(filename, sip, entry, "DOM::CSSRuleImpl")
+
 
 def module_fix_mapped_types_dom(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "DOM::AbstractViewImpl", "DOM::AttrImpl",
-                                  "DOM::CDATASectionImpl", "DOM::CharacterDataImpl", "DOM::CommentImpl",
-                                  "DOM::CounterImpl", "DOM::CSSCharsetRuleImpl", "DOM::CSSFontFaceRuleImpl",
-                                  "DOM::CSSImportRuleImpl", "DOM::CSSMediaRuleImpl", "DOM::CSSNamespaceRuleImpl",
-                                  "DOM::CSSPageRuleImpl", "DOM::CSSPrimitiveValueImpl", "DOM::CSSRuleImpl",
+                                    "DOM::CDATASectionImpl", "DOM::CharacterDataImpl", "DOM::CommentImpl",
+                                    "DOM::CounterImpl", "DOM::CSSCharsetRuleImpl", "DOM::CSSFontFaceRuleImpl",
+                                    "DOM::CSSImportRuleImpl", "DOM::CSSMediaRuleImpl", "DOM::CSSNamespaceRuleImpl",
+                                    "DOM::CSSPageRuleImpl", "DOM::CSSPrimitiveValueImpl", "DOM::CSSRuleImpl",
                                     "DOM::CSSRuleListImpl", "DOM::CSSStyleDeclarationImpl", "DOM::CSSStyleRuleImpl",
                                     "DOM::CSSStyleSheetImpl", "DOM::CSSUnknownRuleImpl", "DOM::CSSValueImpl",
                                     "DOM::CSSValueListImpl", "DOM::DocumentFragmentImpl", "DOM::DocumentImpl",

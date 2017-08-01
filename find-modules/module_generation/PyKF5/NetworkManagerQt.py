@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.Kross. This modules describes:
+SIP binding customisation for PyKF5.NetworkManagerQt. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -29,12 +29,12 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QVariant>", "QMap<QString, QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QPair<int, int> >")
 
 
 def modulecode():
     return {
-        "Coremod.sip": {
+        "NetworkManagerQtmod.sip": {
             "code": module_fix_mapped_types,
         },
     }
