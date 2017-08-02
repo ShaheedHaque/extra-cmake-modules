@@ -25,7 +25,61 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-"""Some common rule actions, as a convenience for rule writers."""
+"""Some common rule actions, as a convenience for rule writers.
+
+Here are some handy hints for rule writers, FAQ form...
+
+0. My rule is not firing, how I can debug this?
+===============================================
+
+Try the following steps:
+
+- Review the help text output by running "./rule_engine.py --help". Did you
+  get the fields in your entry in the right order?
+
+- The first field can be a bit tricky to get right. For the exact name that
+  should be used, run "./module_generator.py" with the "--dump-items" option.
+
+- Review the documentation on Python regular expressions. Note that when rule
+  matching is done, multi-line entries are converted into a single line with
+  any line separators turned into a single space (so a function with arguments
+  wrapped across multipel lines is all on one line formatching purposes).
+
+1. I want to keep a given forward declaration
+=============================================
+
+By default, built-in rules discard forward declarations because SIP does not
+support a forward declaration followed by a real declaration is the same
+module.
+
+(See https://www.riverbankcomputing.com/pipermail/pyqt/2017-April/039094.html).
+
+Override the default using a ForwardDeclarationDb rule with the noop() action.
+
+20. I see a compilation error of the following type...
+======================================================
+
+    20.1. error: expected type-specifier before 'sipMyClass'
+    ========================================================
+
+    For a C++ class 'MyClass', SIP sometimes creates a subclass called
+    'sipMyClass', but not always. This cannot easily be detected, and
+    can result in this error in generated code.
+
+    (See https://www.riverbankcomputing.com/pipermail/pyqt/2017-June/039309.html)
+
+    This can be fixed using container_fake_derived_class().
+
+    20.2. error: use of deleted function 'SomeClass& SomeClass::operator=(const SomeClass&)'
+    ========================================================================================
+
+    For a C++ class 'SomeClass', SIP creates a function called 'assign_SomeClass'
+    but this relies on the operator= being present. C++ causes the default
+    operator= to be suppressed resulting in this error if a base class
+    cannot be so assigned.
+
+    This can be fixed using container_make_unassignable().
+"""
 import os
 import re
 
