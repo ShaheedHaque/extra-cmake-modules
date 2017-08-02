@@ -49,6 +49,22 @@ def noop(*args):
     return SILENT_NOOP
 
 
+def fqn(cursor, alternate_spelling=None):
+    """
+    A handy helper to return the fully-qualified name for something.
+    """
+    parents = ""
+    parent = cursor.semantic_parent
+    while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
+        parents = parent.spelling + "::" + parents
+        parent = parent.semantic_parent
+    if alternate_spelling is None:
+        text = cursor.spelling
+    else:
+        text = alternate_spelling
+    return parents + text
+
+
 def cursor_parents(cursor):
     """
     A helper function which returns the parents of a cursor in the forms:
@@ -287,5 +303,26 @@ def container_add_supplementary_includes(container, sip, rule, *includes):
     for key in includes:
         tmp += "#include " + key + "\n"
     trace = trace_generated_for(sip["name"], rule, "supplementary includes")
+    tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
+    sip["code"] += tmp
+
+
+def container_fake_derived_class(container, sip, rule):
+    """
+    There are many cases where SIP does not generate a derived class, and
+    having a #define to fake on make writing manual code easier. See
+
+    https://www.riverbankcomputing.com/pipermail/pyqt/2017-June/039309.html
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param includes:        The includes to add.
+    """
+    basename = os.path.basename(container.translation_unit.spelling)
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    clazz = fqn(container)
+    tmp = "#define sip{} {}\n".format(clazz.replace("::", "_"), clazz)
+    trace = trace_generated_for(sip["name"], rule, "fake derived class")
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp

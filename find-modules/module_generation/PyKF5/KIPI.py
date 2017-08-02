@@ -34,32 +34,16 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KXmlGuiWindow")
 
 
+def container_rules():
+    return [
+        ["KIPI", "EditHintScope", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+        ["KIPI::PluginLoader", "Info", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
 def modulecode():
     return {
         "KIPImod.sip": {
             "code": module_fix_mapped_types,
-        },
-    }
-
-
-def typecode():
-    return {
-        "KIPI::EditHintScope": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKIPI_EditHintScope KIPI::EditHintScope
-                %End
-                """
-        },
-        "KIPI::PluginLoader::Info": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKIPI_PluginLoader_Info KIPI::PluginLoader::Info
-                %End
-                """
         },
     }

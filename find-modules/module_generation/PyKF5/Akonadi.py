@@ -381,6 +381,7 @@ def container_rules():
         # We cannot handle templated containers which are this complicated.
         #
         ["Akonadi::Internal.*", ".*", ".+", ".*", ".*", rule_helpers.container_discard],
+        ["Akonadi::NoteUtils", "NoteMessageWrapper", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
     ]
 
 
@@ -546,15 +547,6 @@ def typecode():
                     sipType = sipType_Akonadi_MessageThreadingAttribute;
             %End
             """
-        },
-        "Akonadi::NoteUtils::NoteMessageWrapper": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipAkonadi_NoteUtils_NoteMessageWrapper Akonadi::NoteUtils::NoteMessageWrapper
-                %End
-                """
         },
     }
 

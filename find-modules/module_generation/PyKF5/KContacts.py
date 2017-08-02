@@ -25,43 +25,24 @@ SIP binding customisation for PyKF5.KContacts. This modules describes:
 import rule_helpers
 
 
+def _container_discard_templated_bases(container, sip, matcher):
+    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
+    rule_helpers.container_fake_derived_class(container, sip, matcher)
+
+
+def container_rules():
+    return [
+        ["KContacts", "Address", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+        ["KContacts", "AddresseeList", ".*", ".*", ".*", _container_discard_templated_bases],
+        ["KContacts", "PhoneNumber", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
 def function_rules():
     return [
         ["KContacts::ContactGroup", "contact.*Reference|data", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
         ["KContacts::Field", "Field", ".*", ".*", ".*Private.*", ".*", ".*", rule_helpers.function_discard],
     ]
-
-
-def typecode():
-    return {
-        "KContacts::Address": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKContacts_Address KContacts::Address
-                %End
-                """
-        },
-        "KContacts::AddresseeList": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKContacts_AddresseeList KContacts::AddresseeList
-                %End
-                """
-        },
-        "KContacts::PhoneNumber": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKContacts_PhoneNumber KContacts::PhoneNumber
-                %End
-                """
-        },
-    }
 
 
 def modulecode():

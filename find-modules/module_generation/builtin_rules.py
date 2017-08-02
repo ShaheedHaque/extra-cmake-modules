@@ -41,7 +41,7 @@ import re
 from clang.cindex import AccessSpecifier, CursorKind, TypeKind
 
 import rule_helpers
-from rule_helpers import trace_generated_for
+from rule_helpers import trace_generated_for, fqn
 
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
@@ -56,18 +56,6 @@ MAPPED_TYPE_RE = re.compile(".*<.*")
 ANNOTATIONS_RE = re.compile(" /.*/")
 RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
 RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
-
-
-def fqn(cursor, text):
-    """
-    A handy helper to return the full-qualified name for something.
-    """
-    parents = ""
-    parent = cursor.semantic_parent
-    while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-        parents = parent.spelling + "::" + parents
-        parent = parent.semantic_parent
-    return parents + text
 
 
 def parse_template(template, expected=None):
@@ -604,7 +592,7 @@ class FunctionWithTemplatesExpander(object):
         else:
             fn = function.spelling
             if function.is_static_method() or not in_class(function):
-                fn = fqn(function, fn)
+                fn = fqn(function)
                 callsite = """    cxxvalue = {fn}({args});
 """
             elif function.access_specifier == AccessSpecifier.PROTECTED:

@@ -38,6 +38,12 @@ def module_fix_mapped_types(filename, sip, entry):
                                         "QList<QVariant>")
 
 
+def container_rules():
+    return [
+        ["knotifyconfig.h", "KNotifyConfig", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
 def function_rules():
     return [
         #
@@ -45,20 +51,6 @@ def function_rules():
         #
         ["KNotification", "event", ".*", ".*", "", _function_rewrite_using_decl],
     ]
-
-
-def typecode():
-    return {
-        "knotifyconfig.h::KNotifyConfig": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKNotifyConfig KNotifyConfig
-                %End
-                """
-        },
-    }
 
 
 def modulecode():

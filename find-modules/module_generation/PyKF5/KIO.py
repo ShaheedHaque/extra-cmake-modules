@@ -28,8 +28,13 @@ from clang.cindex import TokenKind, TypeKind
 import rule_helpers
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
+def _container_discard_templated_bases(container, sip, matcher):
+    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
+
+
+def _container_discard_templated_bases_and_fake(container, sip, matcher):
+    _container_discard_templated_bases(container, sip, matcher)
+    rule_helpers.container_fake_derived_class(container, sip, matcher)
 
 
 def _function_rewrite_using_decl1(container, function, sip, matcher):
@@ -286,10 +291,11 @@ def container_rules():
         # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
         # delete the base class.
         #
-        ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_delete_base],
-        ["KMountPoint", "List", ".*", ".*", ".*", _container_delete_base],
+        ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
+        ["KMountPoint", "List", ".*", ".*", ".*", _container_discard_templated_bases],
         ["kmountpoint.h", "KMountPoint", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
-        ["KIO", "MetaData", ".*", ".*", ".*", _container_delete_base],
+        ["KIO", "MetaData", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
+        ["KIO", "DesktopExecParser", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
     ]
 
 
@@ -372,33 +378,6 @@ def modulecode():
 
 def typecode():
     return {
-        "KIO::DesktopExecParser": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKIO_DesktopExecParser KIO::DesktopExecParser
-                %End
-                """
-        },
-        "KIO::MetaData": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKIO_MetaData KIO::MetaData
-                %End
-                """
-        },
-        "kfileitem.h::KFileItemList": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKFileItemList KFileItemList
-                %End
-                """
-        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED kprotocolinfo.h::KProtocolInfo": {  # KProtocolInfo : KSycocaEntry
             "code":

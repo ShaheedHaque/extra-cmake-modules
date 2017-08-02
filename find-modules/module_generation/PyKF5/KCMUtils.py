@@ -44,6 +44,12 @@ def module_fix_mapped_types_ksettings(filename, sip, entry):
                                    "QExplicitlySharedDataPointer<KSharedConfig>")
 
 
+def container_rules():
+    return [
+        ["kcmoduleinfo.h", "KCModuleInfo", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
 def modulecode():
     return {
         "KCMUtilsmod.sip": {
@@ -87,14 +93,5 @@ def typecode():
                         sipType = sipType_KPrintPreview;
                 %End
                 """
-        },
-        "kcmoduleinfo.h::KCModuleInfo": {
-            "code":
-                '''
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKCModuleInfo KCModuleInfo
-                %End
-                '''
         },
     }

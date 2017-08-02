@@ -46,6 +46,12 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>", "QList<QUrl>")
 
 
+def container_rules():
+    return [
+        ["kcolorscheme.h", "KStatefulBrush", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
 def function_rules():
     return [
         #
@@ -62,20 +68,6 @@ def parameter_rules():
         #
         ["KStandardAction", ".*", "parent", ".*", ".*", rule_helpers.noop]
     ]
-
-
-def typecode():
-    return {
-        "kcolorscheme.h::KStatefulBrush": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKStatefulBrush KStatefulBrush
-                %End
-                """
-        },
-    }
 
 
 def modulecode():

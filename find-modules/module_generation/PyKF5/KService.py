@@ -48,6 +48,7 @@ def module_fix_mapped_types(filename, sip, entry):
 def container_rules():
     return [
         ["ksycocaentry.h", "KSycocaEntry", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
+        ["kplugininfo.h", "KPluginInfo", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
     ]
 
 
@@ -91,15 +92,6 @@ def typedef_rules():
 
 def typecode():
     return {
-        "kplugininfo.h::KPluginInfo": {
-            "code":
-                """
-                %TypeHeaderCode
-                // SIP does not always generate a derived class. Fake one!
-                #define sipKPluginInfo KPluginInfo
-                %End
-                """
-        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED kservicegroup.h::KServiceGroup": {  # KServiceGroup : KSycocaEntry
             "code":

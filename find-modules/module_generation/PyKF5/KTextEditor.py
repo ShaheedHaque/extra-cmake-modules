@@ -72,6 +72,7 @@ _ktexteditor_qobject_ctscc = """
 def container_rules():
     return [
         ["KTextEditor", "Attribute", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
+        ["KTextEditor", "AttributeBlock", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
     ]
 
 
