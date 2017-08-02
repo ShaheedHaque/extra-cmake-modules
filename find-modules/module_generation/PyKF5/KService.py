@@ -31,18 +31,13 @@ def _function_rewrite_using_decl(container, function, sip, matcher):
     sip["suffix"] = " const"
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QExplicitlySharedDataPointer<KSycocaEntry> >",
                                    "QList<QVariant>", "QVector<KPluginMetaData>")
-    sip["code"] = """
-%ModuleHeaderCode
-#include <QExplicitlySharedDataPointer>
-#include <KService>
-%End
-"""
+    rule_helpers.module_add_includes(filename, sip, rule, "<QExplicitlySharedDataPointer>", "<KService>")
 
 
 def container_rules():

@@ -281,6 +281,14 @@ class KSslCertificateBoxPrivate;
 """
 
 
+def module_fix_includes_kimagefilepreview(filename, sip, rule):
+    rule_helpers.module_add_includes(filename, sip, rule, "<kimagefilepreview.h>", "<jobclasses.h>")
+
+
+def module_fix_includes_metainfojob(filename, sip, rule):
+    rule_helpers.module_add_includes(filename, sip, rule, "<metainfojob.h>", "<kfileitem.h>", "<jobclasses.h>")
+
+
 def container_rules():
     return [
         ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
@@ -364,6 +372,12 @@ def modulecode():
         "KIOFileWidgetsmod.sip": {
             "code": module_fix_mapped_types_filewidgets,
         },
+        "kimagefilepreview.h": {
+            "code": module_fix_includes_kimagefilepreview
+        },
+        "MetaInfoJob": {
+            "code": module_fix_includes_metainfojob
+        },
     }
 
 
@@ -426,16 +440,6 @@ def typecode():
                 %End
                 """
         },
-        # ./kio/kimagefilepreview.sip
-        "kimagefilepreview.h::KImageFilePreview": {  # KImageFilePreview : KPreviewWidgetBase
-            "code":
-                """
-                %TypeHeaderCode
-                #include <kimagefilepreview.h>
-                #include <jobclasses.h>
-                %End
-                """
-        },
         # DISABLED until I figure out an approach for CTSCC.
         "DISABLED KIO::AccessManager": {  # AccessManager : QNetworkAccessManager
             "code":
@@ -476,17 +480,6 @@ def typecode():
                         sipType = sipType_KTar;
                     else if (dynamic_cast<KZip*>(sipCpp))
                         sipType = sipType_KZip;
-                %End
-                """
-        },
-        # ./kio/metainfojob.sip
-        "MetaInfoJob": {  # MetaInfoJob : KIO::Job
-            "code":
-                """
-                %TypeHeaderCode
-                #include <metainfojob.h>
-                #include <kfileitem.h>
-                #include <jobclasses.h>
                 %End
                 """
         },

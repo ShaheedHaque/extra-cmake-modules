@@ -24,25 +24,16 @@ SIP binding customisation for PyKF5.gpgme__. This modules describes:
 import rule_helpers
 
 
-def container_fix_includes(container, sip, matcher):
-    rule_helpers.container_add_supplementary_includes(container, sip, matcher, "<gpgme++/error.h>", "<gpgme++/data.h>")
-
-
 def parameter_out(container, function, parameter, sip, matcher):
     sip["decl"] = "const char **" + parameter.spelling
 
 
+def module_fix_includes(filename, sip, rule):
+    rule_helpers.module_add_includes(filename, sip, rule, "<gpgme++/error.h>", "<gpgme++/data.h>")
+
+
 def module_fix_interfaces(filename, sip, matcher):
     rule_helpers.module_add_classes(filename, sip, matcher, "GpgME::Error", "GpgME::Data")
-
-
-def container_rules():
-    return [
-        #
-        # Remove unsupported signature.
-        #
-        ["GpgME", "AssuanTransaction", ".*", ".*", ".*", container_fix_includes],
-    ]
 
 
 def function_rules():
@@ -63,6 +54,9 @@ def parameter_rules():
 
 def modulecode():
     return {
+        "assuantransaction.h": {
+            "code": module_fix_includes,
+        },
         "interfacesmod.sip": {
             "code": module_fix_interfaces,
         },

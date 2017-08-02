@@ -250,6 +250,24 @@ def module_add_imports(basename, sip, rule, *modules):
     sip["code"] += tmp
 
 
+def module_add_includes(basename, sip, rule, *includes):
+    """
+    There are many cases where adding a #include is a useful workaround.
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param includes:        The includes to add.
+    """
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    tmp = ""
+    for key in includes:
+        tmp += "#include " + key + "\n"
+    trace = trace_generated_for(sip["name"], rule, "missing includes")
+    tmp = trace + "%ModuleHeaderCode\n" + tmp + "%End\n"
+    sip["code"] += tmp
+
+
 def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
     """
     There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
@@ -284,25 +302,6 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
         tmp += "    typedef " + value + " " + key + ";\n"
         sip["body"] = sip["body"].replace(value, key)
     trace = trace_generated_for(sip["name"], rule, "supplementary typedefs")
-    tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
-    sip["code"] += tmp
-
-
-def container_add_supplementary_includes(container, sip, rule, *includes):
-    """
-    There are many cases where adding a #include is a useful workaround.
-
-    :param container:       The container in question.
-    :param sip:             The sip.
-    :param rule:            The rule.
-    :param includes:        The includes to add.
-    """
-    basename = os.path.basename(container.translation_unit.spelling)
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
-    tmp = ""
-    for key in includes:
-        tmp += "#include " + key + "\n"
-    trace = trace_generated_for(sip["name"], rule, "supplementary includes")
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp
 

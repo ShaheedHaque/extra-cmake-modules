@@ -66,20 +66,16 @@ def _variable_array_to_star(container, variable, sip, matcher):
     builtin_rules.variable_rewrite_static(container, variable, sip, matcher)
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QMap<QString, QVariant>")
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QSharedPointer<T>", "QSharedPointer<U>",
+    rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QVariant>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QModelIndex>", "QSharedPointer<T>", "QSharedPointer<U>",
                                    "QVector<T>", "QVector<int>")
-    sip["code"] = """
-%ModuleHeaderCode
-#include <akonadi/private/protocol_p.h>
-%End
-"""
-    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command /External/",
-                                  "Akonadi::ServerManagerPrivate /External/", "KConfigGroup", "KCoreConfigSkeleton")
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::Protocol::Command /External/",
+                                    "Akonadi::ServerManagerPrivate /External/", "KConfigGroup", "KCoreConfigSkeleton")
+    rule_helpers.module_add_includes(filename, sip, rule, "<akonadi/private/protocol_p.h>")
 
 
 def module_fix_mapped_types_agentbase(filename, sip, entry):
@@ -91,7 +87,7 @@ def module_fix_mapped_types_agentbase(filename, sip, entry):
                                    "QVector<Akonadi::Relation>", "QVector<Akonadi::Tag>", "QVector<QByteArray>",
                                    "QVector<long long>")
     rule_helpers.module_add_classes(filename, sip, entry, "QDBusContext /External/", "Akonadi::ImapSet",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
     rule_helpers.module_add_imports(filename, sip, entry, "QtDBus/QtDBusmod.sip")
 
 
@@ -108,26 +104,27 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
                                        "QVector<Akonadi::Item>", "QVector<QSharedPointer<KCalCore::Incidence> >",
                                        "QVector<QSharedPointer<KCalCore::Alarm> >", "QVector<long long>")
         rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
-                                      "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
-                                      "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
-                                      "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
-                                      "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
-                                      "Akonadi::ServerManagerPrivate")
+                                        "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
+                                        "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
+                                        "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
+                                        "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
+                                        "Akonadi::ServerManagerPrivate")
 
 
-def module_fix_mapped_types_contact(filename, sip, entry):
+def module_fix_mapped_types_contact(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+    rule_helpers.modulecode_delete(filename, sip, rule, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                    "QVector<KContacts::ContactGroup>")
-    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
-                                  "Akonadi::AbstractContactEditorWidget", "KLineEdit", "KLocalizedString")
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                    "Akonadi::AbstractContactEditorWidget", "KLineEdit", "KLocalizedString")
+    rule_helpers.module_add_includes(filename, sip, rule, "<akonadi/private/protocol_p.h>")
 
 
 def module_fix_mapped_types_debug(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_notes(filename, sip, entry):
@@ -136,7 +133,7 @@ def module_fix_mapped_types_notes(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>", "QMap<QString, QString>")
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
-                                  "KConfigGroup", "KCoreConfigSkeleton")
+                                    "KConfigGroup", "KCoreConfigSkeleton")
     rule_helpers.module_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
 
 
@@ -146,12 +143,12 @@ def module_fix_mapped_types_pim(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<long long>")
     rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_socialutils(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_widgets(filename, sip, entry):
@@ -159,23 +156,19 @@ def module_fix_mapped_types_widgets(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<long long>", "QVector<Akonadi::Collection>",
-                                   "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>","QVector<Akonadi::AgentInstance>")
+                                   "QVector<Akonadi::Item>", "QVector<Akonadi::Tag>", "QVector<Akonadi::AgentInstance>")
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
-def module_fix_mapped_types_xml(filename, sip, entry):
+def module_fix_mapped_types_xml(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+    rule_helpers.modulecode_delete(filename, sip, rule, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
                                    "QVector<Akonadi::Tag>")
-    rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
-                                  "KConfigGroup", "KCoreConfigSkeleton")
-    sip["code"] += """
-%ModuleHeaderCode
-#include <akonadi/private/protocol_p.h>
-%End
-"""
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                    "KConfigGroup", "KCoreConfigSkeleton")
+    rule_helpers.module_add_includes(filename, sip, rule, "<akonadi/private/protocol_p.h>")
 
 
 _akonadi_qobject_ctscc = """

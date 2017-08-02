@@ -24,6 +24,10 @@ SIP binding customisation for PyKF5.KConfigGui. This modules describes:
 import rule_helpers
 
 
+def module_fix_includes(filename, sip, rule):
+    rule_helpers.module_add_includes(filename, sip, rule, "<KConfigGui/KConfigSkeleton>")
+
+
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -37,11 +41,6 @@ def modulecode():
             "code": module_fix_mapped_types,
         },
         "kconfigskeleton.h": {
-            "code":
-                """
-                %ModuleHeaderCode
-                #include <KConfigGui/KConfigSkeleton>
-                %End
-                """
+            "code": module_fix_includes,
         },
     }

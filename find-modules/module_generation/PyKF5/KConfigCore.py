@@ -135,6 +135,10 @@ private:
     sip["code"] = result
 
 
+def module_fix_includes(filename, sip, rule):
+    rule_helpers.module_add_includes(filename, sip, rule, "<KConfigCore/KDesktopFile>")
+
+
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -190,12 +194,7 @@ def modulecode():
             "code": module_fix_mapped_types,
         },
         "kconfig.h": {
-            "code":
-                """
-                %ModuleHeaderCode
-                #include <KConfigCore/KDesktopFile>
-                %End
-                """
+            "code": module_fix_includes,
         },
         "kcoreconfigskeleton.h": {
             "code": _kcoreconfigskeleton_item_add_py_subclass
