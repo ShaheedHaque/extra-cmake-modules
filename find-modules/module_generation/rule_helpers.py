@@ -340,3 +340,20 @@ def container_discard_templated_bases(container, sip, rule):
     :param includes:        The includes to add.
     """
     sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
+
+
+def container_make_unassignable(container, sip, rule):
+    """
+    There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    """
+    basename = os.path.basename(container.translation_unit.spelling)
+    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    clazz = fqn(container)
+    tmp = "    private:\n        {} &operator=(const {} &);\n".format(clazz, clazz)
+    trace = trace_generated_for(sip["name"], rule, "dummy assignment")
+    tmp = trace + tmp
+    sip["body"] = tmp + sip["body"]

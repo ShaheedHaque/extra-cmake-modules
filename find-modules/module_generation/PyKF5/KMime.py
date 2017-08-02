@@ -74,6 +74,7 @@ def container_rules():
         # Duplicate Akonadi::SuperClass.
         #
         ["kmime_newsarticle.h", "Akonadi", ".*", ".*", ".*", rule_helpers.container_discard],
+        ["Akonadi", "MessageFolderAttribute", ".*", ".*", ".*", rule_helpers.container_make_unassignable],
     ]
 
 
