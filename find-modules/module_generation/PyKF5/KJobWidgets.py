@@ -26,17 +26,12 @@ import common_typecode
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
-    #
-    # Missing dependency.
-    #
-    sip["code"] = """
-%Import(name=QtWidgets/QtWidgetsmod.sip)
-"""
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QPair<QString, QString>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QPair<QString, QString>")
+    rule_helpers.module_add_imports(filename, sip, rule, "QtWidgets/QtWidgetsmod.sip")
 
 
 def modulecode():

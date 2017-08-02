@@ -175,7 +175,7 @@ def variable_fully_qualify(container, variable, sip, matcher):
     sip["decl"] = "KNTLM::" + sip["decl"]
 
 
-def module_fix_kiomod(filename, sip, matcher):
+def module_fix_kiomod(filename, sip, rule):
     """
     Note: there are multiple KIOmod.sip and one kiomod.sip files, and this has to deal with all of them. Yuck.
     """
@@ -196,66 +196,37 @@ def module_fix_kiomod(filename, sip, matcher):
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KIOCore.kio":
-        rule_helpers.modulecode_delete(filename, sip, matcher, "QMap<QString, QString>")
-        sip["code"] = """
-%If (!KIOCore_kio_kiomod)
-class KIO::JobUiDelegateExtension /External/;
-class KIO::MetaData /External/;
-%End
-"""
+        rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>")
+        rule_helpers.module_add_classes(filename, sip, rule, "KIO::JobUiDelegateExtension /External/",
+                                        "KIO::MetaData /External/")
     elif sip["name"] == "KIOCore.KIO":
-        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QUrl>", "QMap<QString, QString>",
+        rule_helpers.modulecode_delete(filename, sip, rule, "QList<QUrl>", "QMap<QString, QString>",
                                        "QVector<unsigned int>")
-        rule_helpers.modulecode_make_local(filename, sip, matcher, "QMap<QString, QVariant>")
-        sip["code"] = """
-%Import(name=KIOCore/kio/kiomod.sip)
-class KIO::Connection;
-class KIO::ClipboardUpdater;
-%If (!KIOCore_KIO_KIOmod)
-class KConfigGroup /External/;
-class KFileItemList /External/;
-class KService /External/;
-class KRemoteEncoding /External/;
-class QDBusArgument /External/;
-%End
-"""
+        rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QVariant>")
+        rule_helpers.module_add_classes(filename, sip, rule, "KIO::Connection", "KIO::ClipboardUpdater",
+                                        "KConfigGroup /External/", "KFileItemList /External/", "KService /External/",
+                                        "KRemoteEncoding /External/", "QDBusArgument /External/")
+        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
     elif sip["name"] == "KIOGui.KIO":
-        sip["code"] = """
-%Import(name=KIOCore/kio/kiomod.sip)
-%Import(name=KIOCore/KIO/KIOmod.sip)
-%Import(name=KIOCore/KIOCoremod.sip)
-%If (!KIOGui_KIO_KIOmod)
-class KService;
-%End
-"""
+        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
+                                        "KIOCore/KIOCoremod.sip")
+        rule_helpers.module_add_classes(filename, sip, rule, "KService", "KIO::Connection", "KIO::ClipboardUpdater")
     elif sip["name"] == "KIOWidgets.KIO":
-        rule_helpers.modulecode_delete(filename, sip, matcher, "QList<QAction *>")
-        sip["code"] = """
-%Import(name=KIOCore/kio/kiomod.sip)
-%Import(name=KIOCore/KIO/KIOmod.sip)
-%Import(name=KIOCore/KIOCoremod.sip)
-%If (!KIOWidgets_KIO_KIOmod)
-class KService;
-class KPixmapSequence;
-%End
-"""
+        rule_helpers.modulecode_delete(filename, sip, rule, "QList<QAction *>")
+        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
+                                        "KIOCore/KIOCoremod.sip")
+        rule_helpers.module_add_classes(filename, sip, rule, "KService", "KPixmapSequence")
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QPair<QString, unsigned short> >")
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QUrl>")
-    #
-    # Random stuff.
-    #
-    sip["code"] = """
-%If (!KIOCore_KIOCoremod)
-class KService;
-class KSslCertificateBoxPrivate;
-%End
-"""
+    rule_helpers.modulecode_make_local(filename, sip, rule, "QList<QPair<QString, unsigned short> >")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QUrl>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KService", "KSslCertificateBoxPrivate", "KIO::Connection",
+                                    "KIO::ClipboardUpdater")
 
 
 def module_fix_mapped_types_filewidgets(filename, sip, entry):
@@ -265,20 +236,15 @@ def module_fix_mapped_types_filewidgets(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QModelIndex>", "QList<QUrl>", "QVector<int>")
 
 
-def module_fix_mapped_types_widgets(filename, sip, entry):
+def module_fix_mapped_types_widgets(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSslCertificate>", "QList<KServiceAction>",
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QSslCertificate>", "QList<KServiceAction>",
                                    "QList<QAction *>", "QExplicitlySharedDataPointer<KService>",
                                    "QList<QExplicitlySharedDataPointer<KService> >")
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QModelIndex>")
-    sip["code"] = """
-%If (!KIOWidgets_KIOWidgetsmod)
-class KCModule;
-class KSslCertificateBoxPrivate;
-%End
-"""
+    rule_helpers.modulecode_make_local(filename, sip, rule, "QList<QModelIndex>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KCModule", "KSslCertificateBoxPrivate")
 
 
 def module_fix_includes_kimagefilepreview(filename, sip, rule):

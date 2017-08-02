@@ -29,14 +29,12 @@ def _parameter_remove_qualifier(container, function, parameter, sip, matcher):
     sip["init"] = sip["init"].split(":")[-1]
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QKeySequence>", "QList<QAction *>")
-    sip["code"] = """
-%Import(name=QtXml/QtXmlmod.sip)
-"""
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QKeySequence>", "QList<QAction *>")
+    rule_helpers.module_add_imports(filename, sip, rule, "QtXml/QtXmlmod.sip")
 
 
 def function_rules():

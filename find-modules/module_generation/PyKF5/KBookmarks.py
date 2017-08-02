@@ -25,6 +25,10 @@ SIP binding customisation for PyKF5.KBookmarks. This modules describes:
 import rule_helpers
 
 
+def module_fix_imports(filename, sip, rule):
+    rule_helpers.module_add_imports(filename, sip, rule, "QtDBus/QtDBusmod.sip", "KXmlGui/KXmlGuimod.sip")
+
+
 def _variable_void(container, variable, sip, matcher):
     sip["decl"] = "void *"
 
@@ -60,12 +64,8 @@ def variable_rules():
 def modulecode():
     return {
         "KBookmarksmod.sip": {
-            "code":
-                """
-                %Import(name=QtDBus/QtDBusmod.sip)
-                %Import(name=KXmlGui/KXmlGuimod.sip)
-                """
-            },
+            "code": module_fix_imports,
+        },
     }
 
 

@@ -34,18 +34,17 @@ def _function_rewrite_using_decl(container, function, sip, matcher):
                              "const KAboutData &aboutData"]
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KParts.KParts":
-        rule_helpers.modulecode_delete(filename, sip, entry, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
+        rule_helpers.modulecode_delete(filename, sip, rule, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
                                        "QMap<QString, QString>")
-        rule_helpers.module_add_classes(filename, sip, entry, "KIconLoader /External/", "KXmlGuiWindow /External/",
-                                      "KSslCertificateBoxPrivate")
-        sip["code"] += """
-%Import(name=SonnetCore/Sonnet/Sonnetmod.sip)
-"""
+        rule_helpers.module_add_classes(filename, sip, rule, "KIconLoader /External/", "KXmlGuiWindow /External/",
+                                        "KSslCertificateBoxPrivate")
+        rule_helpers.module_add_imports(filename, sip, rule, "SonnetCore/Sonnet/Sonnetmod.sip")
+
 
 def function_rules():
     return [

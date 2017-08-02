@@ -36,15 +36,13 @@ def parameter_rewrite_template(container, function, parameter, sip, matcher):
     sip["decl"] = "DragObjectFactory factory"
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_make_local(filename, sip, entry, "QMap<QString, QString>")
-    rule_helpers.modulecode_delete(filename, sip, entry, "QPair<int, int>", "QVector<unsigned int>")
-    sip["code"] = """
-%Import(name=KConfigCore/KConfigCoremod.sip)
-"""
+    rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QString>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QPair<int, int>", "QVector<unsigned int>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KConfigCore/KConfigCoremod.sip")
 
 
 def forward_declaration_rules():

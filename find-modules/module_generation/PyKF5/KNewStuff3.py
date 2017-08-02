@@ -33,13 +33,9 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KNSCore::Engine")
 
 
-def module_fix_mapped_types_core(filename, sip, entry):
-    rule_helpers.module_add_classes(filename, sip, entry, "Attica::Provider", "KArchiveDirectory")
-    sip["code"] += """
-%If (!KNewStuff3_KNSCore_KNSCoremod)
-%Import(name=KNewStuff3/KNS3/KNS3mod.sip)
-%End
-"""
+def module_fix_mapped_types_core(filename, sip, rule):
+    rule_helpers.module_add_classes(filename, sip, rule, "Attica::Provider", "KArchiveDirectory")
+    rule_helpers.module_add_imports(filename, sip, rule, "KNewStuff3/KNS3/KNS3mod.sip")
 
 
 def modulecode():

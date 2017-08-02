@@ -25,13 +25,15 @@ SIP binding customisation for PyKF5.Libkdepim. This modules describes:
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QVector<Akonadi::Tag>", "QVector<Akonadi::Collection>")
-    rule_helpers.module_add_classes(filename, sip, entry, "KSycoca::DatabaseType", "KSslCertificateBoxPrivate",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QVector<Akonadi::Tag>", "QVector<Akonadi::Collection>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KSycoca::DatabaseType", "KSslCertificateBoxPrivate",
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate", "KIO::Connection",
+                                    "KIO::ClipboardUpdater")
 
 def modulecode():
     return {
