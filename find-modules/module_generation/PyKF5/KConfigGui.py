@@ -24,25 +24,11 @@ SIP binding customisation for PyKF5.KConfigGui. This modules describes:
 import rule_helpers
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_make_local(filename, sip, entry, "QExplicitlySharedDataPointer<KSharedConfig>")
-
-
-def container_rules():
-    return [
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["KConfigSkeleton", "ItemColor|ItemFont", ".*", ".*", ".*", _container_delete_base],
-    ]
 
 
 def modulecode():

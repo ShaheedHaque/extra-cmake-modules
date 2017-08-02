@@ -32,7 +32,6 @@ SIP binding customisation for PyKF5. This modules describes:
     * The SIP compilation rules.
 
 """
-
 from __future__ import print_function
 from importlib import import_module
 import os
@@ -42,11 +41,11 @@ import sys
 from clang.cindex import AccessSpecifier
 
 import PyQt_templates
-import rule_helpers
-import rules_engine
 import common_methodcode
 import common_modulecode
 import common_typecode
+import rule_helpers
+import rules_engine
 from clangcparser import CursorKind
 
 
@@ -67,10 +66,6 @@ RE_QT_LIST = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
 RE_QT_SET = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
 RE_QT_PAIR = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
 RE_QT_PTRS = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
-
-
-def _container_discard_templated_bases(container, sip, matcher):
-    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
 
 
 def _function_discard_class(container, fn, sip, matcher):
@@ -145,9 +140,10 @@ def container_rules():
         #
         ["kimagecache.h", "KSharedPixmapCacheMixin", ".+", ".*", ".*", rule_helpers.container_discard],
         #
-        # SIP does not seem to be able to handle templated base classes.
+        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
+        # delete the base class.
         #
-        [".*", ".*", ".*", ".*", ".*<.*", _container_discard_templated_bases],
+        [".*", ".*", ".*", ".*", ".*<.*", rule_helpers.container_discard_templated_bases],
         #
         # SIP does not seem to be able to handle empty containers.
         #

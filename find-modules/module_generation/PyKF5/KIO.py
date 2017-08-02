@@ -28,12 +28,8 @@ from clang.cindex import TokenKind, TypeKind
 import rule_helpers
 
 
-def _container_discard_templated_bases(container, sip, matcher):
-    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
-
-
 def _container_discard_templated_bases_and_fake(container, sip, matcher):
-    _container_discard_templated_bases(container, sip, matcher)
+    rule_helpers.container_discard_templated_bases(container, sip, matcher)
     rule_helpers.container_fake_derived_class(container, sip, matcher)
 
 
@@ -287,12 +283,7 @@ class KSslCertificateBoxPrivate;
 
 def container_rules():
     return [
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
         ["kfileitem.h", "KFileItemList", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
-        ["KMountPoint", "List", ".*", ".*", ".*", _container_discard_templated_bases],
         ["kmountpoint.h", "KMountPoint", ".*", ".*", ".*QSharedData.*", rule_helpers.container_discard_QSharedData_base],
         ["KIO", "MetaData", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
         ["KIO", "DesktopExecParser", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],

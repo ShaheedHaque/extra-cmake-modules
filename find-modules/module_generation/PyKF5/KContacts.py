@@ -25,7 +25,7 @@ SIP binding customisation for PyKF5.KContacts. This modules describes:
 import rule_helpers
 
 
-def _container_discard_templated_bases(container, sip, matcher):
+def _container_discard_templated_bases_and_fake(container, sip, matcher):
     sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]
     rule_helpers.container_fake_derived_class(container, sip, matcher)
 
@@ -33,7 +33,7 @@ def _container_discard_templated_bases(container, sip, matcher):
 def container_rules():
     return [
         ["KContacts", "Address", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
-        ["KContacts", "AddresseeList", ".*", ".*", ".*", _container_discard_templated_bases],
+        ["KContacts", "AddresseeList", ".*", ".*", ".*", _container_discard_templated_bases_and_fake],
         ["KContacts", "PhoneNumber", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
     ]
 

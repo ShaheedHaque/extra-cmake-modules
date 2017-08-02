@@ -25,10 +25,6 @@ SIP binding customisation for PyKF5.KCoreAddons. This modules describes:
 import rule_helpers
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def function_discard_impl(container, function, sip, matcher):
     if function.extent.start.column == 1:
         sip["name"] = ""
@@ -44,11 +40,6 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def container_rules():
     return [
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["kuser.h", "KUserId|KGroupId", ".*", ".*", ".*", _container_delete_base],
         ["KPluginFactory", "InheritanceChecker", ".*", ".*", ".*", rule_helpers.container_discard],
     ]
 
@@ -178,5 +169,5 @@ def modulecode():
     return {
         "KCoreAddonsmod.sip": {
             "code": module_fix_mapped_types,
-            },
+        },
     }

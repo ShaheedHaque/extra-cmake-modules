@@ -326,3 +326,18 @@ def container_fake_derived_class(container, sip, rule):
     trace = trace_generated_for(sip["name"], rule, "fake derived class")
     tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
     sip["code"] += tmp
+
+
+def container_discard_templated_bases(container, sip, rule):
+    """
+    SIP cannot handle base templates like "class Foo: Bar<Baz>" without an
+    intermediate typedef. For now, delete the base class. See
+
+    https://www.riverbankcomputing.com/pipermail/pyqt/2017-August/039476.html
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param includes:        The includes to add.
+    """
+    sip["base_specifiers"] = [b for b in sip["base_specifiers"] if "<" not in b]

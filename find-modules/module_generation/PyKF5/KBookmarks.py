@@ -25,10 +25,6 @@ SIP binding customisation for PyKF5.KBookmarks. This modules describes:
 import rule_helpers
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def _variable_void(container, variable, sip, matcher):
     sip["decl"] = "void *"
 
@@ -43,11 +39,6 @@ def container_rules():
         # Protected.
         #
         ["konqbookmarkmenu.h", "KonqBookmarkMenu::DynMenuInfo", ".*", ".*", ".*", rule_helpers.container_discard],
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["KBookmark", "List", ".*", ".*", ".*", _container_delete_base],
     ]
 
 

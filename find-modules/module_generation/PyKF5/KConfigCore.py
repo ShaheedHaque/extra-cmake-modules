@@ -28,10 +28,6 @@ import rule_helpers
 import rules_engine
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def _mark_abstract_and_discard_QSharedData(container, sip, matcher):
     rule_helpers.container_mark_abstract(container, sip, matcher)
     rule_helpers.container_discard_QSharedData_base(container, sip, matcher)
@@ -157,11 +153,6 @@ def container_rules():
         # Emit templated containers.
         #
         ["kcoreconfigskeleton.h", "KConfigSkeletonGenericItem", ".*", ".*", ".*", rule_helpers.noop],
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["KCoreConfigSkeleton", "Item.*", ".*", ".*", ".*", _container_delete_base],
     ]
 
 

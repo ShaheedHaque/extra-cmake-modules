@@ -35,10 +35,6 @@ def module_remove_redundant(filename, sip, matcher):
     sip["decl"] = "\n".join(lines)
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def _function_discard_class(container, function, sip, matcher):
     sip["fn_result"] = sip["fn_result"].replace("class ", "")
 
@@ -77,11 +73,6 @@ def forward_declaration_rules():
 def container_rules():
     return [
         ["KGamePropertyBase", "Flags", ".*", ".*", ".*", rule_helpers.container_discard],
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["kchatbasemodel.h", "KChatBaseMessage", ".*", ".*", ".*", _container_delete_base],
     ]
 
 

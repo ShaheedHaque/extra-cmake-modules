@@ -25,10 +25,6 @@ SIP binding customisation for PyKF5.KCompletion. This modules describes:
 import rule_helpers
 
 
-def _container_delete_base(container, sip, matcher):
-    sip["base_specifiers"] = []
-
-
 def _function_rewrite_using_decl(container, function, sip, matcher):
     sip["parameters"] = ["int index", "const QStringList &texts"]
 
@@ -47,17 +43,6 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_make_local(filename, sip, entry, "QList<QKeySequence>")
-
-
-def container_rules():
-    return [
-        #
-        # SIP cannot handle inline templates like "class Foo: Bar<Baz>" without an intermediate typedef. For now,
-        # delete the base class.
-        #
-        ["kcompletionmatches.h", "KCompletionMatches", ".*", ".*", ".*", _container_delete_base],
-        ["ksortablelist.h", "KSortableItem|KSortableList", ".*", ".*", ".*", _container_delete_base],
-    ]
 
 
 def function_rules():
