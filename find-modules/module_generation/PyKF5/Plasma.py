@@ -21,7 +21,7 @@ SIP binding customisation for PyKF5.Plasma. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
+import rule_helpers
 
 _plasma_qobject_ctscc = """
 %ConvertToSubClassCode
@@ -186,9 +186,6 @@ _plasma_qobject_ctscc = """
 """
 
 
-import rule_helpers
-
-
 def module_fix_mapped_types(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -196,7 +193,9 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QVariant>", "QList<KPluginInfo>",
                                    "QList<KPluginMetaData>", "QList<QAction *>", "QList<QUrl>",
                                    "QMap<QString, QVariant>")
-    rule_helpers.module_add_classes(filename, sip, entry, "KConfigLoader", "KActionCollection", "QWidget")
+    rule_helpers.module_add_classes(filename, sip, entry, "KConfigLoader", "KActionCollection")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtWidgets/QtWidgetsmod.sip")
+
 
 def modulecode():
     return {
