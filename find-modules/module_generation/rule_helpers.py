@@ -386,7 +386,7 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
 def container_fake_derived_class(container, sip, rule):
     """
     There are many cases where SIP does not generate a derived class, and
-    having a #define to fake on make writing manual code easier. See
+    having a #define to fake one makes writing manual code easier. See
 
     https://www.riverbankcomputing.com/pipermail/pyqt/2017-June/039309.html
 
