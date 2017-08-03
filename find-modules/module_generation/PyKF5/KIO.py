@@ -174,37 +174,34 @@ def variable_rewrite_array(container, variable, sip, matcher):
 def variable_fully_qualify(container, variable, sip, matcher):
     sip["decl"] = "KNTLM::" + sip["decl"]
 
+def module_fix_KIOCore_kio(filename, sip, rule):
+    rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIO/KIOmod.sip")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KIO::JobUiDelegateExtension /External/",
+                                    "KIO::MetaData /External/")
 
-def module_fix_kiomod(filename, sip, rule):
-    """
-    Note: there are multiple KIOmod.sip and one kiomod.sip files, and this has to deal with all of them. Yuck.
-    """
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    if sip["name"] == "KIOCore.kio":
-        rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIO/KIOmod.sip")
-        rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>")
-        rule_helpers.module_add_classes(filename, sip, rule, "KIO::JobUiDelegateExtension /External/",
-                                        "KIO::MetaData /External/")
-    elif sip["name"] == "KIOCore.KIO":
-        rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
-        rule_helpers.modulecode_delete(filename, sip, rule, "QList<QUrl>", "QMap<QString, QString>",
-                                       "QVector<unsigned int>")
-        rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QVariant>")
-        rule_helpers.module_add_classes(filename, sip, rule, "KIO::Connection", "KIO::ClipboardUpdater",
-                                        "KConfigGroup /External/", "KFileItemList /External/", "KService /External/",
-                                        "KRemoteEncoding /External/", "QDBusArgument /External/")
-        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
-    elif sip["name"] == "KIOGui.KIO":
-        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
-                                        "KIOCore/KIOCoremod.sip")
-        rule_helpers.module_add_classes(filename, sip, rule, "KService", "KIO::Connection", "KIO::ClipboardUpdater")
-    elif sip["name"] == "KIOWidgets.KIO":
-        rule_helpers.modulecode_delete(filename, sip, rule, "QList<QAction *>")
-        rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
-                                        "KIOCore/KIOCoremod.sip")
-        rule_helpers.module_add_classes(filename, sip, rule, "KService", "KPixmapSequence")
+def module_fix_KIOCore_KIO(filename, sip, rule):
+    rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QUrl>", "QMap<QString, QString>",
+                                   "QVector<unsigned int>")
+    rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QVariant>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KIO::Connection", "KIO::ClipboardUpdater",
+                                    "KConfigGroup /External/", "KFileItemList /External/", "KService /External/",
+                                    "KRemoteEncoding /External/", "QDBusArgument /External/")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
+
+
+def module_fix_KIOGui_KIO(filename, sip, rule):
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
+                                    "KIOCore/KIOCoremod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KService", "KIO::Connection", "KIO::ClipboardUpdater")
+
+
+def module_fix_KIOWidgets_KIO(filename, sip, rule):
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QAction *>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip", "KIOCore/KIO/KIOmod.sip",
+                                    "KIOCore/KIOCoremod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KService", "KPixmapSequence")
 
 
 def module_fix_mapped_types(filename, sip, rule):
@@ -312,22 +309,28 @@ def variable_rules():
 
 def modulecode():
     return {
-        "KIOCoremod.sip": {
+        "KIOCore/KIOCoremod.sip": {
             "code": module_fix_mapped_types,
         },
-        "KIOmod.sip": {
-            "code": module_fix_kiomod,
+        "KIOCore/kio/kiomod.sip": {
+            "code": module_fix_KIOCore_kio,
         },
-        "kiomod.sip": {
-            "code": module_fix_kiomod,
+        "KIOCore/KIO/KIOmod.sip": {
+            "code": module_fix_KIOCore_KIO,
+        },
+        "KIOGui/KIO/KIOmod.sip": {
+            "code": module_fix_KIOGui_KIO,
+        },
+        "KIOWidgets/KIO/KIOmod.sip": {
+            "code": module_fix_KIOWidgets_KIO,
         },
         "KIOWidgetsmod.sip": {
             "code": module_fix_mapped_types_widgets,
         },
-        "KIOFileWidgetsmod.sip": {
+        "KIOFileWidgets/KIOFileWidgetsmod.sip": {
             "code": module_fix_mapped_types_filewidgets,
         },
-        "kimagefilepreview.h": {
+        "KIOFileWidgets/KImageFilePreview": {
             "code": module_fix_includes_kimagefilepreview
         },
         "MetaInfoJob": {

@@ -79,10 +79,10 @@ def module_fix_mapped_types_dom(filename, sip, entry):
 
 def modulecode():
     return {
-        "KHtmlmod.sip": {
+        "KHtml/KHtmlmod.sip": {
             "code": module_fix_mapped_types,
         },
-        "dommod.sip": {
+        "KHtml/dom/dommod.sip": {
             "code": module_fix_mapped_types_dom,
         },
     }

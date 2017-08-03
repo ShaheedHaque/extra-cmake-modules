@@ -230,13 +230,13 @@ def parameter_strip_class_enum(container, function, parameter, sip, matcher):
     sip["decl"] = sip["decl"].replace("class ", "").replace("enum ", "")
 
 
-def modulecode_delete(basename, sip, rule, *keys):
+def modulecode_delete(filename, sip, rule, *keys):
     """
     Delete duplicate modulecode entries from the current module.
     This prevents clashes when the current module A, imports B and both define
     the same thing.
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param keys:            The keys to the entries.
@@ -247,7 +247,7 @@ def modulecode_delete(basename, sip, rule, *keys):
         sip["modulecode"][key] = trace
 
 
-def modulecode_make_local(basename, sip, rule, *keys):
+def modulecode_make_local(filename, sip, rule, *keys):
     """
     Make modulecode entries local to the current module using the feature name.
     This prevents clashes when the current module A, and another module B both:
@@ -255,12 +255,12 @@ def modulecode_make_local(basename, sip, rule, *keys):
         - define the same thing
         - are imported by a third module C
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param keys:            The keys to the entries.
     """
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    feature = os.path.splitext(filename)[0].replace(os.path.sep, "_")
     for key in keys:
         tmp = sip["modulecode"][key]
         trace = trace_inserted_for(key, rule)
@@ -268,16 +268,16 @@ def modulecode_make_local(basename, sip, rule, *keys):
         sip["modulecode"][key] = tmp
 
 
-def module_add_classes(basename, sip, rule, *classes):
+def module_add_classes(filename, sip, rule, *classes):
     """
     Add missing class declarations to a module.
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param classes:         The classes to add.
     """
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    feature = os.path.splitext(filename)[0].replace(os.path.sep, "_")
     tmp = ""
     for key in classes:
         tmp += "class " + key + ";\n"
@@ -286,16 +286,16 @@ def module_add_classes(basename, sip, rule, *classes):
     sip["code"] += tmp
 
 
-def module_add_imports(basename, sip, rule, *modules):
+def module_add_imports(filename, sip, rule, *modules):
     """
     Add missing imports to a module.
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param modules:         The modules to add.
     """
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
+    feature = os.path.splitext(filename)[0].replace(os.path.sep, "_")
     tmp = ""
     for key in modules:
         tmp += "%Import(name=" + key + ")\n"
@@ -308,7 +308,7 @@ def module_delete_imports(filename, sip, rule, *modules):
     """
     Remove unwanted imports from a module.
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param modules:         The modules to remove.
@@ -327,16 +327,15 @@ def module_delete_imports(filename, sip, rule, *modules):
     sip["decl"] = "\n".join(lines)
 
 
-def module_add_includes(basename, sip, rule, *includes):
+def module_add_includes(filename, sip, rule, *includes):
     """
     There are many cases where adding a #include is a useful workaround.
 
-    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param filename:        The filename of the module, e.g. KCoreAddonsmod.sip.
     :param sip:             The sip.
     :param rule:            The rule.
     :param includes:        The includes to add.
     """
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
     tmp = ""
     for key in includes:
         tmp += "#include " + key + "\n"
@@ -367,8 +366,6 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
         else:
             return ""
 
-    basename = os.path.basename(container.translation_unit.spelling)
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
     tmp = ""
     for key, value in enumerate(typedefs):
         key = "__{}{}_t".format(container.spelling, key)
@@ -395,8 +392,6 @@ def container_fake_derived_class(container, sip, rule):
     :param rule:            The rule.
     :param includes:        The includes to add.
     """
-    basename = os.path.basename(container.translation_unit.spelling)
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
     clazz = fqn(container)
     tmp = "#define sip{} {}\n".format(clazz.replace("::", "_"), clazz)
     trace = trace_generated_for(sip["name"], rule, "fake derived class")
@@ -427,8 +422,6 @@ def container_make_unassignable(container, sip, rule):
     :param sip:             The sip.
     :param rule:            The rule.
     """
-    basename = os.path.basename(container.translation_unit.spelling)
-    feature = sip["name"].replace(".", "_") + "_" + os.path.splitext(basename)[0]
     clazz = fqn(container)
     tmp = "    private:\n        {} &operator=(const {} &);\n".format(clazz, clazz)
     trace = trace_generated_for(sip["name"], rule, "dummy assignment")

@@ -35,8 +35,7 @@ def _function_rewrite_using_decl(container, function, sip, matcher):
 
 
 def _delete_duplicate_content(filename, sip, entry):
-    if sip["name"] == "ktip.h":
-        sip["decl"] = ""
+    sip["decl"] = ""
 
 
 def module_fix_mapped_types(filename, sip, entry):
@@ -72,10 +71,10 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "ktipdialog.h": {
+        "KConfigWidgets/ktip.h": {
             "code": _delete_duplicate_content
         },
-        "KConfigWidgetsmod.sip": {
+        "KConfigWidgets/KConfigWidgetsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

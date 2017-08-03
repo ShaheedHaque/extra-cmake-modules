@@ -52,22 +52,22 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "kgesturemap_p.h": {
+        "KXmlGui/kgesturemap_p.h": {
             "code": "",
             "decl": ""
         },
-        "ktoggletoolbaraction.h": {
+        "KXmlGui/KToggleToolBarAction": {
             "code": "",
             "decl": ""
         },
         #
         # No multiple inheritance.
         #
-        "kxmlguiwindow.h": {
+        "KXmlGui/KXmlGuiWindow": {
             "code": "",
             "decl": ""
         },
-        "KXmlGuimod.sip": {
+        "KXmlGui/KXmlGuimod.sip": {
             "code": module_fix_mapped_types,
         },
     }

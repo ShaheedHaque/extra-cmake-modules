@@ -17,45 +17,24 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KNotifications. This modules describes:
+SIP binding customisation for PyKF5.KIdleTime. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
+
 import rule_helpers
 
 
-def _function_rewrite_using_decl(container, function, sip, matcher):
-    sip["parameters"] = ["QEvent *event"]
-    sip["fn_result"] = "bool"
-    sip["prefix"] = "virtual "
-
-
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types_private(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QPair<QString, QString>", "QList<QUrl>",
-                                        "QList<QVariant>")
-
-
-def container_rules():
-    return [
-        ["knotifyconfig.h", "KNotifyConfig", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
-    ]
-
-
-def function_rules():
-    return [
-        #
-        # Rewrite using declaration.
-        #
-        ["KNotification", "event", ".*", ".*", "", _function_rewrite_using_decl],
-    ]
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
 
 
 def modulecode():
     return {
-        "KNotifications/KNotificationsmod.sip": {
-            "code": module_fix_mapped_types,
+        "KIdleTime/private/privatemod.sip": {
+            "code": module_fix_mapped_types_private,
         },
     }

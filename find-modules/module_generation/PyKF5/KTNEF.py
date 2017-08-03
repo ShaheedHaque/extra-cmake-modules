@@ -38,7 +38,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KTNEFmod.sip": {
+        "KTNEF/KTNEF/KTNEFmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

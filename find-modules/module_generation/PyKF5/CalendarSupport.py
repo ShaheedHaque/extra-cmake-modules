@@ -42,7 +42,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "CalendarSupportmod.sip": {
+        "CalendarSupport/CalendarSupportmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

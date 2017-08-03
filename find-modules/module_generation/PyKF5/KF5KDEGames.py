@@ -124,19 +124,19 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "highscoremod.sip": {
+        "KF5KDEGames/highscore/highscoremod.sip": {
             "code":
                 """
                 class KgDifficulty /External/;
                 """
         },
-        "libkdegamesprivatemod.sip": {
+        "KF5KDEGames/libkdegamesprivate/libkdegamesprivatemod.sip": {
             "code": module_fix_mapped_types_private,
         },
-        "kgamemod.sip": {
+        "KF5KDEGames/libkdegamesprivate/kgame/kgamemod.sip": {
             "code": module_fix_mapped_types,
         },
-        "KDEmod.sip": {
+        "KF5KDEGames/KDE/KDEmod.sip": {
             "code": module_remove_redundant
         }
     }

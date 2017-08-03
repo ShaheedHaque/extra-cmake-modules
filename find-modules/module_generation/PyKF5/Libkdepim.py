@@ -37,7 +37,7 @@ def module_fix_mapped_types(filename, sip, rule):
 
 def modulecode():
     return {
-        "Libkdepimmod.sip": {
+        "Libkdepim/Libkdepimmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

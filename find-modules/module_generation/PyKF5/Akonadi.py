@@ -95,20 +95,19 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if sip["name"] == "Akonadi.Calendar":
-        rule_helpers.modulecode_delete(filename, sip, entry, "QSet<QByteArray>", "QSharedPointer<KCalCore::Attendee>",
-                                       "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::FreeBusy>",
-                                       "QSharedPointer<KCalCore::Incidence>", "QSharedPointer<KCalCore::IncidenceBase>",
-                                       "QSharedPointer<KCalCore::Journal>", "QSharedPointer<KCalCore::Person>",
-                                       "QSharedPointer<KCalCore::Todo>", "QVector<Akonadi::Collection>",
-                                       "QVector<Akonadi::Item>", "QVector<QSharedPointer<KCalCore::Incidence> >",
-                                       "QVector<QSharedPointer<KCalCore::Alarm> >", "QVector<long long>")
-        rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
-                                        "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
-                                        "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
-                                        "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
-                                        "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
-                                        "Akonadi::ServerManagerPrivate")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QSet<QByteArray>", "QSharedPointer<KCalCore::Attendee>",
+                                   "QSharedPointer<KCalCore::Event>", "QSharedPointer<KCalCore::FreeBusy>",
+                                   "QSharedPointer<KCalCore::Incidence>", "QSharedPointer<KCalCore::IncidenceBase>",
+                                   "QSharedPointer<KCalCore::Journal>", "QSharedPointer<KCalCore::Person>",
+                                   "QSharedPointer<KCalCore::Todo>", "QVector<Akonadi::Collection>",
+                                   "QVector<Akonadi::Item>", "QVector<QSharedPointer<KCalCore::Incidence> >",
+                                   "QVector<QSharedPointer<KCalCore::Alarm> >", "QVector<long long>")
+    rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
+                                    "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
+                                    "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
+                                    "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
+                                    "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
+                                    "Akonadi::ServerManagerPrivate")
 
 
 def module_fix_mapped_types_contact(filename, sip, rule):
@@ -125,6 +124,16 @@ def module_fix_mapped_types_contact(filename, sip, rule):
 def module_fix_mapped_types_debug(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
                                     "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+
+
+def module_fix_mapped_types_kmime(filename, sip, rule):
+    rule_helpers.modulecode_delete(filename, sip, rule, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
+                                   "QSet<QByteArray>")
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::SpecialMailCollectionsPrivate",
+                                    "KLocalizedString", "Akonadi::Protocol::Command",
+                                    "Akonadi::ServerManagerPrivate")
+    rule_helpers.module_add_imports(filename, sip, rule, "KMime/KMime/KMimemod.sip")
+    rule_helpers.module_add_includes(filename, sip, rule, "<akonadi/private/protocol_p.h>")
 
 
 def module_fix_mapped_types_notes(filename, sip, entry):
@@ -546,34 +555,37 @@ def typecode():
 
 def modulecode():
     return {
-        "AkonadiCoremod.sip": {
+        "AkonadiCore/AkonadiCoremod.sip": {
             "code": module_fix_mapped_types,
         },
-        "AkonadiAgentBasemod.sip": {
+        "AkonadiAgentBase/AkonadiAgentBasemod.sip": {
             "code": module_fix_mapped_types_agentbase,
         },
-        "Calendarmod.sip": {
+        "Akonadi/Calendar/Calendarmod.sip": {
             "code": module_fix_mapped_types_calendar,
         },
-        "Contactmod.sip": {
+        "Akonadi/Contact/Contactmod.sip": {
             "code": module_fix_mapped_types_contact,
         },
-        "Debugmod.sip": {
+        "AkonadiSearch/Debug/Debugmod.sip": {
             "code": module_fix_mapped_types_debug,
         },
-        "Notesmod.sip": {
+        "Akonadi/KMime/KMimemod.sip": {
+            "code": module_fix_mapped_types_kmime,
+        },
+        "Akonadi/Notes/Notesmod.sip": {
             "code": module_fix_mapped_types_notes,
         },
-        "PIMmod.sip": {
+        "AkonadiSearch/PIM/PIMmod.sip": {
             "code": module_fix_mapped_types_pim,
         },
-        "SocialUtilsmod.sip": {
+        "Akonadi/SocialUtils/SocialUtilsmod.sip": {
             "code": module_fix_mapped_types_socialutils,
         },
-        "AkonadiWidgetsmod.sip": {
+        "AkonadiWidgets/AkonadiWidgetsmod.sip": {
             "code": module_fix_mapped_types_widgets,
         },
-        "AkonadiXmlmod.sip": {
+        "AkonadiXml/AkonadiXmlmod.sip": {
             "code": module_fix_mapped_types_xml,
         },
     }

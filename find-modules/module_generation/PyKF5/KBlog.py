@@ -37,7 +37,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KBlogmod.sip": {
+        "KBlog/KBlog/KBlogmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

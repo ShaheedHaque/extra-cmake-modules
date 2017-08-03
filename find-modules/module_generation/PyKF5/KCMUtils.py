@@ -52,10 +52,10 @@ def container_rules():
 
 def modulecode():
     return {
-        "KCMUtilsmod.sip": {
+        "KCMUtils/KCMUtilsmod.sip": {
             "code": module_fix_mapped_types,
         },
-        "ksettingsmod.sip": {
+        "KCMUtils/ksettings/ksettingsmod.sip": {
             "code": module_fix_mapped_types_ksettings,
         },
     }

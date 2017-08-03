@@ -190,13 +190,13 @@ def typedef_rules():
 
 def modulecode():
     return {
-        "KConfigCoremod.sip": {
+        "KConfigCore/KConfigCoremod.sip": {
             "code": module_fix_mapped_types,
         },
-        "kconfig.h": {
+        "KConfigCore/KConfig": {
             "code": module_fix_includes,
         },
-        "kcoreconfigskeleton.h": {
+        "KConfigCore/KCoreConfigSkeleton": {
             "code": _kcoreconfigskeleton_item_add_py_subclass
         },
     }

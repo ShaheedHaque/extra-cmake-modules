@@ -49,7 +49,7 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "MailTransportmod.sip": {
+        "MailTransport/MailTransport/MailTransportmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

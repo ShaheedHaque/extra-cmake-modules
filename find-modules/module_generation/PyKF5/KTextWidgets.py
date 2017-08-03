@@ -34,7 +34,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KTextWidgetsmod.sip": {
+        "KTextWidgets/KTextWidgetsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

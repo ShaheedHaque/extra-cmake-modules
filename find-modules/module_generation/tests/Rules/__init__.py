@@ -232,7 +232,7 @@ def methodcode():
 
 def modulecode():
     return {
-        "cpplib.h": {
+        "CppLib/cpplib.h": {
             "code": """
 %ModuleHeaderCode
 int myAcumulate(const QList<int> *list);

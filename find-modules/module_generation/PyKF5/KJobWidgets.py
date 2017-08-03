@@ -36,7 +36,7 @@ def module_fix_mapped_types(filename, sip, rule):
 
 def modulecode():
     return {
-        "KJobWidgetsmod.sip": {
+        "KJobWidgets/KJobWidgetsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

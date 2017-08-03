@@ -46,7 +46,7 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "KMboxmod.sip": {
+        "KMbox/KMbox/KMboxmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

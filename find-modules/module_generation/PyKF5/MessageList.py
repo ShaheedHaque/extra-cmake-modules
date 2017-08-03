@@ -40,7 +40,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "MessageListmod.sip": {
+        "MessageList/MessageListmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

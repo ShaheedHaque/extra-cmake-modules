@@ -47,7 +47,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "KContactsmod.sip": {
+        "KContacts/KContacts/KContactsmod.sip": {
             "code":
                 """
                 %If (!KContacts_KContacts_KContactsmod)

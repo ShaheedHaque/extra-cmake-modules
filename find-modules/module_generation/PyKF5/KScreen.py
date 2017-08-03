@@ -61,7 +61,7 @@ def variable_rules():
 
 def modulecode():
     return {
-        "KScreenmod.sip": {
+        "KScreen/KScreen/KScreenmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

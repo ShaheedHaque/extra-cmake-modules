@@ -44,7 +44,7 @@ def typedef_rules():
 
 def modulecode():
     return {
-        "MessageCoremod.sip": {
+        "MessageCore/MessageCoremod.sip": {
             "code": module_fix_mapped_types,
         },
     }

@@ -40,10 +40,10 @@ def module_fix_mapped_types_core(filename, sip, rule):
 
 def modulecode():
     return {
-        "KNS3mod.sip": {
+        "KNewStuff3/KNS3/KNS3mod.sip": {
             "code": module_fix_mapped_types,
         },
-        "KNSCoremod.sip": {
+        "KNewStuff3/KNSCore/KNSCoremod.sip": {
             "code": module_fix_mapped_types_core,
         },
     }

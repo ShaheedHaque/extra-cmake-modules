@@ -63,7 +63,7 @@ def variable_rules():
 
 def modulecode():
     return {
-        "KBookmarksmod.sip": {
+        "KBookmarks/KBookmarksmod.sip": {
             "code": module_fix_imports,
         },
     }

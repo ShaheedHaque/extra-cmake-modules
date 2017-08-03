@@ -44,7 +44,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KAuthmod.sip": {
+        "KAuth/KAuthmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

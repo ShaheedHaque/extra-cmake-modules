@@ -199,7 +199,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "Plasmamod.sip": {
+        "Plasma/Plasmamod.sip": {
             "code": module_fix_mapped_types,
         },
     }

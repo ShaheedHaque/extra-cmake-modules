@@ -44,7 +44,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "MailImportermod.sip": {
+        "MailImporter/MailImportermod.sip": {
             "code": module_fix_mapped_types,
         },
     }

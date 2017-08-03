@@ -35,7 +35,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KEmoticonsmod.sip": {
+        "KEmoticons/KEmoticonsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

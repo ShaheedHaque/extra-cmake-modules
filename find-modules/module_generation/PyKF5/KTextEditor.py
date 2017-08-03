@@ -250,7 +250,7 @@ def typecode():
 
 def modulecode():
     return {
-        "KTextEditormod.sip": {
+        "KTextEditor/KTextEditor/KTextEditormod.sip": {
             "code": module_fix_mapped_types,
         },
     }

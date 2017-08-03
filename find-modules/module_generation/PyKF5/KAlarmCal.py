@@ -49,7 +49,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "KAlarmCalmod.sip": {
+        "KAlarmCal/KAlarmCal/KAlarmCalmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

@@ -142,8 +142,7 @@ def variable_rewrite_rw(container, variable, sip, matcher):
 
 
 def module_discard_duplicate(filename, sip, entry):
-    if sip["name"] != filename:
-        sip["name"] = ""
+    sip["name"] = ""
 
 
 def module_fix_kjs(filename, sip, matcher):
@@ -310,13 +309,13 @@ def unexposed_rules():
 
 def modulecode():
     return {
-        "ExecState.h": {
+        "kjs/context.h": {
             "code": module_discard_duplicate,
         },
-        "kjsmod.sip": {
+        "kjs/kjsmod.sip": {
             "code": module_fix_kjs,
         },
-        "wtfmod.sip": {
+        "wtf/wtfmod.sip": {
             "code": module_fix_wtf,
         },
     }

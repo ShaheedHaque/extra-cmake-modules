@@ -115,16 +115,16 @@ def typedef_rules():
 
 def modulecode():
     return {
-        "Atommod.sip": {
+        "Syndication/Syndication/Atom/Atommod.sip": {
             "code": module_fix_mapped_types_atom,
         },
-        "Rdfmod.sip": {
+        "Syndication/Syndication/Rdf/Rdfmod.sip": {
             "code": module_fix_mapped_types_rdf,
         },
-        "Rss2mod.sip": {
+        "Syndication/Syndication/Rss2/Rss2mod.sip": {
             "code": module_fix_mapped_types_rss2,
         },
-        "Syndicationmod.sip": {
+        "Syndication/Syndication/Syndicationmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

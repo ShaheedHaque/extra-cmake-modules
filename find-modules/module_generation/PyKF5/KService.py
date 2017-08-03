@@ -107,7 +107,7 @@ def typecode():
 
 def modulecode():
     return {
-        "KServicemod.sip": {
+        "KService/KServicemod.sip": {
             "code": module_fix_mapped_types,
         },
     }

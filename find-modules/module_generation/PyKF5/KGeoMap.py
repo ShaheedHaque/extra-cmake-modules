@@ -33,7 +33,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KGeoMapmod.sip": {
+        "KGeoMap/KGeoMap/KGeoMapmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

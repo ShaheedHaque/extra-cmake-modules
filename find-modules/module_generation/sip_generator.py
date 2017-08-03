@@ -364,11 +364,11 @@ class SipGenerator(object):
             }
             body = ""
             if self.dump_modules:
-                logger.info(_("Processing module for {}").format(h_name))
-            modifying_rule = self.compiled_rules.modulecode(h_name, sip)
+                logger.info(_("Processing module for {}").format(include_filename))
+            modifying_rule = self.compiled_rules.modulecode(include_filename, sip)
             if sip["name"]:
                 if modifying_rule:
-                    body += "// Modified {} (by {}):\n".format(h_name, modifying_rule)
+                    body += "// Modified {} (by {}):\n".format(include_filename, modifying_rule)
                 body += sip["decl"] + sip["code"]
                 #
                 # Support any global externs.

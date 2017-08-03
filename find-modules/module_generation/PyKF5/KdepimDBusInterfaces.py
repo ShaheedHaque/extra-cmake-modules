@@ -26,11 +26,12 @@ import rule_helpers
 
 def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
+
 
 def modulecode():
     return {
-        "KdepimDBusInterfacesmod.sip": {
+        "KdepimDBusInterfaces/KdepimDBusInterfacesmod.sip": {
             "code": module_fix_mapped_types
         },
     }

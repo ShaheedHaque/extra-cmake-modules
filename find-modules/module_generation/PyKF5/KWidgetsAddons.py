@@ -28,8 +28,7 @@ import rules_engine
 
 
 def _delete_duplicate_content(filename, sip, entry):
-    if sip["name"] not in ["KMimeTypeChooser", "KMultiTabBar", "KPageWidgetModel", "KSelector"]:
-        sip["decl"] = ""
+    sip["decl"] = ""
 
 
 def parameter_rewrite_template(container, function, parameter, sip, matcher):
@@ -71,19 +70,22 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "KWidgetsAddonsmod.sip": {
+        "KWidgetsAddons/KWidgetsAddonsmod.sip": {
             "code": module_fix_mapped_types,
         },
-        "kmimetypechooser.h": {
+        "KWidgetsAddons/KMimeTypeChooserDialog": {
             "code": _delete_duplicate_content
         },
-        "kmultitabbar.h": {
+        "KWidgetsAddons/KMultiTabBarButton": {
             "code": _delete_duplicate_content
         },
-        "kpagewidgetmodel.h": {
+        "KWidgetsAddons/KMultiTabBarTab": {
             "code": _delete_duplicate_content
         },
-        "kselector.h": {
+        "KWidgetsAddons/KPageWidgetItem": {
+            "code": _delete_duplicate_content
+        },
+        "KWidgetsAddons/KGradientSelector": {
             "code": _delete_duplicate_content
         },
     }

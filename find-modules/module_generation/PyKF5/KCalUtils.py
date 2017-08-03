@@ -48,7 +48,7 @@ def container_rules():
 
 def modulecode():
     return {
-        "KCalUtilsmod.sip": {
+        "KCalUtils/KCalUtils/KCalUtilsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

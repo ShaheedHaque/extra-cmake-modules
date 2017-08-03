@@ -34,23 +34,18 @@ def module_fix_mapped_types_private(filename, sip, entry):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if sip["name"] == "KGlobalAccel.private":
-        rule_helpers.modulecode_delete(filename, sip, entry, "QList<KGlobalShortcutInfo>", "QList<QStringList>",
-                                       "QList<int>")
-        rule_helpers.module_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction",
-                                        "QWidget", "GlobalShortcutsRegistry", "QDBusContext")
-    elif sip["name"] == "KIdleTime.private":
-        rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
-    elif sip["name"] == "KWindowSystem.private":
-        rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSize>", "QList<unsigned long long>")
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<KGlobalShortcutInfo>", "QList<QStringList>",
+                                   "QList<int>")
+    rule_helpers.module_add_classes(filename, sip, entry, "OrgKdeKglobalaccelComponentInterface", "QAction",
+                                    "QWidget", "GlobalShortcutsRegistry", "QDBusContext")
 
 
 def modulecode():
     return {
-        "privatemod.sip": {
+        "KGlobalAccel/private/privatemod.sip": {
             "code": module_fix_mapped_types_private,
         },
-        "KGlobalAccelmod.sip": {
+        "KGlobalAccel/KGlobalAccelmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

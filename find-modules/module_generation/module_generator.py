@@ -523,11 +523,11 @@ class ModuleGenerator(object):
             }
             body = ""
             if self.dump_modules:
-                logger.info(_("Processing module for {}").format(os.path.basename(full_output)))
+                logger.info(_("Processing module for {}").format(output_file))
             with self.lock:
-                modifying_rule = self.compiled_rules.modulecode(os.path.basename(full_output), sip)
+                modifying_rule = self.compiled_rules.modulecode(output_file, sip)
             if modifying_rule:
-                body += "// Modified {} (by {}):\n".format(os.path.basename(full_output), modifying_rule)
+                body += "// Modified {} (by {}):\n".format(output_file, modifying_rule)
             logger.info(_("Creating {}").format(full_output))
             with open(full_output, "w") as f:
                 f.write(header(output_file, h_dir, self.package))

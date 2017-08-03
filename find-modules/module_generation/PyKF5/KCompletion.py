@@ -64,7 +64,7 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "KCompletionmod.sip": {
+        "KCompletion/KCompletionmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

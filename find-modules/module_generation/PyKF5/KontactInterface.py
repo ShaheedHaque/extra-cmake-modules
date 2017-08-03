@@ -34,7 +34,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KontactInterfacemod.sip": {
+        "KontactInterface/KontactInterface/KontactInterfacemod.sip": {
             "code": module_fix_mapped_types,
         },
     }

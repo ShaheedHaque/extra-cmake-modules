@@ -62,7 +62,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "KItemViewsmod.sip": {
+        "KItemViews/KItemViewsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

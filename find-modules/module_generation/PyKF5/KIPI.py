@@ -43,7 +43,7 @@ def container_rules():
 
 def modulecode():
     return {
-        "KIPImod.sip": {
+        "KIPI/KIPI/KIPImod.sip": {
             "code": module_fix_mapped_types,
         },
     }

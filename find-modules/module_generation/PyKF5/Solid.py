@@ -42,7 +42,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "Solidmod.sip": {
+        "Solid/Solid/Solidmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

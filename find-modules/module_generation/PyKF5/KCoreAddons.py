@@ -167,7 +167,7 @@ def typecode():
 
 def modulecode():
     return {
-        "KCoreAddonsmod.sip": {
+        "KCoreAddons/KCoreAddonsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

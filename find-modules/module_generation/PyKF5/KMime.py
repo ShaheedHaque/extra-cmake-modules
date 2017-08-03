@@ -27,8 +27,7 @@ import rule_helpers
 
 
 def _delete_duplicate_content(filename, sip, entry):
-    if sip["name"] == "KMimeMessage":
-        sip["decl"] = ""
+    sip["decl"] = ""
 
 
 def parameter_in_out(container, function, parameter, sip, matcher):
@@ -54,18 +53,9 @@ def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if sip["name"] == "KMime.KMime":
-        rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>", "QVector<QByteArray>")
-        rule_helpers.module_add_classes(filename, sip, rule, "KConfigGroup", "KCoreConfigSkeleton",
-                                        "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-    elif sip["name"] == "Akonadi.KMime":
-        rule_helpers.modulecode_delete(filename, sip, rule, "QVector<Akonadi::Collection>", "QVector<Akonadi::Item>",
-                                       "QSet<QByteArray>")
-        rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::SpecialMailCollectionsPrivate",
-                                        "KLocalizedString", "Akonadi::Protocol::Command",
-                                        "Akonadi::ServerManagerPrivate")
-        rule_helpers.module_add_imports(filename, sip, rule, "KMime/KMime/KMimemod.sip")
-        rule_helpers.module_add_includes(filename, sip, rule, "<akonadi/private/protocol_p.h>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>", "QVector<QByteArray>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KConfigGroup", "KCoreConfigSkeleton",
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def container_rules():
@@ -91,10 +81,10 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "kmime_message.h": {
+        "KMime/KMime/KMimeMessage": {
             "code": _delete_duplicate_content
         },
-        "KMimemod.sip": {
+        "KMime/KMime/KMimemod.sip": {
             "code": module_fix_mapped_types
         },
     }

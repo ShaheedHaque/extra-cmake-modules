@@ -43,7 +43,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "KPackagemod.sip": {
+        "KPackage/KPackage/KPackagemod.sip": {
             "code": module_fix_mapped_types,
         },
     }

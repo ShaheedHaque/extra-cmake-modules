@@ -37,10 +37,10 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KConfigGuimod.sip": {
+        "KConfigGui/KConfigGuimod.sip": {
             "code": module_fix_mapped_types,
         },
-        "kconfigskeleton.h": {
+        "KConfigGui/KConfigSkeleton": {
             "code": module_fix_includes,
         },
     }

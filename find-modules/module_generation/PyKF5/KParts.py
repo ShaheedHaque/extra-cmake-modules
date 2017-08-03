@@ -38,12 +38,11 @@ def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    if sip["name"] == "KParts.KParts":
-        rule_helpers.modulecode_delete(filename, sip, rule, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
-                                       "QMap<QString, QString>")
-        rule_helpers.module_add_classes(filename, sip, rule, "KIconLoader /External/", "KXmlGuiWindow /External/",
-                                        "KSslCertificateBoxPrivate")
-        rule_helpers.module_add_imports(filename, sip, rule, "SonnetCore/Sonnet/Sonnetmod.sip")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
+                                   "QMap<QString, QString>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KIconLoader /External/", "KXmlGuiWindow /External/",
+                                    "KSslCertificateBoxPrivate")
+    rule_helpers.module_add_imports(filename, sip, rule, "SonnetCore/Sonnet/Sonnetmod.sip")
 
 
 def function_rules():
@@ -69,7 +68,7 @@ def modulecode():
         #
         # NOTE: there are two files with the same name!
         #
-        "KPartsmod.sip": {
+        "KParts/KParts/KPartsmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

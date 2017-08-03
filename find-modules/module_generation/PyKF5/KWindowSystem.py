@@ -32,9 +32,16 @@ def module_fix_mapped_types(filename, sip, entry):
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
 
 
+def module_fix_mapped_types_private(filename, sip, entry):
+    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSize>", "QList<unsigned long long>")
+
+
 def modulecode():
     return {
-        "KWindowSystemmod.sip": {
+        "KWindowSystem/KWindowSystemmod.sip": {
             "code": module_fix_mapped_types,
+        },
+        "KWindowSystem/private/privatemod.sip": {
+            "code": module_fix_mapped_types_private,
         },
     }

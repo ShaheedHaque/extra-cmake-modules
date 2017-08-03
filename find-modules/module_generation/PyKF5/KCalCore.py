@@ -80,7 +80,7 @@ def typedef_rules():
 
 def modulecode():
     return {
-        "KCalCoremod.sip": {
+        "KCalCore/KCalCore/KCalCoremod.sip": {
             "code": module_fix_mapped_types,
         },
     }

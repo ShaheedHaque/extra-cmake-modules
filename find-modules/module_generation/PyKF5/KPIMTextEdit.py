@@ -34,7 +34,7 @@ def module_fix_mapped_types(filename, sip, entry):
 
 def modulecode():
     return {
-        "KPIMTextEditmod.sip": {
+        "KPIMTextEdit/KPIMTextEdit/KPIMTextEditmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

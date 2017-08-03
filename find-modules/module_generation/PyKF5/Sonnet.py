@@ -38,7 +38,7 @@ def function_rules():
 
 def modulecode():
     return {
-        "dialog.h": {
+        "SonnetUi/Sonnet/Dialog": {
             "code":
                 """
                 class Sonnet::BackgroundChecker /External/;

@@ -57,7 +57,7 @@ def variable_rules():
 
 def modulecode():
     return {
-        "KLDAPmod.sip": {
+        "KLDAP/KLDAP/KLDAPmod.sip": {
             "code": module_fix_mapped_types,
         },
     }

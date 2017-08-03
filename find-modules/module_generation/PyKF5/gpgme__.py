@@ -54,10 +54,10 @@ def parameter_rules():
 
 def modulecode():
     return {
-        "assuantransaction.h": {
+        "gpgme++/interfaces/assuantransaction.h": {
             "code": module_fix_includes,
         },
-        "interfacesmod.sip": {
+        "gpgme__/interfaces/interfacesmod.sip": {
             "code": module_fix_interfaces,
         },
     }
