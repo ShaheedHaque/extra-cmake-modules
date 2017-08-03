@@ -180,26 +180,15 @@ def module_fix_kiomod(filename, sip, rule):
     Note: there are multiple KIOmod.sip and one kiomod.sip files, and this has to deal with all of them. Yuck.
     """
     #
-    # Fixup the recursion.
-    #
-    lines = []
-    for l in sip["decl"].split("\n"):
-        if "KIOCore/KIOCoremod.sip" in l or "KIOCore/KIO/KIOmod.sip" in l:
-            #
-            # These modules refer to each other.
-            #
-            lines.append("// " + l)
-            continue
-        lines.append(l)
-    sip["decl"] = "\n".join(lines)
-    #
     # SIP cannot handle duplicate %MappedTypes.
     #
     if sip["name"] == "KIOCore.kio":
+        rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIO/KIOmod.sip")
         rule_helpers.modulecode_delete(filename, sip, rule, "QMap<QString, QString>")
         rule_helpers.module_add_classes(filename, sip, rule, "KIO::JobUiDelegateExtension /External/",
                                         "KIO::MetaData /External/")
     elif sip["name"] == "KIOCore.KIO":
+        rule_helpers.module_delete_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
         rule_helpers.modulecode_delete(filename, sip, rule, "QList<QUrl>", "QMap<QString, QString>",
                                        "QVector<unsigned int>")
         rule_helpers.modulecode_make_local(filename, sip, rule, "QMap<QString, QVariant>")

@@ -35,9 +35,10 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>", "QSharedPointer<KMime::Message>")
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::SpecialMailCollectionsPrivate",
-                                  "MailTransport::SentActionAttribute", "Akonadi::Protocol::Command",
-                                  "Akonadi::ServerManagerPrivate", "KWallet::Wallet")
+                                    "MailTransport::SentActionAttribute", "Akonadi::Protocol::Command",
+                                    "Akonadi::ServerManagerPrivate", "KWallet::Wallet", "KMime::Message")
     rule_helpers.module_add_imports(filename, sip, entry, "MailTransport/mailtransport/mailtransportmod.sip")
+    rule_helpers.module_delete_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
 
 
 def parameter_rules():

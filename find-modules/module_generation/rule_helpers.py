@@ -304,6 +304,29 @@ def module_add_imports(basename, sip, rule, *modules):
     sip["code"] += tmp
 
 
+def module_delete_imports(filename, sip, rule, *modules):
+    """
+    Remove unwanted imports from a module.
+
+    :param basename:        The filename of the module, e.g. KCoreAddonsmod.sip.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    :param modules:         The modules to remove.
+    """
+    trace = trace_generated_for(sip["name"], rule, "delete imports")
+    lines = []
+    for l in sip["decl"].split("\n"):
+        l = l.strip()
+        if l.startswith("%Import"):
+            m = l[:-1].split("=", 1)[1]
+            if m in modules:
+                lines.append(trace)
+                lines.append("// " + l)
+                continue
+        lines.append(l)
+    sip["decl"] = "\n".join(lines)
+
+
 def module_add_includes(basename, sip, rule, *includes):
     """
     There are many cases where adding a #include is a useful workaround.
