@@ -81,9 +81,9 @@ class RewriteArrayHelper(HeldAs):
     cxx_to_py_templates = {
         HeldAs.INTEGER:
             """#if PY_MAJOR_VERSION >= 3
-                    {name} = PyLong_FromLong((long){cxx_i});
+                {name} = PyLong_FromLong((long){cxx_i});
 #else
-                    {name} = PyInt_FromLong((long){cxx_i});
+                {name} = PyInt_FromLong((long){cxx_i});
 #endif""",
         HeldAs.FLOAT:
             """                {name} = PyFloat_FromDouble((double){cxx_i});""",
@@ -95,21 +95,19 @@ class RewriteArrayHelper(HeldAs):
 
     py_to_cxx_templates = {
         HeldAs.INTEGER:
-            """             #if PY_MAJOR_VERSION >= 3
-                    (*cxx{name})[i] = (Cxx{name}T)PyLong_AsLong({name});
+            """#if PY_MAJOR_VERSION >= 3
+        (*cxx{name})[i] = (Cxx{name}T)PyLong_AsLong({name});
 #else
-                    (*cxx{name})[i] = (Cxx{name}T)PyInt_AsLong({name});
+        (*cxx{name})[i] = (Cxx{name}T)PyInt_AsLong({name});
 #endif""",
         HeldAs.FLOAT:
-            """                (*cxx{name})[i] = (Cxx{name}T)PyFloat_AsDouble({name});""",
+            """        (*cxx{name})[i] = (Cxx{name}T)PyFloat_AsDouble({name});""",
         HeldAs.POINTER:
             """        int {name}State;
-        Cxx{name}T cxx{name} = NULL;
-        cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
+        Cxx{name}T cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
         HeldAs.OBJECT:
             """        int {name}State;
-        Cxx{name}T *cxx{name} = NULL;
-        cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
+        Cxx{name}T *cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));""",
     }
 
     def cxx_to_py_template(self):
@@ -122,34 +120,29 @@ class RewriteArrayHelper(HeldAs):
 class RewriteMappedHelper(HeldAs):
     cxx_to_py_templates = {
         HeldAs.INTEGER:
-            """    Cxx{name}T cxx{name} = {cxx_i};
-#if PY_MAJOR_VERSION >= 3
-    PyObject *{name} = PyLong_FromLong((long)cxx{name});
+            """#if PY_MAJOR_VERSION >= 3
+    PyObject *{name} = PyLong_FromLong((long){cxx_i});
 #else
-    PyObject *{name} = PyInt_FromLong((long)cxx{name});
+    PyObject *{name} = PyInt_FromLong((long){cxx_i});
 #endif
 """,
         HeldAs.FLOAT:
-            """    Cxx{name}T cxx{name} = {cxx_i};
-    PyObject *{name} = PyFloat_FromDouble((double)cxx{name});
+            """    PyObject *{name} = PyFloat_FromDouble((double){cxx_i});
 """,
         HeldAs.POINTER:
-            """    Cxx{name}T cxx{name} = {cxx_i};
-    PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, {transfer});
+            """    PyObject *{name} = sipConvertFromType({cxx_i}, gen{name}T, {transfer});
 """,
         HeldAs.OBJECT:
-            """    Cxx{name}T *cxx{name} = &{cxx_i};
-    PyObject *{name} = sipConvertFromType(cxx{name}, gen{name}T, {transfer});
+            """    PyObject *{name} = sipConvertFromType(&{cxx_i}, gen{name}T, {transfer});
 """,
     }
 
     py_to_cxx_templates = {
         HeldAs.INTEGER:
-            """    Cxx{name}T cxx{name};
-#if PY_MAJOR_VERSION >= 3
-    cxx{name} = (Cxx{name}T)PyLong_AsLong(sipPy);
+            """#if PY_MAJOR_VERSION >= 3
+    Cxx{name}T cxx{name} = (Cxx{name}T)PyLong_AsLong(sipPy);
 #else
-    cxx{name} = (Cxx{name}T)PyInt_AsLong(sipPy);
+    Cxx{name}T cxx{name} = (Cxx{name}T)PyInt_AsLong(sipPy);
 #endif
 """,
         HeldAs.FLOAT:
@@ -157,13 +150,11 @@ class RewriteMappedHelper(HeldAs):
 """,
         HeldAs.POINTER:
             """    int {name}State;
-    Cxx{name}T cxx{name} = NULL;
-    cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType(sipPy, gen{name}T, {transfer}, SIP_NOT_NONE, &{name}State, &sipErr));
+    Cxx{name}T cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType(sipPy, gen{name}T, {transfer}, SIP_NOT_NONE, &{name}State, &sipErr));
 """,
         HeldAs.OBJECT:
             """    int {name}State;
-    Cxx{name}T *cxx{name} = NULL;
-    cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType(sipPy, gen{name}T, {transfer}, SIP_NOT_NONE, &{name}State, &sipErr));
+    Cxx{name}T *cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType(sipPy, gen{name}T, {transfer}, SIP_NOT_NONE, &{name}State, &sipErr));
 """,
     }
 
