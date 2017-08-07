@@ -22,8 +22,8 @@ SIP binding customisation for PyKF5.KMime. This modules describes:
     * Supplementary SIP file generator rules.
 """
 
-import PyQt_templates
 import rule_helpers
+from templates import PyQt
 
 
 def _delete_duplicate_content(filename, sip, entry):
@@ -38,11 +38,11 @@ def parameter_in_out(container, function, parameter, sip, matcher):
 def parameter_out(container, function, parameter, sip, matcher):
     rule_helpers.parameter_out(container, function, parameter, sip, matcher)
     if sip["decl"].startswith("QPair"):
-        PyQt_templates.pair_parameter(container, function, parameter, sip, matcher)
+        PyQt.pair_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QVector"):
-        PyQt_templates.list_parameter(container, function, parameter, sip, matcher)
+        PyQt.list_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QMap"):
-        PyQt_templates.dict_parameter(container, function, parameter, sip, matcher)
+        PyQt.dict_parameter(container, function, parameter, sip, matcher)
 
 
 def parameter_fully_qualify(container, function, parameter, sip, matcher):

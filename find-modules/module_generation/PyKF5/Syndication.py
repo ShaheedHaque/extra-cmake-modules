@@ -25,7 +25,7 @@ SIP binding customisation for PyKF5.Syndication. This modules describes:
 import os
 
 import rule_helpers
-import PyQt_templates
+from templates import PyQt
 
 
 def param_fully_qualify_default(container, function, parameter, sip, matcher):
@@ -49,7 +49,7 @@ def typedef_duplicate_discard(container, typedef, sip, matcher):
         #
         # This is the one we want. Keep it, and generate its %MappedType.
         #
-        PyQt_templates.pointer_typecode(container, typedef, sip, matcher)
+        PyQt.pointer_typecode(container, typedef, sip, matcher)
 
 
 

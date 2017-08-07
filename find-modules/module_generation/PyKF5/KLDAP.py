@@ -23,7 +23,6 @@ SIP binding customisation for PyKF5.KLDAP. This modules describes:
 """
 
 import rule_helpers
-from PyQt_templates import list_typecode
 
 
 def variable_customise(container, variable, sip, matcher):

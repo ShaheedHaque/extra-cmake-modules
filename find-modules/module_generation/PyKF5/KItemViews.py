@@ -23,8 +23,8 @@ SIP binding customisation for PyKF5.KItemViews. This modules describes:
 """
 
 import builtin_rules
-import PyQt_templates
 import rule_helpers
+from templates import PyQt
 
 
 class FunctionWithTemplatesExpander(builtin_rules.FunctionWithTemplatesExpander):
@@ -34,14 +34,14 @@ class FunctionWithTemplatesExpander(builtin_rules.FunctionWithTemplatesExpander)
     def analyse_function(self, fn, cursor, sip):
         entries = super(FunctionWithTemplatesExpander, self).analyse_function(fn, cursor, sip)
         assert entries["parameters"][0].cxx_t == "QAbstractItemView::CursorAction"
-        entries["parameters"][0] = PyQt_templates.FunctionParameterHelper("int", None)
+        entries["parameters"][0] = PyQt.FunctionParameterHelper("int", None)
         entries["p_types"][0] = "int"
         return entries
 
 
 def function_uses_templates(container, function, sip, matcher):
     sip.setdefault("template", FunctionWithTemplatesExpander)
-    PyQt_templates.function_uses_templates(container, function, sip, matcher)
+    PyQt.function_uses_templates(container, function, sip, matcher)
 
 
 def module_fix_mapped_types(filename, sip, entry):

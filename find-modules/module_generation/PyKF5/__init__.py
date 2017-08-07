@@ -33,27 +33,26 @@ SIP binding customisation for PyKF5. This modules describes:
 
 """
 from __future__ import print_function
-from importlib import import_module
+
 import os
 import re
 import sys
-
 from clang.cindex import AccessSpecifier
+from importlib import import_module
 
-import PyQt_templates
 import common_methodcode
 import common_modulecode
 import common_typecode
 import rule_helpers
 import rules_engine
 from clangcparser import CursorKind
-
+from templates import PyQt
 
 QT_DICT = "QHash|QMap"
 QT_LIST = "QList|QVector"
 QT_SET = "QSet"
 QT_PAIR = "QPair"
-QT_PTRS = PyQt_templates.QT_PTRS
+QT_PTRS = PyQt.QT_PTRS
 
 RE_QT_DICT_TYPEDEF = "(" + QT_DICT + ")<(.*)>"
 RE_QT_LIST_TYPEDEF = "(" + QT_LIST + ")<(.*)>"
@@ -176,20 +175,20 @@ def function_rules():
         # Supplement Qt templates with %MappedTypes for the function result, and call
         # PyQt_templates.function_uses_templates too.
         #
-        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt_templates.dict_fn_result],
-        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt_templates.list_fn_result],
-        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt_templates.set_fn_result],
-        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt_templates.pair_fn_result],
-        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt_templates.pointer_fn_result],
+        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt.dict_fn_result],
+        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt.list_fn_result],
+        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt.set_fn_result],
+        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt.pair_fn_result],
+        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt.pointer_fn_result],
         #
         # Call PyQt_templates.function_uses_templates...the parameters have been dealt
         # with elsewhere.
         #
-        [".*", ".*", ".*", ".*", RE_QT_DICT, PyQt_templates.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_LIST, PyQt_templates.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_SET, PyQt_templates.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_PAIR, PyQt_templates.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_PTRS, PyQt_templates.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_DICT, PyQt.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_LIST, PyQt.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_SET, PyQt.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_PAIR, PyQt.function_uses_templates],
+        [".*", ".*", ".*", ".*", RE_QT_PTRS, PyQt.function_uses_templates],
         #
         # This class has inline implementations in the header file.
         #
@@ -239,11 +238,11 @@ def parameter_rules():
         #
         # Supplement Qt templates with %MappedTypes.
         #
-        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt_templates.dict_parameter],
-        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt_templates.list_parameter],
-        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt_templates.set_parameter],
-        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt_templates.pair_parameter],
-        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt_templates.pointer_parameter],
+        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt.dict_parameter],
+        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt.list_parameter],
+        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt.set_parameter],
+        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt.pair_parameter],
+        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt.pointer_parameter],
     ]
 
 
@@ -252,11 +251,11 @@ def typedef_rules():
         #
         # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", RE_QT_DICT_TYPEDEF, PyQt_templates.dict_typecode],
-        [".*", ".*", ".*", RE_QT_LIST_TYPEDEF, PyQt_templates.list_typecode],
-        [".*", ".*", ".*", RE_QT_SET_TYPEDEF, PyQt_templates.set_typecode],
-        [".*", ".*", ".*", RE_QT_PAIR_TYPEDEF, PyQt_templates.pair_typecode],
-        [".*", ".*", ".*", RE_QT_PTRS_TYPEDEF, PyQt_templates.pointer_typecode],
+        [".*", ".*", ".*", RE_QT_DICT_TYPEDEF, PyQt.dict_typecode],
+        [".*", ".*", ".*", RE_QT_LIST_TYPEDEF, PyQt.list_typecode],
+        [".*", ".*", ".*", RE_QT_SET_TYPEDEF, PyQt.set_typecode],
+        [".*", ".*", ".*", RE_QT_PAIR_TYPEDEF, PyQt.pair_typecode],
+        [".*", ".*", ".*", RE_QT_PTRS_TYPEDEF, PyQt.pointer_typecode],
         #
         # Rewrite uid_t, gid_t as int.
         #

@@ -48,7 +48,7 @@ SIP binding custom type-related code for PyKF5.
 """
 
 from builtin_rules import HeldAs
-from PyQt_templates import list_typecode
+from templates.PyQt import list_typecode
 
 
 _kdeui_qobject_ctscc = """

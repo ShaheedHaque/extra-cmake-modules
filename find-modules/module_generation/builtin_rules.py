@@ -34,10 +34,10 @@ could be handled by calling @see variable_rewrite_array_nonfixed() and then
 """
 
 from __future__ import print_function
+
 import gettext
 import logging
 import re
-
 from clang.cindex import AccessSpecifier, CursorKind, TypeKind
 
 import rule_helpers
@@ -56,52 +56,6 @@ MAPPED_TYPE_RE = re.compile(".*<.*")
 ANNOTATIONS_RE = re.compile(" /.*/")
 RE_PARAMETER_VALUE = re.compile(r"\s*=\s*")
 RE_PARAMETER_TYPE = re.compile(r"(.*[ >&*])(.*)")
-
-
-def parse_template(template, expected=None):
-    """
-    Extract template name and arguments even in cases like 'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
-
-    :return: (name, [args])
-    """
-    name, args = template.split("<", 1)
-    name = name.split()[-1]
-    text = args.rsplit(">", 1)[0]
-    args = []
-    bracket_level = 0
-    left = 0
-    for right, token in enumerate(text):
-        if bracket_level <= 0 and token is ",":
-            args.append(text[left:right].strip())
-            left = right + 1
-        elif token is "<":
-            bracket_level += 1
-        elif token is ">":
-            bracket_level -= 1
-    args.append(text[left:].strip())
-    if expected is not None:
-        assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
-    return name, args
-
-
-def actual_type(parameter_text):
-    """
-    :param parameter_text:              The text from the source code.
-    :return: the type of the parameter.
-    """
-    return parameter_text
-
-
-def base_type(parameter_text):
-    """
-    :param parameter_text:              The text from the source code.
-    :return: the base_type of the parameter, e.g. without a pointer suffix.
-    """
-    if parameter_text.endswith(("*", "&")):
-        parameter_text = parameter_text[:-1].strip()
-    if parameter_text.startswith("const "):
-        parameter_text = parameter_text[6:]
-    return parameter_text
 
 
 def initialise_cxx_decl(sip):
@@ -166,7 +120,7 @@ class HeldAs(object):
         """
         self.cxx_t = cxx_t
         if base_cxx_t is None:
-            base_cxx_t = base_type(cxx_t)
+            base_cxx_t = self.base_type(cxx_t)
         #
         # This may be a mapped type.
         #
@@ -189,6 +143,26 @@ class HeldAs(object):
 
     def py_to_cxx_template(self):
         raise NotImplementedError()
+
+    @staticmethod
+    def actual_type(parameter_text):
+        """
+        :param parameter_text:              The text from the source code.
+        :return: the type of the parameter.
+        """
+        return parameter_text
+
+    @staticmethod
+    def base_type(parameter_text):
+        """
+        :param parameter_text:              The text from the source code.
+        :return: the base_type of the parameter, e.g. without a pointer suffix.
+        """
+        if parameter_text.endswith(("*", "&")):
+            parameter_text = parameter_text[:-1].strip()
+        if parameter_text.startswith("const "):
+            parameter_text = parameter_text[6:]
+        return parameter_text
 
     @staticmethod
     def categorise(cxx_t, clang_t):
