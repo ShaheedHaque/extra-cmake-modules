@@ -25,14 +25,12 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 """
-SIP binding custom type-related code for PyQt-template classes. The main
-content is:
+SIP binding code for PyQt-template classes. The main content is:
 
     - FunctionDb, ParameterDb and TypeCodeDb-compatible entries usable in
       RuleSets (e.g. {dict, list, set}_{fn_result, parameter_typecode}).
 
-    - {Pair,Pointer}Expander derived classes which implement corresponding
-      templates.
+    - {Pair,Pointer}Expander classes which implement corresponding templates.
 
 This is supported by other public methods and classes which can be used as
 examples and/or helper code.
@@ -54,17 +52,17 @@ logger = logging.getLogger(__name__)
 # Keep PyCharm happy.
 _ = _
 
-QT_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
-RE_QSHAREDPTR = re.compile("(const )?" + QT_PTRS + "<(.*)>( .)?")
+KNOWN_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
+RE_KNOWN_PTRS = re.compile("(const )?" + KNOWN_PTRS + "<(.*)>( .)?")
 
 
 class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
     """
     Automatic handling for templated function parameter types with auto-unwrapping
-    of QT_PTRS.
+    of KNOWN_PTRS.
     """
     def __init__(self, cxx_t, clang_t, manual_t=None):
-        is_qshared = RE_QSHAREDPTR.match(cxx_t)
+        is_qshared = RE_KNOWN_PTRS.match(cxx_t)
         if is_qshared:
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]
@@ -107,10 +105,10 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
 class FunctionReturnHelper(builtin_rules.FunctionReturnHelper):
     """
     Automatic handling for templated function return types with auto-unwrapping
-    of QT_PTRS templates.
+    of KNOWN_PTRS templates.
     """
     def __init__(self, cxx_t, clang_t, manual_t=None):
-        is_qshared = RE_QSHAREDPTR.match(cxx_t)
+        is_qshared = RE_KNOWN_PTRS.match(cxx_t)
         if is_qshared:
             template_type = is_qshared.group(2)
             template_args = [is_qshared.group(5)]

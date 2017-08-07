@@ -52,7 +52,7 @@ QT_DICT = "QHash|QMap"
 QT_LIST = "QList|QVector"
 QT_SET = "QSet"
 QT_PAIR = "QPair"
-QT_PTRS = PyQt.QT_PTRS
+QT_PTRS = PyQt.KNOWN_PTRS
 
 RE_QT_DICT_TYPEDEF = "(" + QT_DICT + ")<(.*)>"
 RE_QT_LIST_TYPEDEF = "(" + QT_LIST + ")<(.*)>"
