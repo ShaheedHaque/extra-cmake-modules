@@ -41,9 +41,8 @@ import gettext
 import logging
 import os
 
-from builtin_rules import HeldAs
 from clangcparser import CursorKind, TypeKind
-from rule_helpers import trace_generated_for
+from rule_helpers import trace_generated_for, HeldAs
 
 
 gettext.install(os.path.basename(__file__))
