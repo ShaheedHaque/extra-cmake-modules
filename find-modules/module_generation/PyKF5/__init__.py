@@ -443,7 +443,6 @@ class RuleSet(rules_engine.RuleSet):
         result.append(os.path.join(source_root, "kio"))
         result.append(os.path.join(source_root, "kjs"))
         result.append(os.path.join(source_root, "wtf"))
-        result.append(os.path.join(source_root, "MailTransport", "mailtransport", "sentactionattribute.h"))
         result.append(os.path.join(source_root, "MailTransport", "mailtransport", "transportbase.h"))
         result = sorted(result)
         return result
