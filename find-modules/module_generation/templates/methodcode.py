@@ -406,8 +406,8 @@ def function_uses_templates(container, function, sip, rule):
     for C++ functions with templated return types and/or parameters.
 
     Rule writers can tailor the expansion using custom subclasses of
-    FunctionExpander, FunctionParameterHelper and
-    FunctionReturnHelper passed via sip attributes:
+    FunctionExpander, FunctionParameterHelper and FunctionReturnHelper
+    passed via sip attributes:
 
         - "template"            Provide the overall template.
         - "parameter_helper"    Tailored parameter handling.

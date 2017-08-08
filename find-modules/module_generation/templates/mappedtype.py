@@ -71,11 +71,11 @@ class AbstractExpander(object):
         self.variables = variables
 
     @abstractmethod
-    def expand_generic(self, qt_type, entries):
+    def expand_generic(self, template_t, entries):
         """
         Expand a text-template using the passed parameters.
 
-        :param qt_type:         The name of the Qt template, such as "QMap" or "QHash".
+        :param template_t:      The name of the C++ template, such as "QMap" or "std::vector".
         :param entries:         Dictionary describing the C++ template. Expected keys:
 
                                     variable1..N    Is the variable integral, pointer or object?
@@ -243,13 +243,13 @@ class DictExpander(AbstractExpander):
     def __init__(self):
         super(DictExpander, self).__init__(["key", "value"])
 
-    def expand_generic(self, qt_type, entries):
+    def expand_generic(self, template_t, entries):
         """
         Generic support for C++ types which map onto a Python dict, such as QMap<k, v> and
         QHash<k, v>. Either template parameter can be of any integral (int, long, enum) type
         or non-integral type, for example, QMap<int, QString>.
 
-        :param qt_type:         The name of the Qt template, e.g. "QMap".
+        :param template_t:      The name of the C++ template, e.g. "QMap".
         :param entries:         Dictionary describing the C++ template. Expected keys:
 
                                     key             Is the key integral, pointer or object?
@@ -259,7 +259,7 @@ class DictExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{qt_type}>
+#include <{template_t}>
 %End
 %ConvertFromTypeCode
 """
@@ -274,8 +274,8 @@ class DictExpander(AbstractExpander):
     }
 
     // Set the dictionary elements.
-    {qt_type}<CxxkeyT, CxxvalueT>::const_iterator i = sipCpp->constBegin();
-    {qt_type}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
+    {template_t}<CxxkeyT, CxxvalueT>::const_iterator i = sipCpp->constBegin();
+    {template_t}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
         code += key_h.cxx_to_py("key", True, "i.key()")
@@ -336,7 +336,7 @@ class DictExpander(AbstractExpander):
     }
 
     // Convert the dict to C++.
-    {qt_type}<CxxkeyT, CxxvalueT> *dict = new {qt_type}<CxxkeyT, CxxvalueT>();
+    {template_t}<CxxkeyT, CxxvalueT> *dict = new {template_t}<CxxkeyT, CxxvalueT>();
     while (PyDict_Next(sipPy, &i, &key, &value)) {
 """
         code += key_h.py_to_cxx("key", True, "key")
@@ -372,7 +372,7 @@ class DictExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{qt_type}", qt_type)
+        code = code.replace("{template_t}", template_t)
         code = code.replace("{key_t}", key_h.cxx_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
@@ -383,13 +383,13 @@ class ListExpander(AbstractExpander):
     def __init__(self):
         super(ListExpander, self).__init__(["value"])
 
-    def expand_generic(self, qt_type, entries):
+    def expand_generic(self, template_t, entries):
         """
         Generic support for C++ types which map onto a Python list, such as QList<v> and
         QVector<v>. The template parameter can be of any integral (int, long, enum) type
-        or non-integral type, for example, QList<int> or QList<QString>.
+        or non-integral type, for example, QList<int> or std::vector<QString>.
 
-        :param qt_type:         The name of the Qt template, e.g. "QList".
+        :param template_t:      The name of the C++ template, e.g. "QList".
         :param entries:         Dictionary describing the C++ template. Expected keys:
 
                                     value           Is the value integral, pointer or object?
@@ -397,7 +397,7 @@ class ListExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{qt_type}>
+#include <{template_t}>
 %End
 %ConvertFromTypeCode
 """
@@ -456,7 +456,7 @@ class ListExpander(AbstractExpander):
     }
 
     // Convert the list to C++.
-    {qt_type}<CxxvalueT> *list = new {qt_type}<CxxvalueT>();
+    {template_t}<CxxvalueT> *list = new {template_t}<CxxvalueT>();
     for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
         value = PyList_GET_ITEM(sipPy, i);
 """
@@ -484,7 +484,7 @@ class ListExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{qt_type}", qt_type)
+        code = code.replace("{template_t}", template_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
 
@@ -494,13 +494,14 @@ class SetExpander(AbstractExpander):
     def __init__(self):
         super(SetExpander, self).__init__(["value"])
 
-    def expand_generic(self, qt_type, entries):
+    def expand_generic(self, template_t, entries):
         """
-        Generic support for QSet<v>. The template parameter can be of any
-        integral (int, long, enum) type or non-integral type, for example,
-        QSet<int> or QSet<QString>.
+        Generic support for C++ types which map onto a Python set, such as
+        QSet<v>. The template parameter can be of any integral (int, long,
+        enum) type or non-integral type, for example, QSet<int> or
+        QSet<QString>.
 
-        :param qt_type:         The name of the Qt template, e.g. "QSet".
+        :param template_t:      The name of the C++ template, e.g. "QSet".
         :param entries:         Dictionary describing the C++ template. Expected keys:
 
                                     value           Is the item integral, pointer or object?
@@ -508,7 +509,7 @@ class SetExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{qt_type}>
+#include <{template_t}>
 %End
 %ConvertFromTypeCode
 """
@@ -522,8 +523,8 @@ class SetExpander(AbstractExpander):
     }
 
     // Set the set elements.
-    {qt_type}<CxxvalueT>::const_iterator i = sipCpp->constBegin();
-    {qt_type}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
+    {template_t}<CxxvalueT>::const_iterator i = sipCpp->constBegin();
+    {template_t}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
         code += value_h.cxx_to_py("value", True, "*i", "*i")
@@ -577,7 +578,7 @@ class SetExpander(AbstractExpander):
     }
 
     // Convert the set to C++.
-    {qt_type}<CxxvalueT> *set = new {qt_type}<CxxvalueT>();
+    {template_t}<CxxvalueT> *set = new {template_t}<CxxvalueT>();
     while ((value = PyIter_Next(i)) != NULL) {
 """
         code += value_h.py_to_cxx("value", True, "value")
@@ -606,7 +607,7 @@ class SetExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
-        code = code.replace("{qt_type}", qt_type)
+        code = code.replace("{template_t}", template_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
 
