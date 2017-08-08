@@ -21,18 +21,17 @@ SIP binding customisation for PyKF5.KItemViews. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
-import builtin_rules
 import rule_helpers
 from templates import PyQt
+import templates.methodcode
 
 
-class FunctionWithTemplatesExpander(builtin_rules.FunctionWithTemplatesExpander):
+class FunctionExpander(templates.methodcode.FunctionExpander):
     """
     Override the use of the protected enum 'QAbstractItemView::CursorAction'.
     """
     def analyse_function(self, fn, cursor, sip):
-        entries = super(FunctionWithTemplatesExpander, self).analyse_function(fn, cursor, sip)
+        entries = super(FunctionExpander, self).analyse_function(fn, cursor, sip)
         assert entries["parameters"][0].cxx_t == "QAbstractItemView::CursorAction"
         entries["parameters"][0] = PyQt.FunctionParameterHelper("int", None)
         entries["p_types"][0] = "int"
@@ -40,7 +39,7 @@ class FunctionWithTemplatesExpander(builtin_rules.FunctionWithTemplatesExpander)
 
 
 def function_uses_templates(container, function, sip, matcher):
-    sip.setdefault("template", FunctionWithTemplatesExpander)
+    sip.setdefault("template", FunctionExpander)
     PyQt.function_uses_templates(container, function, sip, matcher)
 
 

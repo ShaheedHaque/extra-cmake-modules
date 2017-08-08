@@ -86,21 +86,14 @@ import re
 from clangcparser import CursorKind, TypeKind
 
 
+ANNOTATIONS_RE = re.compile(" /.*/")
+
 #
 # By default, rules return None. This causes the rule-firing logic to emit
 # diagnostics recording what, if anything, changed. Rules which want to
 # suppress "nothing changed" messages should return SILENT_NOOP.
 #
 SILENT_NOOP = "do-not-report-lack-of-changes"
-
-
-def noop(*args):
-    """
-    This action function "does nothing" but without causing a warning.
-    For example, using this as the action in an ForwardDeclarationDb entry can
-    be used to override the default "drop forward declarations" rule.
-    """
-    return SILENT_NOOP
 
 
 def fqn(cursor, alternate_spelling=None):
@@ -169,6 +162,37 @@ def trace_generated_for(item, rule, extra):
 def trace_modified_by(item, rule):
     trace = "// Modified {} (by {}):\n".format(item_describe(item), rule)
     return trace
+
+
+def initialise_cxx_decl(sip):
+    """
+    Initialise a C++ declaration.
+
+    :param sip:
+    :return: Any annotations we found.
+    """
+    annotations = []
+    sip["cxx_parameters"] = []
+    for p in sip["parameters"]:
+        a = ANNOTATIONS_RE.search(p)
+        if a:
+            a = a.group()
+            p = ANNOTATIONS_RE.sub("", p)
+        else:
+            a = ""
+        annotations.append(a)
+        sip["cxx_parameters"].append(p)
+    sip["cxx_fn_result"] = sip["fn_result"]
+    return annotations
+
+
+def noop(*args):
+    """
+    This action function "does nothing" but without causing a warning.
+    For example, using this as the action in an ForwardDeclarationDb entry can
+    be used to override the default "drop forward declarations" rule.
+    """
+    return SILENT_NOOP
 
 
 def container_discard(container, sip, matcher):

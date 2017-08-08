@@ -25,13 +25,16 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 """
-Generic SIP binding code for C++-template classes. The main content is:
+Generic SIP %MappedType code for C++-template classes. The main content is:
 
     - The AbstractExpander class which is a model of how template expansion
       can be performed as needed.
 
     - {Dict,List,Set}Expander derived classes which implement corresponding
       templates.
+
+    - FunctionDb, ParameterDb and TypeCodeDb-compatible entries usable in
+      RuleSets (e.g. {dict,list,set}_{fn_result,parameter,typecode}).
 
 This is supported by other public methods and classes which can be used as
 examples and/or helper code.
@@ -133,6 +136,32 @@ class AbstractExpander(object):
         :param text:            The item text to be expanded.
         :param sip:             The sip.
         """
+        def parse_template(template, expected):
+            """
+            Extract template name and arguments even in cases like
+            'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
+
+            :return: (name, [args])
+            """
+            name, args = template.split("<", 1)
+            name = name.split()[-1]
+            text = args.rsplit(">", 1)[0]
+            args = []
+            bracket_level = 0
+            left = 0
+            for right, token in enumerate(text):
+                if bracket_level <= 0 and token is ",":
+                    args.append(text[left:right].strip())
+                    left = right + 1
+                elif token is "<":
+                    bracket_level += 1
+                elif token is ">":
+                    bracket_level -= 1
+            args.append(text[left:].strip())
+            assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected,
+                                                                                                  template, args)
+            return name, args
+
         expected_parameters = self.variables
         #
         # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
@@ -582,30 +611,85 @@ class SetExpander(AbstractExpander):
         return code
 
 
-def parse_template(template, expected=None):
+def dict_fn_result(container, fn, sip, rule):
     """
-    Extract template name and arguments even in cases like 'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    template = DictExpander()
+    template.expand(rule, fn, sip["fn_result"], sip)
 
-    :return: (name, [args])
+
+def dict_parameter(container, fn, parameter, sip, rule):
     """
-    name, args = template.split("<", 1)
-    name = name.split()[-1]
-    text = args.rsplit(">", 1)[0]
-    args = []
-    bracket_level = 0
-    left = 0
-    for right, token in enumerate(text):
-        if bracket_level <= 0 and token is ",":
-            args.append(text[left:right].strip())
-            left = right + 1
-        elif token is "<":
-            bracket_level += 1
-        elif token is ">":
-            bracket_level -= 1
-    args.append(text[left:].strip())
-    if expected is not None:
-        assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
-    return name, args
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    template = DictExpander()
+    template.expand(rule, parameter, sip["decl"], sip)
+
+
+def dict_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    template = DictExpander()
+    template.expand(rule, typedef, sip["decl"], sip)
+
+
+def list_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    template = ListExpander()
+    template.expand(rule, fn, sip["fn_result"], sip)
+
+
+def list_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    template = ListExpander()
+    template.expand(rule, parameter, sip["decl"], sip)
+
+
+def list_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    template = ListExpander()
+    template.expand(rule, typedef, sip["decl"], sip)
+
+
+def set_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    template = SetExpander()
+    template.expand(rule, fn, sip["fn_result"], sip)
+
+
+def set_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    template = SetExpander()
+    template.expand(rule, parameter, sip["decl"], sip)
+
+
+def set_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    template = SetExpander()
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 class GenerateMappedHelper(HeldAs):

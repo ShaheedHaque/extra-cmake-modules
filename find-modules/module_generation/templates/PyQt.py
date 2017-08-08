@@ -28,7 +28,7 @@
 SIP binding code for PyQt-template classes. The main content is:
 
     - FunctionDb, ParameterDb and TypeCodeDb-compatible entries usable in
-      RuleSets (e.g. {dict, list, set}_{fn_result, parameter_typecode}).
+      RuleSets (e.g. {dict,list,set}_{fn_result,parameter,typecode}).
 
     - {Pair,Pointer}Expander classes which implement corresponding templates.
 
@@ -42,9 +42,10 @@ import os
 import re
 
 import builtin_rules
+import templates.mappedtype
+import templates.methodcode
 from builtin_rules import HeldAs
 from clangcparser import TypeKind
-from templates.expander import DictExpander, ListExpander, SetExpander, AbstractExpander
 
 gettext.install(os.path.basename(__file__))
 logger = logging.getLogger(__name__)
@@ -56,27 +57,27 @@ KNOWN_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
 RE_KNOWN_PTRS = re.compile("(const )?" + KNOWN_PTRS + "<(.*)>( .)?")
 
 
-class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
+class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
     """
     Automatic handling for templated function parameter types with auto-unwrapping
     of KNOWN_PTRS.
     """
     def __init__(self, cxx_t, clang_t, manual_t=None):
-        is_qshared = RE_KNOWN_PTRS.match(cxx_t)
-        if is_qshared:
-            template_type = is_qshared.group(2)
-            template_args = [is_qshared.group(5)]
+        is_pointer = RE_KNOWN_PTRS.match(cxx_t)
+        if is_pointer:
+            template_type = is_pointer.group(2)
+            template_args = [is_pointer.group(5)]
             cxx_t = template_args[0] + " *"
         super(FunctionParameterHelper, self).__init__(cxx_t, clang_t, manual_t)
-        self.is_qshared = is_qshared
+        self.is_pointer = is_pointer
 
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
-        if self.is_qshared:
+        if self.is_pointer:
             cxx_i += ".data()"
         return super(FunctionParameterHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
-        if self.is_qshared:
+        if self.is_pointer:
             code = """    typedef """ + HeldAs.base_type(original_type) + """ Cxx{aN}T;
     Cxx{aN}T *cxx{aN} = new Cxx{aN}T({aN});
 """
@@ -94,7 +95,7 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
         return super(FunctionParameterHelper, self).cxx_to_cxx(aN, original_type, is_out_paramter)
 
     def py_parameter(self, type_, name, default, annotations):
-        if self.is_qshared and default:
+        if self.is_pointer and default:
             #
             # TODO: We really just want default.data() as the default value, but SIP gets confused.
             #
@@ -102,27 +103,27 @@ class FunctionParameterHelper(builtin_rules.FunctionParameterHelper):
         return super(FunctionParameterHelper, self).py_parameter(type_, name, default, annotations)
 
 
-class FunctionReturnHelper(builtin_rules.FunctionReturnHelper):
+class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
     """
     Automatic handling for templated function return types with auto-unwrapping
     of KNOWN_PTRS templates.
     """
     def __init__(self, cxx_t, clang_t, manual_t=None):
-        is_qshared = RE_KNOWN_PTRS.match(cxx_t)
-        if is_qshared:
-            template_type = is_qshared.group(2)
-            template_args = [is_qshared.group(5)]
+        is_pointer = RE_KNOWN_PTRS.match(cxx_t)
+        if is_pointer:
+            template_type = is_pointer.group(2)
+            template_args = [is_pointer.group(5)]
             cxx_t = template_args[0] + " *"
         super(FunctionReturnHelper, self).__init__(cxx_t, clang_t, manual_t)
-        self.is_qshared = is_qshared
+        self.is_pointer = is_pointer
 
     def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
-        if self.is_qshared:
+        if self.is_pointer:
             cxx_i += ".data()"
         return super(FunctionReturnHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
 
     def py_fn_result(self, is_constructor):
-        if self.is_qshared:
+        if self.is_pointer:
             return self.cxx_t
         return super(FunctionReturnHelper, self).py_fn_result(is_constructor)
 
@@ -144,8 +145,7 @@ def dict_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    template = DictExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
+    templates.mappedtype.dict_fn_result(container, fn, sip, rule)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -154,8 +154,7 @@ def dict_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
-    template = DictExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
+    templates.mappedtype.dict_parameter(container, fn, parameter, sip, rule)
 
 
 def dict_typecode(container, typedef, sip, rule):
@@ -163,8 +162,7 @@ def dict_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
-    template = DictExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
+    templates.mappedtype.dict_typecode(container, typedef, sip, rule)
 
 
 def list_fn_result(container, fn, sip, rule):
@@ -174,8 +172,7 @@ def list_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    template = ListExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
+    templates.mappedtype.list_fn_result(container, fn, sip, rule)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -184,8 +181,7 @@ def list_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python lists.
     """
-    template = ListExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
+    templates.mappedtype.list_parameter(container, fn, parameter, sip, rule)
 
 
 def list_typecode(container, typedef, sip, rule):
@@ -193,8 +189,7 @@ def list_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python lists.
     """
-    template = ListExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
+    templates.mappedtype.list_typecode(container, typedef, sip, rule)
 
 
 def set_fn_result(container, fn, sip, rule):
@@ -204,8 +199,7 @@ def set_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    template = SetExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
+    templates.mappedtype.set_fn_result(container, fn, sip, rule)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -214,8 +208,7 @@ def set_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
-    template = SetExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
+    templates.mappedtype.set_parameter(container, fn, parameter, sip, rule)
 
 
 def set_typecode(container, typedef, sip, rule):
@@ -223,8 +216,7 @@ def set_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
-    template = SetExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
+    templates.mappedtype.set_typecode(container, typedef, sip, rule)
 
 
 def pair_fn_result(container, fn, sip, rule):
@@ -294,7 +286,7 @@ def pointer_typecode(container, typedef, sip, rule):
     handler.expand(rule, typedef, sip["decl"], sip)
 
 
-class PairExpander(AbstractExpander):
+class PairExpander(templates.mappedtype.AbstractExpander):
 
     def __init__(self):
         super(PairExpander, self).__init__(["first", "second"])
@@ -430,7 +422,7 @@ class PairExpander(AbstractExpander):
         return code
 
 
-class PointerExpander(AbstractExpander):
+class PointerExpander(templates.mappedtype.AbstractExpander):
 
     def __init__(self):
         super(PointerExpander, self).__init__(["value"])

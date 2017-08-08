@@ -24,9 +24,8 @@ SIP binding customisation for PyKF5.Akonadi. This modules describes:
 
 import builtin_rules
 import rule_helpers
-import templates.expander
+import templates.mappedtype
 from rule_helpers import trace_generated_for
-from templates import PyQt
 
 
 def _function_rewrite_using_decl(container, function, sip, matcher):
@@ -52,8 +51,8 @@ def _typedef_add_collections(container, typedef, sip, rule):
         "type": parameter,
         "base_type": parameter,
     }
-    value_h = templates.expander.GenerateMappedHelper(value, None)
-    handler = PyQt.ListExpander()
+    value_h = templates.mappedtype.GenerateMappedHelper(value, None)
+    handler = templates.mappedtype.ListExpander()
     for qt_type in ["QList", "QVector"]:
         mapped_type = "{}<{}>".format(qt_type, parameter)
         trace = trace_generated_for(typedef, rule, {"value": value_h.category})
