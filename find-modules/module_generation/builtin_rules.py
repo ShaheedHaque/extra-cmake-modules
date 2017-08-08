@@ -517,7 +517,7 @@ def function_rules():
         #
         # Handle functions with templated return types and/or templated parameters.
         #
-        [".*", ".*", ".*", "[A-Za-z0-9_:]+<.*>", ".*", function_uses_templates],
+        [".*", ".*", ".*", ".*[A-Za-z0-9_:]+<.*>.*", ".*", function_uses_templates],
         [".*", ".*", ".*", ".*", ".*[A-Za-z0-9_:]+<.*>.*", function_uses_templates],
     ]
 
