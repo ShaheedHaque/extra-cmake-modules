@@ -281,10 +281,12 @@ class ModuleGenerator(object):
                         per_thread_args.append((dirpath, filenames))
             else:
                 #
-                # Assume it is a single-directory glob.
+                # Assume it is a single-directory re.
                 #
                 dirpath = os.path.dirname(source)
-                filenames = [os.path.basename(f) for f in glob.iglob(source) if os.path.isfile(f)]
+                filename_re = re.compile(os.path.basename(source))
+                matcher = lambda dirpath, f: os.path.isfile(os.path.join(dirpath, f)) and filename_re.match(f)
+                filenames = [f for f in os.listdir(dirpath) if matcher(dirpath, f)]
                 filenames = self.included_h_names(dirpath, filenames)
                 if filenames:
                     per_thread_args.append((dirpath, filenames))
