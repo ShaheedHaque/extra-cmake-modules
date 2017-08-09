@@ -32,8 +32,6 @@ SIP binding customisation for PyKF5. This modules describes:
     * The SIP compilation rules.
 
 """
-from __future__ import print_function
-
 import os
 import re
 import sys
@@ -45,26 +43,8 @@ import common_modulecode
 import common_typecode
 import rule_helpers
 import rules_engine
+import templates.PyQt
 from clangcparser import CursorKind
-from templates import PyQt
-
-QT_DICT = "QHash|QMap"
-QT_LIST = "QList|QVector"
-QT_SET = "QSet"
-QT_PAIR = "QPair"
-QT_PTRS = PyQt.KNOWN_PTRS
-
-RE_QT_DICT_TYPEDEF = "(" + QT_DICT + ")<(.*)>"
-RE_QT_LIST_TYPEDEF = "(" + QT_LIST + ")<(.*)>"
-RE_QT_SET_TYPEDEF = QT_SET + "<(.*)>"
-RE_QT_PAIR_TYPEDEF = QT_PAIR + "<(.*)>"
-RE_QT_PTRS_TYPEDEF = QT_PTRS + "<(.*)>"
-
-RE_QT_DICT = "(const )?" + RE_QT_DICT_TYPEDEF + ".*"
-RE_QT_LIST = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
-RE_QT_SET = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
-RE_QT_PAIR = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
-RE_QT_PTRS = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
 
 
 def _function_discard_class(container, fn, sip, matcher):
@@ -172,24 +152,6 @@ def function_rules():
         [".*", ".*", ".+", ".*", ".*", rule_helpers.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rule_helpers.function_discard],
         #
-        # Supplement Qt templates with %MappedTypes for the function result, and call
-        # PyQt_templates.function_uses_templates too.
-        #
-        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt.dict_fn_result],
-        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt.list_fn_result],
-        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt.set_fn_result],
-        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt.pair_fn_result],
-        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt.pointer_fn_result],
-        #
-        # Call PyQt_templates.function_uses_templates...the parameters have been dealt
-        # with elsewhere.
-        #
-        [".*", ".*", ".*", ".*", RE_QT_DICT, PyQt.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_LIST, PyQt.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_SET, PyQt.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_PAIR, PyQt.function_uses_templates],
-        [".*", ".*", ".*", ".*", RE_QT_PTRS, PyQt.function_uses_templates],
-        #
         # This class has inline implementations in the header file.
         #
         ["KIconEngine|KIconLoader::Group", ".*", ".*", ".*", ".*", _function_discard_impl],
@@ -235,27 +197,11 @@ def parameter_rules():
         # TODO: Temporarily trim any parameters which start "enum".
         #
         ["KAboutData", ".*", "licenseType", ".*", ".*", _parameter_strip_class_enum],
-        #
-        # Supplement Qt templates with %MappedTypes.
-        #
-        [".*", ".*", ".*", RE_QT_DICT, ".*", PyQt.dict_parameter],
-        [".*", ".*", ".*", RE_QT_LIST, ".*", PyQt.list_parameter],
-        [".*", ".*", ".*", RE_QT_SET, ".*", PyQt.set_parameter],
-        [".*", ".*", ".*", RE_QT_PAIR, ".*", PyQt.pair_parameter],
-        [".*", ".*", ".*", RE_QT_PTRS, ".*", PyQt.pointer_parameter],
     ]
 
 
 def typedef_rules():
     return [
-        #
-        # Supplement Qt templates with manual code.
-        #
-        [".*", ".*", ".*", RE_QT_DICT_TYPEDEF, PyQt.dict_typecode],
-        [".*", ".*", ".*", RE_QT_LIST_TYPEDEF, PyQt.list_typecode],
-        [".*", ".*", ".*", RE_QT_SET_TYPEDEF, PyQt.set_typecode],
-        [".*", ".*", ".*", RE_QT_PAIR_TYPEDEF, PyQt.pair_typecode],
-        [".*", ".*", ".*", RE_QT_PTRS_TYPEDEF, PyQt.pointer_typecode],
         #
         # Rewrite uid_t, gid_t as int.
         #
@@ -307,8 +253,19 @@ class RuleSet(rules_engine.RuleSet):
     and regular expression-based matching rules.
     """
     def __init__(self):
-        super(RuleSet, self).__init__(rules_module=sys.modules[__name__], methodcode=common_methodcode.code,
-                                      modulecode=common_modulecode.code, typecode=common_typecode.code)
+        super(RuleSet, self).__init__()
+        #
+        # Add PyQt template support.
+        #
+        self.add_rules(rules_module=templates.PyQt)
+        #
+        # Add module-generic PyKF5 rules.
+        #
+        self.add_rules(rules_module=sys.modules[__name__], methodcode=common_methodcode.code,
+                       modulecode=common_modulecode.code, typecode=common_typecode.code)
+        #
+        # Add module-specific PyKF5 rules.
+        #
         for rules_module in [
             "Akonadi",
             "CalendarSupport",

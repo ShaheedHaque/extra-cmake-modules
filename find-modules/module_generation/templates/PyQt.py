@@ -56,6 +56,25 @@ _ = _
 KNOWN_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
 RE_KNOWN_PTRS = re.compile("(const )?" + KNOWN_PTRS + "<(.*)>( .)?")
 
+QT_DICT = "QHash|QMap"
+QT_LIST = "QList|QVector"
+QT_SET = "QSet"
+QT_PAIR = "QPair"
+QT_PTRS = KNOWN_PTRS
+
+RE_QT_DICT_TYPEDEF = "(" + QT_DICT + ")<(.*)>"
+RE_QT_LIST_TYPEDEF = "(" + QT_LIST + ")<(.*)>"
+RE_QT_SET_TYPEDEF = QT_SET + "<(.*)>"
+RE_QT_PAIR_TYPEDEF = QT_PAIR + "<(.*)>"
+RE_QT_PTRS_TYPEDEF = QT_PTRS + "<(.*)>"
+
+RE_QT_DICT = "(const )?" + RE_QT_DICT_TYPEDEF + ".*"
+RE_QT_LIST = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
+RE_QT_SET = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
+RE_QT_PAIR = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
+RE_QT_PTRS = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
+
+RE_UNTEMPLATED_FN = ".*[^>]"
 
 class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
     """
@@ -126,164 +145,6 @@ class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
         if self.is_pointer:
             return self.cxx_t
         return super(FunctionReturnHelper, self).py_fn_result(is_constructor)
-
-
-def function_uses_templates(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create %MethodCode expansions
-    for C++ functions with templated return types and/or parameters.
-    """
-    sip.setdefault("parameter_helper", FunctionParameterHelper)
-    sip.setdefault("return_helper", FunctionReturnHelper)
-    builtin_rules.function_uses_templates(container, fn, sip, rule)
-
-
-def dict_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-
-    A call to function_uses_templates handles the %MethodCode expansion.
-    """
-    templates.mappedtype.dict_fn_result(container, fn, sip, rule)
-    function_uses_templates(container, fn, sip, rule)
-
-
-def dict_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-    """
-    templates.mappedtype.dict_parameter(container, fn, parameter, sip, rule)
-
-
-def dict_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-    """
-    templates.mappedtype.dict_typecode(container, typedef, sip, rule)
-
-
-def list_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-
-    A call to function_uses_templates handles the %MethodCode expansion.
-    """
-    templates.mappedtype.list_fn_result(container, fn, sip, rule)
-    function_uses_templates(container, fn, sip, rule)
-
-
-def list_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-    """
-    templates.mappedtype.list_parameter(container, fn, parameter, sip, rule)
-
-
-def list_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-    """
-    templates.mappedtype.list_typecode(container, typedef, sip, rule)
-
-
-def set_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-
-    A call to function_uses_templates handles the %MethodCode expansion.
-    """
-    templates.mappedtype.set_fn_result(container, fn, sip, rule)
-    function_uses_templates(container, fn, sip, rule)
-
-
-def set_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-    """
-    templates.mappedtype.set_parameter(container, fn, parameter, sip, rule)
-
-
-def set_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-    """
-    templates.mappedtype.set_typecode(container, typedef, sip, rule)
-
-
-def pair_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for a
-    QPair<> (using a 2-tuple).
-
-    A call to function_uses_templates handles the %MethodCode expansion.
-    """
-    template = PairExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
-    function_uses_templates(container, fn, sip, rule)
-
-
-def pair_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for a
-    QPair<> (using a 2-tuple).
-    """
-    handler = PairExpander()
-    handler.expand(rule, parameter, sip["decl"], sip)
-
-
-def pair_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for a
-    QPair<> (using a 2-tuple).
-    """
-    template = PairExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
-
-
-def pointer_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for a
-    Qt pointer type.
-
-    A call to function_uses_templates handles the %MethodCode expansion.
-    """
-    template = PointerExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
-    function_uses_templates(container, fn, sip, rule)
-
-
-def pointer_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for a
-    Qt pointer type.
-    """
-    handler = PointerExpander()
-    handler.expand(rule, parameter, sip["decl"], sip)
-
-
-def pointer_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for a
-    Qt pointer type.
-    """
-    handler = PointerExpander()
-    if typedef.underlying_type.kind == TypeKind.ELABORATED:
-        #
-        # This is a typedef of a typedef, and Clang gets the template
-        # parameters wrong, so abort.
-        #
-        return
-    assert typedef.underlying_type.kind == TypeKind.UNEXPOSED
-    handler.expand(rule, typedef, sip["decl"], sip)
 
 
 class PairExpander(templates.mappedtype.AbstractExpander):
@@ -506,3 +367,209 @@ class PointerExpander(templates.mappedtype.AbstractExpander):
         code = code.replace("{qt_type}", qt_type)
         code = code.replace("{sip_t}", value_h.sip_t)
         return code
+
+
+def function_uses_templates(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create %MethodCode expansions
+    for C++ functions with templated return types and/or parameters.
+    """
+    sip.setdefault("parameter_helper", FunctionParameterHelper)
+    sip.setdefault("return_helper", FunctionReturnHelper)
+    builtin_rules.function_uses_templates(container, fn, sip, rule)
+
+
+def dict_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+
+    A call to function_uses_templates handles the %MethodCode expansion.
+    """
+    templates.mappedtype.dict_fn_result(container, fn, sip, rule)
+    function_uses_templates(container, fn, sip, rule)
+
+
+def dict_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    templates.mappedtype.dict_parameter(container, fn, parameter, sip, rule)
+
+
+def dict_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with two template arguments into Python dicts.
+    """
+    templates.mappedtype.dict_typecode(container, typedef, sip, rule)
+
+
+def list_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+
+    A call to function_uses_templates handles the %MethodCode expansion.
+    """
+    templates.mappedtype.list_fn_result(container, fn, sip, rule)
+    function_uses_templates(container, fn, sip, rule)
+
+
+def list_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    templates.mappedtype.list_parameter(container, fn, parameter, sip, rule)
+
+
+def list_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python lists.
+    """
+    templates.mappedtype.list_typecode(container, typedef, sip, rule)
+
+
+def set_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+
+    A call to function_uses_templates handles the %MethodCode expansion.
+    """
+    templates.mappedtype.set_fn_result(container, fn, sip, rule)
+    function_uses_templates(container, fn, sip, rule)
+
+
+def set_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    templates.mappedtype.set_parameter(container, fn, parameter, sip, rule)
+
+
+def set_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for C++
+    types with one template argument into Python sets.
+    """
+    templates.mappedtype.set_typecode(container, typedef, sip, rule)
+
+
+def pair_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
+
+    A call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = PairExpander()
+    template.expand(rule, fn, sip["fn_result"], sip)
+    function_uses_templates(container, fn, sip, rule)
+
+
+def pair_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
+    """
+    handler = PairExpander()
+    handler.expand(rule, parameter, sip["decl"], sip)
+
+
+def pair_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for a
+    QPair<> (using a 2-tuple).
+    """
+    template = PairExpander()
+    template.expand(rule, typedef, sip["decl"], sip)
+
+
+def pointer_fn_result(container, fn, sip, rule):
+    """
+    A FunctionDb-compatible function used to create a %MappedType for a
+    Qt pointer type.
+
+    A call to function_uses_templates handles the %MethodCode expansion.
+    """
+    template = PointerExpander()
+    template.expand(rule, fn, sip["fn_result"], sip)
+    function_uses_templates(container, fn, sip, rule)
+
+
+def pointer_parameter(container, fn, parameter, sip, rule):
+    """
+    A ParameterDb-compatible function used to create a %MappedType for a
+    Qt pointer type.
+    """
+    handler = PointerExpander()
+    handler.expand(rule, parameter, sip["decl"], sip)
+
+
+def pointer_typecode(container, typedef, sip, rule):
+    """
+    A TypeCodeDb-compatible function used to create a %MappedType for a
+    Qt pointer type.
+    """
+    handler = PointerExpander()
+    if typedef.underlying_type.kind == TypeKind.ELABORATED:
+        #
+        # This is a typedef of a typedef, and Clang gets the template
+        # parameters wrong, so abort.
+        #
+        return
+    assert typedef.underlying_type.kind == TypeKind.UNEXPOSED
+    handler.expand(rule, typedef, sip["decl"], sip)
+
+
+def function_rules():
+    return [
+        #
+        # Supplement Qt templates with %MappedTypes for the function result, and call
+        # function_uses_templates too.
+        #
+        [".*", RE_UNTEMPLATED_FN, "", RE_QT_DICT, ".*", dict_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_QT_LIST, ".*", list_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_QT_SET, ".*", set_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_QT_PAIR, ".*", pair_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_QT_PTRS, ".*", pointer_fn_result],
+        #
+        # Call function_uses_templates...the parameters have been dealt with elsewhere.
+        #
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_DICT, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_LIST, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_SET, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_PAIR, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_PTRS, function_uses_templates],
+    ]
+
+
+def parameter_rules():
+    return [
+        #
+        # Supplement Qt templates with %MappedTypes.
+        #
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_DICT, ".*", dict_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_LIST, ".*", list_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_SET, ".*", set_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_PAIR, ".*", pair_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_PTRS, ".*", pointer_parameter],
+    ]
+
+
+def typedef_rules():
+    return [
+        #
+        # Supplement Qt templates with manual code.
+        #
+        [".*", ".*", ".*", RE_QT_DICT_TYPEDEF, dict_typecode],
+        [".*", ".*", ".*", RE_QT_LIST_TYPEDEF, list_typecode],
+        [".*", ".*", ".*", RE_QT_SET_TYPEDEF, set_typecode],
+        [".*", ".*", ".*", RE_QT_PAIR_TYPEDEF, pair_typecode],
+        [".*", ".*", ".*", RE_QT_PTRS_TYPEDEF, pointer_typecode],
+    ]
