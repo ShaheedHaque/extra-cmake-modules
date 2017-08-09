@@ -58,8 +58,10 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<T>")
-    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "Rss2/Rss2mod.sip", "Rdf/Rdfmod.sip",
-                                    "Atom/Atommod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip",
+                                    "Syndication/Syndication/Rss2/Rss2mod.sip",
+                                    "Syndication/Syndication/Rdf/Rdfmod.sip",
+                                    "Syndication/Syndication/Atom/Atommod.sip")
 
 
 def module_fix_mapped_types_atom(filename, sip, entry):
@@ -68,8 +70,9 @@ def module_fix_mapped_types_atom(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QDomElement>",
                                    "QSharedPointer<Syndication::SpecificDocument>")
-    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rss2/Rss2mod.sip",
-                                    "../Rdf/Rdfmod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip",
+                                    "Syndication/Syndication/Rss2/Rss2mod.sip",
+                                    "Syndication/Syndication/Rdf/Rdfmod.sip")
 
 
 def module_fix_mapped_types_rdf(filename, sip, entry):
@@ -77,8 +80,9 @@ def module_fix_mapped_types_rdf(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<Syndication::SpecificDocument>")
-    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rss2/Rss2mod.sip",
-                                    "../Atom/Atommod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip",
+                                    "Syndication/Syndication/Rss2/Rss2mod.sip",
+                                    "Syndication/Syndication/Atom/Atommod.sip")
 
 
 def module_fix_mapped_types_rss2(filename, sip, entry):
@@ -87,8 +91,9 @@ def module_fix_mapped_types_rss2(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<QDomElement>",
                                    "QSharedPointer<Syndication::SpecificDocument>")
-    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip", "../Rdf/Rdfmod.sip",
-                                    "../Atom/Atommod.sip")
+    rule_helpers.module_add_imports(filename, sip, entry, "QtXml/QtXmlmod.sip",
+                                    "Syndication/Syndication/Rdf/Rdfmod.sip",
+                                    "Syndication/Syndication/Atom/Atommod.sip")
 
 
 def function_rules():
