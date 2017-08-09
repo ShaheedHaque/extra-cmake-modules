@@ -90,12 +90,7 @@ class ContainerCursor(clangcplus.ContainerCursor, Cursor):
         # Assume this is a class, not a struct.
         #
         self.initial_access_specifier = ""
-        #
-        # Find any template arguments. Remember that a template can have zero args!
-        #
-        self.template_args = None
         if container.kind in self.TEMPLATE_CURSOR_KINDS:
-            self.template_args = [c for c in self.get_children() if isinstance(c, TemplateParameterCursor)]
             #
             # Clang presents a templated struct as a CLASS_TEMPLATE, but does not
             # insert an initial "public" access specifier. Make a best-effort attempt
