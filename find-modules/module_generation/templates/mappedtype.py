@@ -126,6 +126,34 @@ class AbstractExpander(object):
             return parameter_cursor.type.get_canonical().spelling
         return HeldAs.base_type(parameter_text)
 
+    def header_for(self, template_t):
+        return template_t
+
+    def parse_template(self, template, expected):
+        """
+        Extract template name and arguments even in cases like
+        'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
+
+        :return: (name, [args])
+        """
+        name, args = template.split("<", 1)
+        name = name.split()[-1]
+        text = args.rsplit(">", 1)[0]
+        args = []
+        bracket_level = 0
+        left = 0
+        for right, token in enumerate(text):
+            if bracket_level <= 0 and token is ",":
+                args.append(text[left:right].strip())
+                left = right + 1
+            elif token is "<":
+                bracket_level += 1
+            elif token is ">":
+                bracket_level -= 1
+        args.append(text[left:].strip())
+        assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
+        return name, args
+
     def expand(self, rule, cursor, text, sip):
         """
         Expand a template, and return the results via the sip.
@@ -136,37 +164,11 @@ class AbstractExpander(object):
         :param text:            The item text to be expanded.
         :param sip:             The sip.
         """
-        def parse_template(template, expected):
-            """
-            Extract template name and arguments even in cases like
-            'const QSet<QMap<QAction *, KIPI::Category> > &foo'.
-
-            :return: (name, [args])
-            """
-            name, args = template.split("<", 1)
-            name = name.split()[-1]
-            text = args.rsplit(">", 1)[0]
-            args = []
-            bracket_level = 0
-            left = 0
-            for right, token in enumerate(text):
-                if bracket_level <= 0 and token is ",":
-                    args.append(text[left:right].strip())
-                    left = right + 1
-                elif token is "<":
-                    bracket_level += 1
-                elif token is ">":
-                    bracket_level -= 1
-            args.append(text[left:].strip())
-            assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected,
-                                                                                                  template, args)
-            return name, args
-
         expected_parameters = self.variables
         #
         # Extract the text forms even in cases like 'QSet<QMap<QAction *, KIPI::Category> >'.
         #
-        text_type, text_args = parse_template(text, len(expected_parameters))
+        text_type, text_args = self.parse_template(text, len(expected_parameters))
         #
         # We would like to be able to use clang type system to determine the HELD_AS etc, but the number of children of
         # the typedef is variable (i.e. the structure of an AST is not represented). Also, for example, int types are
@@ -259,7 +261,7 @@ class DictExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{template_t}>
+#include <{header_h}>
 %End
 %ConvertFromTypeCode
 """
@@ -372,6 +374,7 @@ class DictExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
+        code = code.replace("{header_h}", self.header_for(template_t), 1)
         code = code.replace("{template_t}", template_t)
         code = code.replace("{key_t}", key_h.cxx_t)
         code = code.replace("{value_t}", value_h.cxx_t)
@@ -397,7 +400,7 @@ class ListExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{template_t}>
+#include <{header_h}>
 %End
 %ConvertFromTypeCode
 """
@@ -412,7 +415,7 @@ class ListExpander(AbstractExpander):
 
     // Set the list elements.
     Py_ssize_t i = 0;
-    for (i = 0; i < sipCpp->size(); ++i) {
+    for (i = 0; i < (Py_ssize_t)sipCpp->size(); ++i) {
 """
         code += value_h.cxx_to_py("value", True, "sipCpp->value(i)", "sipCpp->at(i)")
         code += """
@@ -457,6 +460,7 @@ class ListExpander(AbstractExpander):
 
     // Convert the list to C++.
     {template_t}<CxxvalueT> *list = new {template_t}<CxxvalueT>();
+    list->reserve(PyList_GET_SIZE(sipPy));
     for (i = 0; i < PyList_GET_SIZE(sipPy); ++i) {
         value = PyList_GET_ITEM(sipPy, i);
 """
@@ -474,7 +478,7 @@ class ListExpander(AbstractExpander):
         code += """            delete list;
             return 0;
         }
-        list->append("""
+        list->push_back("""
         code += value_h.insertable_cxx_value("value")
         code += """);
 """
@@ -484,6 +488,7 @@ class ListExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
+        code = code.replace("{header_h}", self.header_for(template_t), 1)
         code = code.replace("{template_t}", template_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
@@ -509,7 +514,7 @@ class SetExpander(AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{template_t}>
+#include <{header_h}>
 %End
 %ConvertFromTypeCode
 """
@@ -579,6 +584,7 @@ class SetExpander(AbstractExpander):
 
     // Convert the set to C++.
     {template_t}<CxxvalueT> *set = new {template_t}<CxxvalueT>();
+    set->reserve(PySet_GET_SIZE(sipPy));
     while ((value = PyIter_Next(i)) != NULL) {
 """
         code += value_h.py_to_cxx("value", True, "value")
@@ -607,6 +613,7 @@ class SetExpander(AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
+        code = code.replace("{header_h}", self.header_for(template_t), 1)
         code = code.replace("{template_t}", template_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
