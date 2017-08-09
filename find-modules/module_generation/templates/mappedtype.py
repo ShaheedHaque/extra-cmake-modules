@@ -57,7 +57,12 @@ _ = _
 
 class AbstractExpander(object):
     """
-    Defines a basic structure useful for describing the expansion of C++ templated types as SIP %MappedTypes.
+    Defines a basic structure useful for describing the expansion of C++
+    templated types as SIP %MappedTypes.
+
+    Rule writers can tailor the expansion using custom subclasses which
+    override the template itself (@see expand_generic()) and the parameters
+    (@see __init__()).
     """
     __metaclass__ = ABCMeta
 
@@ -65,10 +70,11 @@ class AbstractExpander(object):
         """
         Constructor.
 
-        :param variables:       The [string] which characterise the template
+        :param variables:       The [(string, class)] which characterise the template
                                 to be expanded.
         """
-        self.variables = variables
+        self.variables = [v[0] for v in variables]
+        self.helpers = {v[0]: v[1] for v in variables}
 
     @abstractmethod
     def expand_generic(self, template_t, entries):
@@ -163,6 +169,10 @@ class AbstractExpander(object):
                                 This is typically a typed object, such as "QMap" or "QHash".
         :param text:            The item text to be expanded.
         :param sip:             The sip.
+
+                                    - mt_parameter_helper: Tailored parameter handling. Rule
+                                      writers can tailor the expansion of parameters using
+                                      custom subclasses of GenerateMappedHelper.
         """
         expected_parameters = self.variables
         #
@@ -224,9 +234,9 @@ class AbstractExpander(object):
                 "base_type": base_type,
             }
             clang_t = clang_args[i].type.get_canonical() if clang_args[i] else None
-            entries[parameter] = GenerateMappedHelper(p, clang_t)
+            entries[parameter] = self.helpers[parameter](p, clang_t)
             parameters.append(actual_type)
-        text_args = ", ".join(parameters)
+        text_args = ", ".join(text_args)
         #
         # Run the template handler...
         #
@@ -242,8 +252,8 @@ class AbstractExpander(object):
 
 class DictExpander(AbstractExpander):
 
-    def __init__(self):
-        super(DictExpander, self).__init__(["key", "value"])
+    def __init__(self, key_helper, value_helper):
+        super(DictExpander, self).__init__([("key", key_helper), ("value", value_helper)])
 
     def expand_generic(self, template_t, entries):
         """
@@ -280,8 +290,8 @@ class DictExpander(AbstractExpander):
     {template_t}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += key_h.cxx_to_py("key", True, "i.key()")
-        code += value_h.cxx_to_py("value", True, "i.value()")
+        code += key_h.cxx_to_py("key", True, "i", "i")
+        code += value_h.cxx_to_py("value", True, "i", "i")
         #
         # Error handling assumptions:
         #
@@ -383,8 +393,8 @@ class DictExpander(AbstractExpander):
 
 class ListExpander(AbstractExpander):
 
-    def __init__(self):
-        super(ListExpander, self).__init__(["value"])
+    def __init__(self, value_helper):
+        super(ListExpander, self).__init__([("value", value_helper)])
 
     def expand_generic(self, template_t, entries):
         """
@@ -417,7 +427,7 @@ class ListExpander(AbstractExpander):
     Py_ssize_t i = 0;
     for (i = 0; i < (Py_ssize_t)sipCpp->size(); ++i) {
 """
-        code += value_h.cxx_to_py("value", True, "sipCpp->value(i)", "sipCpp->at(i)")
+        code += value_h.cxx_to_py("value", True, "sipCpp", "sipCpp")
         code += """
         if (value == NULL) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into list");
@@ -496,8 +506,8 @@ class ListExpander(AbstractExpander):
 
 class SetExpander(AbstractExpander):
 
-    def __init__(self):
-        super(SetExpander, self).__init__(["value"])
+    def __init__(self, value_helper):
+        super(SetExpander, self).__init__([("value", value_helper)])
 
     def expand_generic(self, template_t, entries):
         """
@@ -532,7 +542,7 @@ class SetExpander(AbstractExpander):
     {template_t}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += value_h.cxx_to_py("value", True, "*i", "*i")
+        code += value_h.cxx_to_py("value", True, "i", "i")
         code += """
         if (value == NULL || PySet_Add(set, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into set");
@@ -617,87 +627,6 @@ class SetExpander(AbstractExpander):
         code = code.replace("{template_t}", template_t)
         code = code.replace("{value_t}", value_h.cxx_t)
         return code
-
-
-def dict_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-    """
-    template = DictExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
-
-
-def dict_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-    """
-    template = DictExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
-
-
-def dict_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with two template arguments into Python dicts.
-    """
-    template = DictExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
-
-
-def list_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-    """
-    template = ListExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
-
-
-def list_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-    """
-    template = ListExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
-
-
-def list_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python lists.
-    """
-    template = ListExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
-
-
-def set_fn_result(container, fn, sip, rule):
-    """
-    A FunctionDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-    """
-    template = SetExpander()
-    template.expand(rule, fn, sip["fn_result"], sip)
-
-
-def set_parameter(container, fn, parameter, sip, rule):
-    """
-    A ParameterDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-    """
-    template = SetExpander()
-    template.expand(rule, parameter, sip["decl"], sip)
-
-
-def set_typecode(container, typedef, sip, rule):
-    """
-    A TypeCodeDb-compatible function used to create a %MappedType for C++
-    types with one template argument into Python sets.
-    """
-    template = SetExpander()
-    template.expand(rule, typedef, sip["decl"], sip)
 
 
 class GenerateMappedHelper(HeldAs):

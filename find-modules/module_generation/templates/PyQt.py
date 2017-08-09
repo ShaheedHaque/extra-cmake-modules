@@ -73,6 +73,46 @@ RE_PTRS_V = RE_PTRS_T + ".*"
 RE_UNTEMPLATED_FN = ".*[^>]"
 
 
+class DictHelperKey(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += ".key()"
+        cxx_po += ".key()"
+        return super(DictHelperKey, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(DictHelperKey, self).py_to_cxx(name, needs_reference, py_v)
+
+
+class DictHelperValue(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += ".value()"
+        cxx_po += ".value()"
+        return super(DictHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(DictHelperValue, self).py_to_cxx(name, needs_reference, py_v)
+
+
+class ListHelperValue(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += "->value(i)"
+        cxx_po += "->at(i)"
+        return super(ListHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(ListHelperValue, self).py_to_cxx(name, needs_reference, py_v)
+
+
+class SetHelperValue(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i = "*" + cxx_i
+        cxx_po = "*" + cxx_po
+        return super(SetHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(SetHelperValue, self).py_to_cxx(name, needs_reference, py_v)
+
+
 class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
     """
     Automatic handling for templated function parameter types with auto-unwrapping
@@ -146,8 +186,8 @@ class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
 
 class PairExpander(templates.mappedtype.AbstractExpander):
 
-    def __init__(self):
-        super(PairExpander, self).__init__(["first", "second"])
+    def __init__(self, first_helper, second_helper):
+        super(PairExpander, self).__init__([("first", first_helper), ("second", second_helper)])
 
     def expand_generic(self, qt_type, entries):
         """
@@ -165,7 +205,7 @@ class PairExpander(templates.mappedtype.AbstractExpander):
         second_h = entries["second"]
         code = """
 %TypeHeaderCode
-#include <{qt_type}>
+#include <{header_h}>
 %End
 %ConvertFromTypeCode
 """
@@ -176,8 +216,8 @@ class PairExpander(templates.mappedtype.AbstractExpander):
     PyObject *tuple = NULL;
     {
 """
-        code += first_h.cxx_to_py("first", True, "sipCpp->first")
-        code += second_h.cxx_to_py("second", True, "sipCpp->second")
+        code += first_h.cxx_to_py("first", True, "sipCpp", "sipCpp")
+        code += second_h.cxx_to_py("second", True, "sipCpp", "sipCpp")
         code += """        tuple = (first && second) ? PyTuple_Pack(2, first, second) : NULL;
 """
         #
@@ -274,16 +314,37 @@ class PairExpander(templates.mappedtype.AbstractExpander):
     return sipGetState(sipTransferObj);
 %End
 """
+        code = code.replace("{header_h}", self.header_for(qt_type), 1)
         code = code.replace("{qt_type}", qt_type)
         code = code.replace("{first_t}", first_h.cxx_t)
         code = code.replace("{second_t}", second_h.cxx_t)
         return code
 
 
+class PairHelperFirst(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += "->first"
+        cxx_po += "->first"
+        return super(PairHelperFirst, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(PairHelperFirst, self).py_to_cxx(name, needs_reference, py_v)
+
+
+class PairHelperSecond(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += "->second"
+        cxx_po += "->second"
+        return super(PairHelperSecond, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(PairHelperSecond, self).py_to_cxx(name, needs_reference, py_v)
+
+
 class PointerExpander(templates.mappedtype.AbstractExpander):
 
-    def __init__(self):
-        super(PointerExpander, self).__init__(["value"])
+    def __init__(self, value_helper):
+        super(PointerExpander, self).__init__([("value", value_helper)])
 
     def expand_generic(self, qt_type, entries):
         """
@@ -299,24 +360,15 @@ class PointerExpander(templates.mappedtype.AbstractExpander):
         value_h = entries["value"]
         code = """
 %TypeHeaderCode
-#include <{qt_type}>
+#include <{header_h}>
 %End
 %ConvertFromTypeCode
 """
-        # code += value_h.declare_type_helpers("value", "return 0;")
-        # code += value_h.cxx_to_py("value", True, "cxxvalue")
-        code += """    typedef {cxx_t} CxxvalueT;
-    const sipTypeDef *genvalueT = {sip_t};
-
+        code += value_h.declare_type_helpers("value", "return 0;")
+        code += """
     // Convert the value from C++.
-    CxxvalueT *cxxvalue = sipCpp->data();
 """
-        if value_h.cxx_t.startswith("QExplicitlySharedDataPointer"):
-            code += """    cxxvalue->ref.ref();
-"""
-        code += """    PyObject *value = sipConvertFromType((void *)cxxvalue, genvalueT, sipTransferObj);
-"""
-        code = code.replace("{cxx_t}", value_h.cxx_t)
+        code += value_h.cxx_to_py("value", True, "sipCpp", "sipCpp")
         code += """    if (value == NULL) {
         PyErr_Format(PyExc_TypeError, "cannot convert value");
         return 0;
@@ -361,9 +413,29 @@ class PointerExpander(templates.mappedtype.AbstractExpander):
         code += """    return sipGetState(sipTransferObj);
 %End
 """
+        code = code.replace("{header_h}", self.header_for(qt_type), 1)
         code = code.replace("{qt_type}", qt_type)
         code = code.replace("{sip_t}", value_h.sip_t)
         return code
+
+
+class PointerHelperValue(templates.mappedtype.GenerateMappedHelper):
+    def cxx_to_py_template(self):
+        return """    Cxx{name}T *cxx{name} = {cxx_po};
+    PyObject *{name} = sipConvertFromType((void *)cxx{name}, gen{name}T, sipTransferObj);
+"""
+
+    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
+        cxx_i += "->data()"
+        cxx_po += "->data()"
+        code = super(PointerHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+        if self.cxx_t.startswith("QExplicitlySharedDataPointer"):
+            code += """    cxxvalue->ref.ref();
+"""
+        return code
+
+    def py_to_cxx(self, name, needs_reference, py_v):
+        return super(PointerHelperValue, self).py_to_cxx(name, needs_reference, py_v)
 
 
 def function_uses_templates(container, fn, sip, rule):
@@ -383,7 +455,8 @@ def dict_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    templates.mappedtype.dict_fn_result(container, fn, sip, rule)
+    template = templates.mappedtype.DictExpander(DictHelperKey, DictHelperValue)
+    template.expand(rule, fn, sip["fn_result"], sip)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -392,7 +465,8 @@ def dict_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
-    templates.mappedtype.dict_parameter(container, fn, parameter, sip, rule)
+    template = templates.mappedtype.DictExpander(DictHelperKey, DictHelperValue)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def dict_typecode(container, typedef, sip, rule):
@@ -400,7 +474,8 @@ def dict_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with two template arguments into Python dicts.
     """
-    templates.mappedtype.dict_typecode(container, typedef, sip, rule)
+    template = templates.mappedtype.DictExpander(DictHelperKey, DictHelperValue)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def list_fn_result(container, fn, sip, rule):
@@ -410,7 +485,8 @@ def list_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    templates.mappedtype.list_fn_result(container, fn, sip, rule)
+    template = templates.mappedtype.ListExpander(ListHelperValue)
+    template.expand(rule, fn, sip["fn_result"], sip)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -419,7 +495,8 @@ def list_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python lists.
     """
-    templates.mappedtype.list_parameter(container, fn, parameter, sip, rule)
+    template = templates.mappedtype.ListExpander(ListHelperValue)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def list_typecode(container, typedef, sip, rule):
@@ -427,7 +504,8 @@ def list_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python lists.
     """
-    templates.mappedtype.list_typecode(container, typedef, sip, rule)
+    template = templates.mappedtype.ListExpander(ListHelperValue)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def set_fn_result(container, fn, sip, rule):
@@ -437,7 +515,8 @@ def set_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    templates.mappedtype.set_fn_result(container, fn, sip, rule)
+    template = templates.mappedtype.SetExpander(SetHelperValue)
+    template.expand(rule, fn, sip["fn_result"], sip)
     function_uses_templates(container, fn, sip, rule)
 
 
@@ -446,7 +525,8 @@ def set_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
-    templates.mappedtype.set_parameter(container, fn, parameter, sip, rule)
+    template = templates.mappedtype.SetExpander(SetHelperValue)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def set_typecode(container, typedef, sip, rule):
@@ -454,7 +534,8 @@ def set_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for C++
     types with one template argument into Python sets.
     """
-    templates.mappedtype.set_typecode(container, typedef, sip, rule)
+    template = templates.mappedtype.SetExpander(SetHelperValue)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def pair_fn_result(container, fn, sip, rule):
@@ -464,7 +545,7 @@ def pair_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    template = PairExpander()
+    template = PairExpander(PairHelperFirst, PairHelperSecond)
     template.expand(rule, fn, sip["fn_result"], sip)
     function_uses_templates(container, fn, sip, rule)
 
@@ -474,8 +555,8 @@ def pair_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
-    handler = PairExpander()
-    handler.expand(rule, parameter, sip["decl"], sip)
+    template = PairExpander(PairHelperFirst, PairHelperSecond)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def pair_typecode(container, typedef, sip, rule):
@@ -483,7 +564,7 @@ def pair_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for a
     QPair<> (using a 2-tuple).
     """
-    template = PairExpander()
+    template = PairExpander(PairHelperFirst, PairHelperSecond)
     template.expand(rule, typedef, sip["decl"], sip)
 
 
@@ -494,7 +575,7 @@ def pointer_fn_result(container, fn, sip, rule):
 
     A call to function_uses_templates handles the %MethodCode expansion.
     """
-    template = PointerExpander()
+    template = PointerExpander(PointerHelperValue)
     template.expand(rule, fn, sip["fn_result"], sip)
     function_uses_templates(container, fn, sip, rule)
 
@@ -504,8 +585,8 @@ def pointer_parameter(container, fn, parameter, sip, rule):
     A ParameterDb-compatible function used to create a %MappedType for a
     Qt pointer type.
     """
-    handler = PointerExpander()
-    handler.expand(rule, parameter, sip["decl"], sip)
+    template = PointerExpander(PointerHelperValue)
+    template.expand(rule, parameter, sip["decl"], sip)
 
 
 def pointer_typecode(container, typedef, sip, rule):
@@ -513,7 +594,7 @@ def pointer_typecode(container, typedef, sip, rule):
     A TypeCodeDb-compatible function used to create a %MappedType for a
     Qt pointer type.
     """
-    handler = PointerExpander()
+    template = PointerExpander(PointerHelperValue)
     if typedef.underlying_type.kind == TypeKind.ELABORATED:
         #
         # This is a typedef of a typedef, and Clang gets the template
@@ -521,14 +602,14 @@ def pointer_typecode(container, typedef, sip, rule):
         #
         return
     assert typedef.underlying_type.kind == TypeKind.UNEXPOSED
-    handler.expand(rule, typedef, sip["decl"], sip)
+    template.expand(rule, typedef, sip["decl"], sip)
 
 
 def function_rules():
     return [
         #
-        # Supplement Qt templates with %MappedTypes for the function result, and call
-        # function_uses_templates too.
+        # Supplement Qt templates with %MappedTypes for the function result,
+        # and call function_uses_templates for %MethodCode too.
         #
         [".*", RE_UNTEMPLATED_FN, "", RE_DICT_V, ".*", dict_fn_result],
         [".*", RE_UNTEMPLATED_FN, "", RE_LIST_V, ".*", list_fn_result],
@@ -562,7 +643,7 @@ def parameter_rules():
 def typedef_rules():
     return [
         #
-        # Supplement Qt templates with manual code.
+        # Supplement Qt templates with %MappedTypes.
         #
         [".*", ".*", ".*", RE_DICT_T, dict_typecode],
         [".*", ".*", ".*", RE_LIST_T, list_typecode],

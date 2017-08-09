@@ -44,6 +44,7 @@ import common_typecode
 import rule_helpers
 import rules_engine
 import templates.PyQt
+import templates.std_n_boost
 from clangcparser import CursorKind
 
 
@@ -258,6 +259,10 @@ class RuleSet(rules_engine.RuleSet):
         # Add PyQt template support.
         #
         self.add_rules(rules_module=templates.PyQt)
+        #
+        # Add std-n-boost template support.
+        #
+        self.add_rules(rules_module=templates.std_n_boost)
         #
         # Add module-generic PyKF5 rules.
         #

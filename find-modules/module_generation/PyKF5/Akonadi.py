@@ -51,8 +51,8 @@ def _typedef_add_collections(container, typedef, sip, rule):
         "type": parameter,
         "base_type": parameter,
     }
-    value_h = templates.mappedtype.GenerateMappedHelper(value, None)
-    handler = templates.mappedtype.ListExpander()
+    handler = templates.mappedtype.ListExpander(templates.PyQt.ListHelperValue)
+    value_h = handler.helpers["value"](value, None)
     for qt_type in ["QList", "QVector"]:
         mapped_type = "{}<{}>".format(qt_type, parameter)
         trace = trace_generated_for(typedef, rule, {"value": value_h.category})
