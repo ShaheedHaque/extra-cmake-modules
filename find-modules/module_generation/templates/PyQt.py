@@ -53,28 +53,25 @@ logger = logging.getLogger(__name__)
 # Keep PyCharm happy.
 _ = _
 
-KNOWN_PTRS = "(QWeakPointer|Q(Explicitly|)Shared(Data|)Pointer)"
-RE_KNOWN_PTRS = re.compile("(const )?" + KNOWN_PTRS + "<(.*)>( .)?")
+TYPE = "type"
+ARGS = "args"
+KNOWN_PTRS = "(?P<" + TYPE + ">Q(Weak|((Explicitly|)Shared(Data|)))Pointer)"
+RE_KNOWN_PTRS = re.compile("(const )?" + KNOWN_PTRS + "<(?P<" + ARGS + ">.*)>( [&*])?")
 
-QT_DICT = "QHash|QMap"
-QT_LIST = "QList|QVector"
-QT_SET = "QSet"
-QT_PAIR = "QPair"
-QT_PTRS = KNOWN_PTRS
+RE_DICT_T = "(const )?(QHash|QMap)<(.*)>( [&*])?"
+RE_LIST_T = "(const )?(QList|QVector)<(.*)>( [&*])?"
+RE_SET_T = "(const )?QSet<(.*)>( [&*])?"
+RE_PAIR_T = "(const )?QPair<(.*)>( [&*])?"
+RE_PTRS_T = "(const )?" + KNOWN_PTRS + "<(.*)>( [&*])?"
 
-RE_QT_DICT_TYPEDEF = "(" + QT_DICT + ")<(.*)>"
-RE_QT_LIST_TYPEDEF = "(" + QT_LIST + ")<(.*)>"
-RE_QT_SET_TYPEDEF = QT_SET + "<(.*)>"
-RE_QT_PAIR_TYPEDEF = QT_PAIR + "<(.*)>"
-RE_QT_PTRS_TYPEDEF = QT_PTRS + "<(.*)>"
-
-RE_QT_DICT = "(const )?" + RE_QT_DICT_TYPEDEF + ".*"
-RE_QT_LIST = "(const )?" + RE_QT_LIST_TYPEDEF + ".*"
-RE_QT_SET = "(const )?" + RE_QT_SET_TYPEDEF + ".*"
-RE_QT_PAIR = "(const )?" + RE_QT_PAIR_TYPEDEF + ".*"
-RE_QT_PTRS = "(const )?" + RE_QT_PTRS_TYPEDEF + ".*"
+RE_DICT_V = RE_DICT_T + ".*"
+RE_LIST_V = RE_LIST_T + ".*"
+RE_SET_V = RE_SET_T + ".*"
+RE_PAIR_V = RE_PAIR_T + ".*"
+RE_PTRS_V = RE_PTRS_T + ".*"
 
 RE_UNTEMPLATED_FN = ".*[^>]"
+
 
 class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
     """
@@ -84,8 +81,8 @@ class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
     def __init__(self, cxx_t, clang_t, manual_t=None):
         is_pointer = RE_KNOWN_PTRS.match(cxx_t)
         if is_pointer:
-            template_type = is_pointer.group(2)
-            template_args = [is_pointer.group(5)]
+            template_type = is_pointer.group(TYPE)
+            template_args = [is_pointer.group(ARGS)]
             cxx_t = template_args[0] + " *"
         super(FunctionParameterHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
@@ -130,8 +127,8 @@ class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
     def __init__(self, cxx_t, clang_t, manual_t=None):
         is_pointer = RE_KNOWN_PTRS.match(cxx_t)
         if is_pointer:
-            template_type = is_pointer.group(2)
-            template_args = [is_pointer.group(5)]
+            template_type = is_pointer.group(TYPE)
+            template_args = [is_pointer.group(ARGS)]
             cxx_t = template_args[0] + " *"
         super(FunctionReturnHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
@@ -533,19 +530,19 @@ def function_rules():
         # Supplement Qt templates with %MappedTypes for the function result, and call
         # function_uses_templates too.
         #
-        [".*", RE_UNTEMPLATED_FN, "", RE_QT_DICT, ".*", dict_fn_result],
-        [".*", RE_UNTEMPLATED_FN, "", RE_QT_LIST, ".*", list_fn_result],
-        [".*", RE_UNTEMPLATED_FN, "", RE_QT_SET, ".*", set_fn_result],
-        [".*", RE_UNTEMPLATED_FN, "", RE_QT_PAIR, ".*", pair_fn_result],
-        [".*", RE_UNTEMPLATED_FN, "", RE_QT_PTRS, ".*", pointer_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_DICT_V, ".*", dict_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_LIST_V, ".*", list_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_SET_V, ".*", set_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_PAIR_V, ".*", pair_fn_result],
+        [".*", RE_UNTEMPLATED_FN, "", RE_PTRS_V, ".*", pointer_fn_result],
         #
         # Call function_uses_templates...the parameters have been dealt with elsewhere.
         #
-        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_DICT, function_uses_templates],
-        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_LIST, function_uses_templates],
-        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_SET, function_uses_templates],
-        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_PAIR, function_uses_templates],
-        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_QT_PTRS, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_DICT_V, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_LIST_V, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_SET_V, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_PAIR_V, function_uses_templates],
+        [".*", RE_UNTEMPLATED_FN, "", ".*", RE_PTRS_V, function_uses_templates],
     ]
 
 
@@ -554,11 +551,11 @@ def parameter_rules():
         #
         # Supplement Qt templates with %MappedTypes.
         #
-        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_DICT, ".*", dict_parameter],
-        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_LIST, ".*", list_parameter],
-        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_SET, ".*", set_parameter],
-        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_PAIR, ".*", pair_parameter],
-        [".*", RE_UNTEMPLATED_FN, ".*", RE_QT_PTRS, ".*", pointer_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_DICT_V, ".*", dict_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_LIST_V, ".*", list_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_SET_V, ".*", set_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_PAIR_V, ".*", pair_parameter],
+        [".*", RE_UNTEMPLATED_FN, ".*", RE_PTRS_V, ".*", pointer_parameter],
     ]
 
 
@@ -567,9 +564,9 @@ def typedef_rules():
         #
         # Supplement Qt templates with manual code.
         #
-        [".*", ".*", ".*", RE_QT_DICT_TYPEDEF, dict_typecode],
-        [".*", ".*", ".*", RE_QT_LIST_TYPEDEF, list_typecode],
-        [".*", ".*", ".*", RE_QT_SET_TYPEDEF, set_typecode],
-        [".*", ".*", ".*", RE_QT_PAIR_TYPEDEF, pair_typecode],
-        [".*", ".*", ".*", RE_QT_PTRS_TYPEDEF, pointer_typecode],
+        [".*", ".*", ".*", RE_DICT_T, dict_typecode],
+        [".*", ".*", ".*", RE_LIST_T, list_typecode],
+        [".*", ".*", ".*", RE_SET_T, set_typecode],
+        [".*", ".*", ".*", RE_PAIR_T, pair_typecode],
+        [".*", ".*", ".*", RE_PTRS_T, pointer_typecode],
     ]
