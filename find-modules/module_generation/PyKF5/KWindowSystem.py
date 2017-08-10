@@ -21,19 +21,53 @@ SIP binding customisation for PyKF5.KWindowSystem. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def function_get_array(container, function, sip, rule):
+    rule_helpers.initialise_cxx_decl(sip)
+    sip["fn_result"] = "SIP_PYLIST"
+    sip["code"] += """%MethodCode
+// TBD
+%End
+"""
+
+
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<int>")
+    rule_helpers.module_add_classes(filename, sip, rule, "_XEvent", "xcb_generic_event_t", "xcb_key_press_event_t",
+                                    "xcb_connection_t", "_XDisplay", "xcb_window_t")
 
 
-def module_fix_mapped_types_private(filename, sip, entry):
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QSize>", "QList<unsigned long long>")
+def module_fix_mapped_types_private(filename, sip, rule):
+    #
+    # SIP cannot handle duplicate %MappedTypes.
+    #
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QSize>", "QList<unsigned long long>")
+    rule_helpers.module_add_classes(filename, sip, rule, "_XEvent", "xcb_generic_event_t", "xcb_key_press_event_t",
+                                    "xcb_connection_t", "_XDisplay", "xcb_window_t")
+
+
+def container_rules():
+    return [
+        ["kwindowinfo_p.h", "KWindowInfoPrivate", ".*", ".*", ".*", rule_helpers.container_discard_QSharedData_base],
+        ["kwindowinfo.h", "KWindowInfo", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
+def function_rules():
+    return [
+        ["KStartupInfo", "KStartupInfo", ".*", ".*", "bool.*", rule_helpers.function_discard],
+        ["NETRootInfo", "(clientList(|Stacking))|virtualRoots", ".*", ".*", ".*", function_get_array],
+        ["NETWinInfo", "iconSizes", ".*", ".*", ".*", function_get_array],
+        #
+        # SIP unsupported signal argument type.
+        #
+        ["KWindowSystem", "windowChanged", ".*", ".*", ".*", rule_helpers.function_discard],
+    ]
 
 
 def modulecode():
