@@ -1018,7 +1018,7 @@ class SipGenerator(object):
                     elif token.spelling in ")>":
                         bracket_level -= 1
                     if found_start:
-                        if token.kind != TokenKind.PUNCTUATION and not was_punctuated:
+                        if (token.kind != TokenKind.PUNCTUATION and not was_punctuated) or (token.spelling in "*&"):
                             text += " "
                         text += token.spelling
                         was_punctuated = token.kind == TokenKind.PUNCTUATION

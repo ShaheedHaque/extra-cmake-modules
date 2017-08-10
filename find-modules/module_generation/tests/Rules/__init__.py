@@ -40,6 +40,10 @@ def container_discard_templated_bases(container, sip, matcher):
     sip["base_specifiers"] = []
 
 
+def container_needs_typedef(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "QMap<const char *, int>")
+
+
 def container_emit_modulecode(container, sip, matcher):
     container_discard_templated_bases(container, sip, matcher)
     sip["modulecode"][sip["name"]] = """
@@ -74,7 +78,7 @@ def function_emit_modulecode(container, function, sip, matcher):
 
 
 def fn_cxx_decl(container, function, sip, matcher):
-    builtin_rules.initialise_cxx_decl(sip)
+    rule_helpers.initialise_cxx_decl(sip)
 
 
 def parameter_emit_modulecode(container, function, parameter, sip, matcher):
@@ -115,6 +119,7 @@ def container_rules():
         [".*", "Shared", ".*", ".*", ".*", rule_helpers.container_discard_QSharedData_base],
         [".*", "TemplateDerivative", ".*", ".*", ".*", container_discard_templated_bases],
         [".*", "ModuleCodeType", ".*", ".*", ".*", container_emit_modulecode],
+        [".*", "ObscureSyntax", ".*", ".*", ".*", container_needs_typedef],
     ]
 
 
@@ -192,7 +197,7 @@ def methodcode():
                         (a5 == 2) &&
                         (a6 == ObscureSyntax::INCORRECT) &&
                         (a7 == MyObject::Val2) &&
-                        (a8.isEmpty()) &&
+                        (a8->isEmpty()) &&
                         (a9 != NULL)) {
                         sipRes = ObscureSyntax::CORRECT;
                     }

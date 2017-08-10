@@ -98,3 +98,38 @@ def typecode():
             "code": common_typecode._kdeui_qobject_ctscc
         },
     }
+
+def methodcode():
+    return {
+        "KFontChooser": {
+            "KFontChooser": {
+                #
+                # SIP needs help with the semantics of argument 5.
+                #
+                "parameters": [
+                    "QWidget *parent /TransferThis/ = nullptr",
+                    "const QFlags<KFontChooser::DisplayFlag> &flags = KFontChooser::DisplayFrame",
+                    "const QStringList &fontList = QStringList()",
+                    "int visibleListSize = 8",
+                    "SIP_PYOBJECT sizeIsRelativeState = nullptr"
+                ],
+                "code":
+                    """
+                    %MethodCode
+                        Py_BEGIN_ALLOW_THREADS
+                        ::Qt::CheckState *cxxa4 = nullptr;
+                        if (a4 != nullptr) {
+                            int a4Err;
+                            cxxa4 = static_cast<decltype(cxxa4)>(sipForceConvertToType(a4, sipType_Qt_CheckState, NULL, SIP_NOT_NONE, NULL, &a4Err));
+                            if (a4Err) {
+                                sipError = sipBadCallableArg(4, a4);
+                                return NULL;
+                            }
+                        }
+                        sipCpp = new sipKFontChooser(a0, *a1, *a2, a3, cxxa4);
+                        Py_END_ALLOW_THREADS
+                    %End
+                    """
+            },
+        },
+    }

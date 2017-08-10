@@ -903,25 +903,6 @@ def code():
         """
     },
 },
-# ./kdeui/kfontchooser.sip
-# ./kdeui/kfontdialog.sip
-"KFontChooser":
-{
-    "KFontChooser":
-    {
-        "parameters": ["QWidget* parent /TransferThis/ = 0", "const KFontChooser::DisplayFlags& flags = KFontChooser::DisplayFrame", "const QStringList& fontList = QStringList()", "int visibleListSize = 8", "Qt::CheckState* sizeIsRelativeState = 0"],
-        "cxx_parameters": ["QWidget* = 0", "const KFontChooser::DisplayFlags& = KFontChooser::DisplayFrame", "const QStringList& = QStringList()", "int = 8", "Qt::CheckState* = 0"],
-        "cxx_fn_result": "void",
-        "code":
-        """
-        %MethodCode
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipKFontChooser (a0, *a1, *a2, a3, &a4);
-            Py_END_ALLOW_THREADS
-        %End
-        """
-    },
-},
 # ./kdeui/kfontdialog.sip
 "KFontDialog":
 {

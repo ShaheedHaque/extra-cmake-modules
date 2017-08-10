@@ -280,6 +280,10 @@ def function_rules():
         # Deleted functions.
         #
         ["KIO", "file_(copy|move)", ".*", ".*", ".*flags", rule_helpers.function_discard],
+        #
+        # SIP needs help with the semantics of QList<QPair<QString, unsigned short> >.
+        #
+        ["KACL", "setAll(User|Group)Permissions", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 
