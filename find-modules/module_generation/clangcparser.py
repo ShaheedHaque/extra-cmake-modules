@@ -249,10 +249,10 @@ class ParameterCursor(Cursor):
             #
             if " const[" in type_spelling:
                 type_spelling = "const " + type_spelling.replace(" const[", " [", 1)
-            decl = type_spelling.replace("[", self.spelling + "[", 1)
+            decl = type_spelling.replace("[", " " + self.spelling + "[", 1)
         else:
             decl = "{} {}".format(type_spelling, self.spelling)
-            decl = decl.replace("* ", "*").replace("& ", "&")
+        decl = decl.replace("* ", "*").replace("& ", "&")
         return decl
 
 
@@ -397,6 +397,21 @@ class ArrayType(Type):
     def element_count(self):
         return self._element_count
 
+    @property
+    def spelling(self):
+        decl = self.proxied_object.spelling
+        if "(anonymous " in decl:
+            #
+            # The spelling will be of the form '(anonymous struct at /usr/include/KF5/libkleo/oidmap.h:36:14) const[12]'
+            #
+            words = decl.split("(", 1)[1]
+            words = words.rsplit(")", 1)[0]
+            decl = de_anonymiser(words)
+        if self.proxied_object.spelling.startswith("const "):
+            decl += " const"
+        decl = "{}[{}]".format(decl, self.element_count)
+        return decl
+
 
 class FunctionType(clangcplus.FunctionType, Type):
     def fmt_declaration(self, name, args=None):
@@ -449,7 +464,15 @@ class RecordType(Type):
             # The spelling will be of the form 'N::n::(anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5)'
             #
             words = decl.split("(", 1)[1][:-1]
-            words = re.split("[ :]", words)
-            kind = {"enum": EnumCursor, "struct": StructCursor, "union": UnionCursor}[words[1]]
-            decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
+            decl = de_anonymiser(words)
         return decl
+
+
+def de_anonymiser(words):
+    """
+    The words will be of the form 'anonymous union at /usr/include/KF5/kjs/bytecode/opargs.h:66:5'.
+    """
+    words = re.split("[ :]", words)
+    kind = {"enum": EnumCursor, "struct": StructCursor, "union": UnionCursor}[words[1]]
+    decl = kind.SIP_TYPE_NAME + " __" + words[1] + words[-2]
+    return decl
