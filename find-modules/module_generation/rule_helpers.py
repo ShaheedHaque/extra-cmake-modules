@@ -351,6 +351,24 @@ def module_delete_imports(filename, sip, rule, *modules):
     sip["decl"] = "\n".join(lines)
 
 
+def module_yank_scoped_class(filename, sip, rule):
+    """
+    SIP does not support classes defined with a scoped name, such as A::B.
+    We physically yank things into place.
+    """
+    child = "^    class " + sip["ctx"]["child"] + "\\b[^\n]*\n    {.*?(^    };)$"
+    parent = "^    class " + sip["ctx"]["parent"] + "\\b[^\n]*\n    {.*?(^    };)$"
+    trace_from = trace_generated_for(sip["name"], rule, "yanking '{}' into '{}'".format(sip["ctx"]["child"], sip["ctx"]["parent"]))
+    trace_to = trace_generated_for(sip["name"], rule, "yanked '{}' into '{}'".format(sip["ctx"]["child"], sip["ctx"]["parent"]))
+    #
+    #
+    #
+    child = re.search(child, sip["decl"], re.DOTALL | re.MULTILINE)
+    tmp = sip["decl"][:child.start(0)] + trace_from[:-1] + sip["decl"][child.end(0):]
+    parent = re.search(parent, tmp, re.DOTALL | re.MULTILINE)
+    sip["decl"] = tmp[:parent.start(1)] + trace_to + "    public:\n" + child.group(0) + "\n" + tmp[parent.start(1):]
+
+
 def module_add_includes(filename, sip, rule, *includes):
     """
     There are many cases where adding a #include is a useful workaround.
