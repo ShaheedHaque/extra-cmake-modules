@@ -294,6 +294,7 @@ class RuleSet(rules_engine.RuleSet):
             "KCrash",
             "KDeclarative",
             "KdepimDBusInterfaces",
+            "KDEWebKit",
             "KEmoticons",
             "KF5KDEGames",
             "KGAPI",

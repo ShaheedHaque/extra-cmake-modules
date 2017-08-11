@@ -190,7 +190,8 @@ set(CXX_SOURCES
 set(CXX_QT_DEPENDENCIES
         Qt5Core
         Qt5Widgets
-        Qt5Xml)
+        Qt5Xml
+        Qt5PrintSupport)
 
 #
 # Find the list of targets for a KDE component.
