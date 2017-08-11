@@ -337,6 +337,7 @@ class RuleSet(rules_engine.RuleSet):
             "KWindowSystem",
             "KXmlGui",
             "Libkdepim",
+            "Libkleo",
             "MailImporter",
             "MailTransport",
             "MessageCore",
