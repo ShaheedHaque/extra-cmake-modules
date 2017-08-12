@@ -174,14 +174,13 @@ class ModuleGenerator(object):
         self.package = self.compiled_rules.sip_package()
         self.includes = self.compiled_rules.cxx_includes()
         self.compile_flags = self.compiled_rules.cxx_compile_flags() + ["-isystem" + i for i in sys_includes]
-        exploded_includes = list(self.includes)
+        self.exploded_includes = list(self.includes)
         for i in self.includes:
             for dirpath, dirnames, filenames in os.walk(i):
                 for d in dirnames:
                     d = os.path.join(dirpath, d)
-                    if d not in exploded_includes:
-                        exploded_includes.append(d)
-        self.compile_flags += ["-I" + i for i in exploded_includes]
+                    if d not in self.exploded_includes:
+                        self.exploded_includes.append(d)
         self.imports = self.compiled_rules.sip_imports()
         self.output_dir = output_dir
         self.dump_modules = dump_modules
@@ -304,13 +303,13 @@ class ModuleGenerator(object):
             #
             # Debug mode.
             #
-            results = [self.create_module_safe(*(std_args + thread_args)) for thread_args in per_thread_args]
+            results = [self.create_package_safe(*(std_args + thread_args)) for thread_args in per_thread_args]
         else:
             #
             # Parallel processing here...
             #
             tp = ThreadPool(processes=thread_jobs)
-            results = [tp.apply_async(self.create_module_safe, std_args + thread_args) for thread_args in
+            results = [tp.apply_async(self.create_package_safe, std_args + thread_args) for thread_args in
                        per_thread_args]
             tp.close()
             tp.join()
@@ -342,12 +341,12 @@ class ModuleGenerator(object):
 
     FUNNY_CHARS = "+"
 
-    def create_module_safe(self, process_jobs, dirname, filenames):
+    def create_package_safe(self, process_jobs, dirname, filenames):
         """
-        Safely call create_module().
+        Safely call create_package().
 
         This function is capable of being run using threading to take advantage
-        of multiple cores (via multiprocessing and process_one_safe()).
+        of multiple cores (via multiprocessing and create_sip_safe()).
 
         As part of this, the programming contract is that no exceptions are to
         be thrown; they are instead returned to the caller to take appropriate
@@ -357,17 +356,17 @@ class ModuleGenerator(object):
         # Make sure any errors mention the directory that was being processed.
         #
         try:
-            attempts, failures = self.create_module(process_jobs, dirname, filenames)
+            attempts, failures = self.create_package(process_jobs, dirname, filenames)
         except Exception as e:
             logger.error("{} while processing {}".format(e, dirname))
             #
-            # Use the the same model as process_one_safe().
+            # Use the the same model as create_sip_safe().
             #
             e = (e.__class__, str(e), traceback.format_exc())
             return dirname, 0, [], e
         return dirname, attempts, failures, None
 
-    def create_module(self, process_jobs, dirname, filenames):
+    def create_package(self, process_jobs, dirname, filenames):
         """
         For a (sub)set of .h files in one directory, generate the individual SIP
         files, plus a module-level SIP file.
@@ -380,19 +379,19 @@ class ModuleGenerator(object):
             h_file = source[len(self.project_root) + len(os.path.sep):]
             per_process_args.append((source, h_file))
         std_args = (self.exe_clang, self.project_root, self.rules_pkg, self.package, self.compile_flags,
-                    self.includes, self.output_dir, self.dump_modules, self.dump_items, self.dump_includes,
-                    self.dump_privates, self.verbose)
+                    self.exploded_includes, self.includes, self.output_dir, self.dump_modules, self.dump_items,
+                    self.dump_includes, self.dump_privates, self.verbose)
         if process_jobs <= 1:
             #
             # Debug mode.
             #
-            results = [process_one_safe(*(process_args + std_args)) for process_args in per_process_args]
+            results = [create_sip_safe(*(process_args + std_args)) for process_args in per_process_args]
         else:
             #
             # Parallel processing here...
             #
             tp = Pool(processes=process_jobs)
-            results = [tp.apply_async(process_one_safe, process_args + std_args) for process_args in per_process_args]
+            results = [tp.apply_async(create_sip_safe, process_args + std_args) for process_args in per_process_args]
             tp.close()
             tp.join()
             #
@@ -571,10 +570,10 @@ class ModuleGenerator(object):
         return None
 
 
-def process_one_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, i_paths, output_dir,
-                     dump_modules, dump_items, dump_includes, dump_privates, verbose):
+def create_sip_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, exploded_includes,
+                    i_paths, output_dir, dump_modules, dump_items, dump_includes, dump_privates, verbose):
     """
-    Safely call process_one().
+    Safely call create_sip().
 
     This function is capable of being run using multiprocessing to take
     advantage of multiple cores.
@@ -585,7 +584,7 @@ def process_one_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, co
 
     :return: (
                 source,
-                ...items from process_one()...
+                ...items from create_sip()...
                 error,
             )
     """
@@ -593,11 +592,11 @@ def process_one_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, co
     # Make sure any errors mention the file that was being processed.
     #
     try:
-        sip_suffix, modulecode, direct_includes, i_paths, rule_usage = process_one(h_file, h_suffix, exe_clang, h_root,
-                                                                                   rules_pkg, package, compile_flags,
-                                                                                   i_paths, output_dir, dump_modules,
-                                                                                   dump_items, dump_includes,
-                                                                                   dump_privates, verbose)
+        sip_suffix, modulecode, direct_includes, i_paths, rule_usage = create_sip(h_file, h_suffix, exe_clang, h_root,
+                                                                                  rules_pkg, package, compile_flags,
+                                                                                  exploded_includes, i_paths,
+                                                                                  output_dir, dump_modules, dump_items,
+                                                                                  dump_includes, dump_privates, verbose)
     except Exception as e:
         logger.error("{} while processing {}".format(e, h_file))
         #
@@ -608,8 +607,8 @@ def process_one_safe(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, co
     return h_file, sip_suffix, modulecode, direct_includes, i_paths, rule_usage, None
 
 
-def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, i_paths, output_dir,
-                dump_modules, dump_items, dump_includes, dump_privates, verbose):
+def create_sip(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile_flags, exploded_includes, i_paths,
+               output_dir, dump_modules, dump_items, dump_includes, dump_privates, verbose):
     """
     Generate an individual SIP file for a .h file.
 
@@ -620,6 +619,7 @@ def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile
     :param rules_pkg:           Config
     :param package:             Config
     :param compile_flags:       Config
+    :param exploded_includes:   The exploded version of i_paths.
     :param i_paths:             Config
     :param output_dir:          Config
     :param dump_modules:        Turn on tracing for modules.
@@ -641,6 +641,16 @@ def process_one(h_file, h_suffix, exe_clang, h_root, rules_pkg, package, compile
     result = ""
     modulecode = {}
     rule_usage = {}
+    #
+    # Now, the set of exploded includes is project-wide, but some #includes
+    # might be order-sensitive, so order anything that "belongs" to the tree
+    # of the current file ahead of anything else.
+    #
+    tmp = [i for i in exploded_includes if h_file.lower().startswith(i.lower())]
+    tmp.sort()
+    tmp.reverse()
+    tmp += exploded_includes
+    compile_flags += ["-I" + i for i in tmp]
     generator = SipGenerator(exe_clang, rules_pkg, compile_flags, dump_modules=dump_modules, dump_items=dump_items,
                              dump_includes=dump_includes, dump_privates=dump_privates, verbose=verbose)
     if h_suffix.endswith("_export.h"):
