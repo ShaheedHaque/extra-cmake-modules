@@ -164,19 +164,7 @@ def module_fix_kjs(filename, sip, matcher):
 
 
 def module_fix_wtf(filename, sip, matcher):
-    #
-    # Fixup the recursion.
-    #
-    lines = []
-    for l in sip["decl"].split("\n"):
-        if "kjs/kjsmod.sip" in l:
-            #
-            # These modules refer to each other.
-            #
-            lines.append("// " + l)
-            continue
-        lines.append(l)
-    sip["decl"] = "\n".join(lines)
+    rule_helpers.module_delete_imports(filename, sip, matcher, "kjs/kjsmod.sip")
 
 
 def container_rules():
