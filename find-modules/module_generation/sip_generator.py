@@ -271,7 +271,7 @@ class TemplatingStack(list):
         """
         if not self or self[-1] is not templated_object:
             self.append(templated_object)
-        if not templated_object.template_parameters:
+        if templated_object.template_parameters is None:
             templated_object.template_parameters = []
         templated_object.template_parameters.append(new_parameter)
 
