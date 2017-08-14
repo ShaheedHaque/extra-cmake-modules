@@ -1229,7 +1229,7 @@ class SipGenerator(object):
             # SIP does not generally like function pointers. Here the problem
             # is that variables just don't support canonical function pointers,
             # so use the typedef if one is known. Else, rules are needed to fix
-            # them up. See rule_helpers.container_add_supplementary_typedefs().
+            # them up. See rule_helpers.container_add_typedefs().
             #
             if the_type.spelling.find("(") == -1:
                 decl = the_type.spelling

@@ -662,13 +662,11 @@ class GenerateMappedHelper(HeldAs):
 """,
         HeldAs.POINTER:
             """        int {name}State;
-        Cxx{name}T cxx{name} = NULL;
-        cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
+        Cxx{name}T cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
 """,
         HeldAs.OBJECT:
             """        int {name}State;
-        Cxx{name}T *cxx{name} = NULL;
-        cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
+        Cxx{name}T *cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
 """,
         HeldAs.FLOAT:
             """        Cxx{name}T cxx{name} = (Cxx{name}T)PyFloat_AsDouble({name});

@@ -302,6 +302,7 @@ class RuleSet(rules_engine.RuleSet):
             "KGlobalAccel",
             "KHtml",
             "KIconThemes",
+            "KIdentityManagement",
             "KIdleTime",
             "KIMAP",
             "KIO",
