@@ -78,7 +78,7 @@ class FunctionParameterHelper(HeldAs):
         return code, aN
 
     def py_parameter(self, type, name, default, annotations):
-        if not self.cxx_t.endswith(("*", "&", ">")):
+        if not self.cxx_t.endswith(("*", "&")):
             name = " " + name
         if default:
             return "{}{}{} = {}".format(self.cxx_t, name, annotations, default)

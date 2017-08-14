@@ -386,7 +386,7 @@ def module_add_includes(filename, sip, rule, *includes):
     sip["code"] += tmp
 
 
-def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
+def container_add_typedefs(container, sip, rule, *typedefs):
     """
     There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
 
@@ -395,31 +395,50 @@ def container_add_supplementary_typedefs(container, sip, rule, *typedefs):
     :param rule:            The rule.
     :param typedefs:        The typedefs to add.
     """
-    def get_template(text):
-        QUALIFIED_ID = re.compile("(?:[a-z_][a-z_0-9]*::)*([a-z_][a-z_0-9]*)$", re.I)
-        args = text.split("<", 1)[-1]
-        args = args.rsplit(">", 1)[0]
-        if args == text:
-            return None
-        args = [a.strip() for a in args.split(",")]
-        args = [a for a in args if QUALIFIED_ID.match(a)]
-        if args == text:
-            return "<" + ", ".join(args) + ">"
-        else:
-            return ""
+    def get_template(typedef, parent):
+        """
+        Any template parameters from the parent in "typedef" must be extracted,
+        and presented as template parameters for the typedef, so for
 
-    tmp = ""
-    for key, value in enumerate(typedefs):
-        key = "__{}{}_t".format(container.spelling, key)
-        template = get_template(value)
-        if template:
-            tmp += "    template" + template + "\n"
-            key += template
-        tmp += "    typedef " + value + " " + key + ";\n"
-        sip["body"] = sip["body"].replace(value, key)
+            template<A, B, C, D>
+            class Foo
+            {
+            public:
+                typedef DoesNotUseBorC<A, D> Bar;
+            }
+
+        we need to extract <B, C> to enable:
+
+            template<B, C>
+            typedef Foo::Bar;
+
+        TODO: this actually needs to take the templating_stack into account.
+        """
+        if parent.template_parameters is None:
+            return None
+        name, args = decompose_type_names(typedef)
+        assert isinstance(args, list)
+        ids = []
+        for arg in args:
+            ids.extend([a.strip() for a in re.split(",| |::|<|>|\*|&", arg) if a])
+        ids.extend(name.split("::"))
+        ids = [a for a in ids if a in parent.template_parameters]
+        return ", ".join(ids)
+
+    typeheadercode = ""
     trace = trace_generated_for(sip["name"], rule, "supplementary typedefs")
-    tmp = trace + "%TypeHeaderCode\n" + tmp + "%End\n"
-    sip["code"] += tmp
+    for new_typedef, original_type in enumerate(typedefs):
+        new_typedef = "__{}{}_t".format(container.spelling, new_typedef)
+        typedef_template = get_template(original_type, container)
+        #
+        # Generate a C++ typedef in %TypeHeaderCode.
+        #
+        if typedef_template:
+            typeheadercode += "    template<" + typedef_template + ">\n"
+        typeheadercode += "    typedef " + original_type + " " + new_typedef + ";\n"
+        sip["body"] = sip["body"].replace(original_type, new_typedef)
+        sip["modulecode"][new_typedef] = "class " + new_typedef + ";\n"
+    sip["code"] += trace + "%TypeHeaderCode\n" + typeheadercode + "%End\n"
 
 
 def container_fake_derived_class(container, sip, rule):

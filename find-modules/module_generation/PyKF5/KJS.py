@@ -21,7 +21,6 @@ SIP binding customisation for PyKF5.KJS. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 from clang.cindex import StorageClass
 
 import builtin_rules
@@ -29,92 +28,148 @@ import rule_helpers
 import rules_engine
 
 
-def function_discard_inlines(container, function, sip, matcher):
-    if function.storage_class == StorageClass.NONE:
-        rule_helpers.function_discard(container, function, sip, matcher)
+def function_discard_inlines(container, fn, sip, rule):
+    if fn.storage_class == StorageClass.NONE:
+        rule_helpers.function_discard(container, fn, sip, rule)
 
 
-def container_fix_template_w_literal_compilestate(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>",
-                                                 "WTF::Vector<KJS::CompileState::NestInfo, 0>")
+def container_fix_parser(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::RefPtr<KJS::UString::Rep>",
+                                        "WTF::PassRefPtr<KJS::ProgramNode>")
 
 
-def container_fix_template_w_literal_localstorage(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::LocalStorageEntry, 32>")
+def container_fix_idrephash(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::RefPtr<KJS::UString::Rep>")
+    #
+    # No subclassing from %MappedType. See...
+    #
+    # https://www.riverbankcomputing.com/pipermail/pyqt/2017-August/039513.html
+    #
+    sip["base_specifiers"] = []
 
 
-
-def container_fix_template_w_literal_opcodes(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
-
-
-def container_fix_template_w_literal_nodes(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<unsigned char, 0>")
+def container_fix_rep(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::PassRefPtr<KJS::UString::Rep>")
 
 
-def container_fix_template_w_literal_ustring(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "WTF::Vector<KJS::UChar, 0>")
+def container_fix_template_w_literal_compilestate(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::Vector<unsigned char, 0>",
+                                        "WTF::Vector<KJS::CompileState::NestInfo, 0>")
 
 
-def container_fix_fn_ptr(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "bool (*f)(int)",
-                                                 "WTF::Vector<KJS::UChar, 0>")
+def container_fix_template_w_literal_localstorage(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::Vector<KJS::LocalStorageEntry, 32>")
 
 
-def container_fix_typename_countedset(container, sip, matcher):
+def container_fix_template_w_literal_opcodes(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::Vector<unsigned char, 0>")
+
+
+def container_fix_template_w_literal_nodes(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::Vector<unsigned char, 0>")
+
+
+def container_fix_template_w_literal_ustring(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "WTF::Vector<KJS::UChar, 0>")
+
+
+def container_fix_fn_ptr(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "bool (*f)(int)", "WTF::Vector<KJS::UChar, 0>")
+
+
+def container_fix_typename_countedset(container, sip, rule):
     clazz = "typename HashMap<Value, unsigned int, HashFunctions, Traits, HashTraits<unsigned int> >"
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, clazz + "::iterator",
-                                                      clazz + "::const_iterator")
+    rule_helpers.container_add_typedefs(container, sip, rule, clazz + "::iterator",
+                                        clazz + "::const_iterator")
 
 
-def container_fix_typename_hashmaphm(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
-                                                 "typename MappedTraitsArg::TraitType",
-                                                 "typename PairHashTraits<KeyTraitsArg, MappedTraitsArg>::TraitType")
+def container_fix_typename_hashmaphm(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename KeyTraitsArg::TraitType",
+                                        "typename MappedTraitsArg::TraitType",
+                                        "typename PairHashTraits<KeyTraitsArg, MappedTraitsArg>::TraitType",
+                                        "HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>",
+                                        "HashTableIteratorAdapter<HashTable<__HashMap0_t, __HashMap2_t, "
+                                        "PairFirstExtractor<__HashMap2_t>, HashArg, PairHashTraits<KeyTraitsArg, "
+                                        "MappedTraitsArg>, KeyTraitsArg>, __HashMap2_t>")
 
 
-def container_fix_typename_hashmappfe(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename PairType::first_type")
+def container_fix_typename_hashmappfe(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename PairType::first_type")
 
 
-def container_fix_typename_hashmaphmt(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
-                                                 "typename ValueType::second_type")
+def container_fix_typename_hashmaphmt(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename ValueType::first_type",
+                                        "typename ValueType::second_type")
 
 
-def container_fix_typename_hashset(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename KeyTraitsArg::TraitType",
-                                                 "HashSet<Value, HashFunctions, Traits>",
-                                                 "typename TraitsArg::TraitType")
+def container_fix_typename_hashset(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename KeyTraitsArg::TraitType",
+                                        "HashSet<Value, HashFunctions, Traits>", "typename TraitsArg::TraitType",
+                                        "HashTableIteratorAdapter<HashTable<__HashSet2_t, __HashSet2_t, "
+                                        "IdentityExtractor<__HashSet2_t>, HashArg, TraitsArg, TraitsArg>, "
+                                        "__HashSet2_t>")
 
 
-def container_fix_typename_hashtable(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher,
-                                                 "HashTableIterator<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>",
-                                                 "HashTableConstIterator<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>",
-                                                 "IdentityHashTranslator<Key, Value, HashFunctions>")
+def container_fix_typename_hashtable(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule,
+                                        "HashTableIterator<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>",
+                                        "HashTableConstIterator<Key, Value, Extractor, HashFunctions, Traits, "
+                                        "KeyTraits>",
+                                        "IdentityHashTranslator<Key, Value, HashFunctions>")
 
 
-def container_fix_typename_hashtableia(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename HashTableType::const_iterator",
-                                                 "typename HashTableType::iterator")
+def container_fix_typename_hashtableia(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename HashTableType::const_iterator",
+                                        "typename HashTableType::iterator")
 
 
-def container_fix_typename_hashtraits(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename FirstTraitsArg::TraitType",
-                                                 "typename SecondTraitsArg::TraitType",
-                                                 "GenericHashTraits<pair<typename FirstTraitsArg::TraitType, typename SecondTraitsArg::TraitType> >")
-    sip["base_specifiers"][0] = "__2_t"
+def container_fix_typename_hashtraits(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename FirstTraitsArg::TraitType",
+                                        "typename SecondTraitsArg::TraitType",
+                                        "GenericHashTraits<pair<typename FirstTraitsArg::TraitType, typename "
+                                        "SecondTraitsArg::TraitType> >")
+    #
+    # No subclassing from %MappedType. See...
+    #
+    # https://www.riverbankcomputing.com/pipermail/pyqt/2017-August/039513.html
+    #
+    sip["base_specifiers"] = []
 
 
-def container_fix_typename_refptrhashmap(container, sip, matcher):
-    rule_helpers.container_add_supplementary_typedefs(container, sip, matcher, "typename ValueType::first_type",
-                                                 "typename ValueType::second_type", "typename ValueTraits::FirstTraits",
-                                                 "typename ValueTraits::SecondTraits")
+def container_fix_typename_refptrhashmap(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "typename ValueType::first_type",
+                                        "typename ValueType::second_type", "typename ValueTraits::FirstTraits",
+                                        "typename ValueTraits::SecondTraits")
 
 
-def variable_rewrite_array(container, variable, sip, matcher):
-    builtin_rules.variable_rewrite_extern(container, variable, sip, matcher)
+def function_deref(container, fn, sip, rule):
+    rule_helpers.initialise_cxx_decl(sip)
+    #
+    # Strip the "&".
+    #
+    sip["fn_result"] = sip["fn_result"][:-2]
+    code = """%MethodCode
+// TBD
+%End
+"""
+    sip["code"] += code
+
+
+def function_n_callable(container, fn, sip, rule):
+    rule_helpers.initialise_cxx_decl(sip)
+    t, v =  sip["parameters"][-1].split(None, 1)
+    sip["parameters"][-1] = "SIP_PYCALLABLE " + v
+
+
+def function_2plus_callable(container, fn, sip, rule):
+    rule_helpers.initialise_cxx_decl(sip)
+    for i in range(2, len(sip["parameters"])):
+        t, v =  sip["parameters"][i].rsplit(None, 1)
+        sip["parameters"][i] = "SIP_PYCALLABLE " + v
+
+
+def variable_rewrite_array(container, variable, sip, rule):
+    builtin_rules.variable_rewrite_extern(container, variable, sip, rule)
     sip["code"] += """
 {
 %GetCode
@@ -123,12 +178,12 @@ def variable_rewrite_array(container, variable, sip, matcher):
 }"""
 
 
-def variable_rewrite_array_rw(container, variable, sip, matcher):
-    builtin_rules.variable_rewrite_extern(container, variable, sip, matcher)
-    variable_rewrite_rw(container, variable, sip, matcher)
+def variable_rewrite_array_rw(container, variable, sip, rule):
+    builtin_rules.variable_rewrite_extern(container, variable, sip, rule)
+    variable_rewrite_rw(container, variable, sip, rule)
 
 
-def variable_rewrite_rw(container, variable, sip, matcher):
+def variable_rewrite_rw(container, variable, sip, rule):
     sip["code"] += """
 {
 %GetCode
@@ -141,11 +196,14 @@ def variable_rewrite_rw(container, variable, sip, matcher):
 }"""
 
 
-def module_discard_duplicate(filename, sip, entry):
+def module_discard_duplicate(filename, sip, rule):
     sip["name"] = ""
 
 
-def module_fix_kjs(filename, sip, matcher):
+def module_fix_bytecode(filename, sip, rule):
+    rule_helpers.module_add_classes(filename, sip, rule, "DOM::DOMString")
+
+def module_fix_kjs(filename, sip, rule):
     #
     # Fixup the recursion.
     #
@@ -161,10 +219,11 @@ def module_fix_kjs(filename, sip, matcher):
             continue
         lines.append(l)
     sip["decl"] = "\n".join(lines)
+    rule_helpers.module_add_classes(filename, sip, rule, "DOM::DOMString")
 
 
-def module_fix_wtf(filename, sip, matcher):
-    rule_helpers.module_delete_imports(filename, sip, matcher, "kjs/kjsmod.sip")
+def module_fix_wtf(filename, sip, rule):
+    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
 
 
 def container_rules():
@@ -176,7 +235,10 @@ def container_rules():
         ["KJS", "CompileState", ".*", ".*", ".*", container_fix_template_w_literal_compilestate],
         ["KJS", "CodeGen", ".*", ".*", ".*", container_fix_template_w_literal_opcodes],
         ["KJS", "FunctionBodyNode", ".*", ".*", ".*", container_fix_template_w_literal_nodes],
+        ["KJS", "Parser", ".*", ".*", ".*", container_fix_parser],
+        ["KJS", "IdentifierRepHash", ".*", ".*", ".*", container_fix_idrephash],
         ["KJS", "UString", ".*", ".*", ".*", container_fix_template_w_literal_ustring],
+        ["KJS::UString", "Rep", ".*", ".*", ".*", container_fix_rep],
         #
         # SIP cannot handle function pointer arguments.
         #
@@ -212,6 +274,13 @@ def container_rules():
 def forward_declaration_rules():
     return [
         ["KJS", "AttachedInterpreter", ".*", rule_helpers.noop],
+        ["date_object.h", "tm", ".*", rule_helpers.noop],
+        ["kjsarguments.h", "KJSArgumentsHandle", ".*", rule_helpers.noop],
+        ["kjscontext.h", "KJSContextHandle", ".*", rule_helpers.noop],
+        ["kjsinterpreter.h", "KJSInterpreterHandle", ".*", rule_helpers.noop],
+        ["kjsobject.h", "KJSObjectHandle", ".*", rule_helpers.noop],
+        ["KJS", "SourceStream", ".*", rule_helpers.noop],
+        ["ustring.h", "QConstString", ".*", rule_helpers.noop],
     ]
 
 
@@ -221,6 +290,7 @@ def function_rules():
         ["KJS", "jsNumber", ".*", ".*", ".*(int|long).*", rule_helpers.function_discard],
         ["KJS::Collector", "cellBlock", ".*", "(?!const ).*", ".*", rule_helpers.function_discard],
         ["KJS::Collector", "rootObjectTypeCounts|markOtherThreadConservatively", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KJS::FunctionBodyNode", "getFunctionLocalInfo", ".*", ".*", ".*", rule_helpers.function_discard],
         ["KJS::JSImmediate", "from", ".*", ".*", "(?!long long ).*", rule_helpers.function_discard],
         ["KJS::JSImmediate", "getNumber", ".*", "double", ".*", rule_helpers.function_discard],
         ["KJS::JSImmediate", "getTruncatedInt32", ".*", "int", ".*", rule_helpers.function_discard],
@@ -231,6 +301,25 @@ def function_rules():
         ["KJS::JSCell", "getNumber", ".*", ".*", "", rule_helpers.function_discard],
         ["KJS::JSCell", "getObject", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
         ["KJS::JSObject", "getDirect(Write|)Location", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KJS::Package", "parent", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["KJS::PropertyMap", "get", ".*", ".*", ".*name", rule_helpers.function_discard],
+        ["KJS::PropertyMap", "get(Write|)Location", ".*", ".*", ".*name", rule_helpers.function_discard],
+        ["KJS::PropertyNameArray", "operator\[\]", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["KJSInterpreter", "globalContext", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["KJSObject", "setProperty", ".*", ".*", ".*(bool |double |const char *)value", rule_helpers.function_discard],
+        ["KJS::RegExp", "match", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KJS::RegExpObjectImp", "performMatch", ".*", ".*", ".*", rule_helpers.function_discard],
+        ["KJS::UChar", "UChar", ".*", ".*", ".*char.*", rule_helpers.function_discard],
+        ["KJS::CString", "CString", ".*", ".*", "const char \*c", rule_helpers.function_discard],
+        ["KJS::UString", "from", ".*", ".*", ".*(int|double).*", rule_helpers.function_discard],
+        #
+        # Callables.
+        #
+        ["KJS::UnicodeSupport", "setIdent(Start|Part)Checker|setTo(Lower|Upper)Function", ".*", ".*", ".*", function_n_callable],
+        ["KJS::PropertySlot", "setCustomIndex", ".*", ".*", ".*GetValueNumberFunc getValue", rule_helpers.function_discard],
+        ["KJS::PropertySlot", "set(StaticEntry|Custom.*)", ".*", ".*", ".*", function_n_callable],
+        ["KJS::StringProtoFunc", "setTo(Lower|Upper)Function", ".*", ".*", ".*", function_n_callable],
+        ["KJSPrototype", "define(Property|Function)", ".*", ".*", ".*", function_2plus_callable],
         #
         # Inline implementations.
         #
@@ -260,6 +349,11 @@ def function_rules():
         ["WTF::Own(Array|)Ptr", "operator.*", ".*", ".*", ".*", rule_helpers.function_discard],
         ["WTF::(Pass|)RefPtr", "operator.*", ".*", ".*", ".*", rule_helpers.function_discard],
         ["WTF::SharedPtr", "operator.*", ".*", ".*", ".*", rule_helpers.function_discard],
+        #
+        # Return POD via reference.
+        #
+        ["KJS::JSVariableObject", "lengthSlot", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["KJS::JSVariableObject", "lengthSlot|tearOffNeededSlot", ".*", ".*", ".*", function_deref],
     ]
 
 
@@ -299,6 +393,9 @@ def modulecode():
     return {
         "kjs/context.h": {
             "code": module_discard_duplicate,
+        },
+        "kjs/bytecode/bytecodemod.sip": {
+            "code": module_fix_bytecode,
         },
         "kjs/kjsmod.sip": {
             "code": module_fix_kjs,
