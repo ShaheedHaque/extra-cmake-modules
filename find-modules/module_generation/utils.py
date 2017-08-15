@@ -330,11 +330,11 @@ class HeldAs(object):
         code = code.replace("{cxx_t}", self.cxx_t)
         return code
 
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+    def cxx_to_py(self, name, needs_reference, cxx):
         code = self.cxx_to_py_template()
         code = code.replace("{name}", name)
-        code = code.replace("{cxx_i}", cxx_i)
-        code = code.replace("{cxx_po}", cxx_po if cxx_po else cxx_i)
+        code = code.replace("{cxx_i}", cxx)
+        code = code.replace("{cxx_po}", cxx)
         code = code.replace("{transfer}", "sipTransferObj" if needs_reference else "NULL")
         return code
 

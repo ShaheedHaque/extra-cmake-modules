@@ -277,8 +277,8 @@ class DictExpander(AbstractExpander):
     {template_t}<CxxkeyT, CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += key_h.cxx_to_py("key", True, "i", "i")
-        code += value_h.cxx_to_py("value", True, "i", "i")
+        code += key_h.cxx_to_py("key", True, "i")
+        code += value_h.cxx_to_py("value", True, "i")
         #
         # Error handling assumptions:
         #
@@ -414,7 +414,7 @@ class ListExpander(AbstractExpander):
     Py_ssize_t i = 0;
     for (i = 0; i < (Py_ssize_t)sipCpp->size(); ++i) {
 """
-        code += value_h.cxx_to_py("value", True, "sipCpp", "sipCpp")
+        code += value_h.cxx_to_py("value", True, "sipCpp")
         code += """
         if (value == NULL) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into list");
@@ -529,7 +529,7 @@ class SetExpander(AbstractExpander):
     {template_t}<CxxvalueT>::const_iterator end = sipCpp->constEnd();
     while (i != end) {
 """
-        code += value_h.cxx_to_py("value", True, "i", "i")
+        code += value_h.cxx_to_py("value", True, "i")
         code += """
         if (value == NULL || PySet_Add(set, value) < 0) {
             PyErr_Format(PyExc_TypeError, "cannot insert value into set");

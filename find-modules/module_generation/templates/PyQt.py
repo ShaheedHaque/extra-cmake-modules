@@ -74,40 +74,36 @@ RE_UNTEMPLATED_FN = ".*[^>]"
 
 
 class DictHelperKey(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += ".key()"
-        cxx_po += ".key()"
-        return super(DictHelperKey, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += ".key()"
+        return super(DictHelperKey, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(DictHelperKey, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class DictHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += ".value()"
-        cxx_po += ".value()"
-        return super(DictHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += ".value()"
+        return super(DictHelperValue, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(DictHelperValue, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class ListHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += "->value(i)"
-        cxx_po += "->at(i)"
-        return super(ListHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += "->at(i)"
+        return super(ListHelperValue, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(ListHelperValue, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class SetHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i = "*" + cxx_i
-        cxx_po = "*" + cxx_po
-        return super(SetHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx = "*" + cxx
+        return super(SetHelperValue, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(SetHelperValue, self).py_to_cxx(name, needs_reference, py_v)
@@ -127,10 +123,10 @@ class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
         super(FunctionParameterHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
 
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+    def cxx_to_py(self, name, needs_reference, cxx):
         if self.is_pointer:
-            cxx_i += ".data()"
-        return super(FunctionParameterHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+            cxx += ".data()"
+        return super(FunctionParameterHelper, self).cxx_to_py(name, needs_reference, cxx)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
         if self.is_pointer:
@@ -173,10 +169,10 @@ class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
         super(FunctionReturnHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
 
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
+    def cxx_to_py(self, name, needs_reference, cxx):
         if self.is_pointer:
-            cxx_i += ".data()"
-        return super(FunctionReturnHelper, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+            cxx += ".data()"
+        return super(FunctionReturnHelper, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_fn_result(self, is_constructor):
         if self.is_pointer:
@@ -216,8 +212,8 @@ class PairExpander(templates.mappedtype.AbstractExpander):
     PyObject *tuple = NULL;
     {
 """
-        code += first_h.cxx_to_py("first", True, "sipCpp", "sipCpp")
-        code += second_h.cxx_to_py("second", True, "sipCpp", "sipCpp")
+        code += first_h.cxx_to_py("first", True, "sipCpp")
+        code += second_h.cxx_to_py("second", True, "sipCpp")
         code += """        tuple = (first && second) ? PyTuple_Pack(2, first, second) : NULL;
 """
         #
@@ -322,20 +318,18 @@ class PairExpander(templates.mappedtype.AbstractExpander):
 
 
 class PairHelperFirst(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += "->first"
-        cxx_po += "->first"
-        return super(PairHelperFirst, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += "->first"
+        return super(PairHelperFirst, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(PairHelperFirst, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class PairHelperSecond(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += "->second"
-        cxx_po += "->second"
-        return super(PairHelperSecond, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += "->second"
+        return super(PairHelperSecond, self).cxx_to_py(name, needs_reference, cxx)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(PairHelperSecond, self).py_to_cxx(name, needs_reference, py_v)
@@ -368,7 +362,7 @@ class PointerExpander(templates.mappedtype.AbstractExpander):
         code += """
     // Convert the value from C++.
 """
-        code += value_h.cxx_to_py("value", True, "sipCpp", "sipCpp")
+        code += value_h.cxx_to_py("value", True, "sipCpp")
         code += """    if (value == NULL) {
         PyErr_Format(PyExc_TypeError, "cannot convert value");
         return 0;
@@ -425,10 +419,9 @@ class PointerHelperValue(templates.mappedtype.GenerateMappedHelper):
     PyObject *{name} = sipConvertFromType((void *)cxx{name}, gen{name}T, sipTransferObj);
 """
 
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po):
-        cxx_i += "->data()"
-        cxx_po += "->data()"
-        code = super(PointerHelperValue, self).cxx_to_py(name, needs_reference, cxx_i, cxx_po)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        cxx += "->data()"
+        code = super(PointerHelperValue, self).cxx_to_py(name, needs_reference, cxx)
         if self.cxx_t.startswith("QExplicitlySharedDataPointer"):
             code += """    cxxvalue->ref.ref();
 """

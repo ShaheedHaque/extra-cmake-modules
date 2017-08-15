@@ -68,8 +68,8 @@ class FunctionParameterHelper(HeldAs):
     Function parameter helper base class for FunctionExpander.
     Use subclasses to customise the output from FunctionExpander.
     """
-    def cxx_to_py(self, name, needs_reference, cxx_i, cxx_po=None):
-        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx_i)
+    def cxx_to_py(self, name, needs_reference, cxx):
+        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
         code = ""
