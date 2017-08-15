@@ -21,27 +21,30 @@ SIP binding customisation for PyKF5.Akonadi. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import builtin_rules
 import rule_helpers
 import templates.mappedtype
 from rule_helpers import trace_generated_for
 
 
-def _function_rewrite_using_decl(container, function, sip, matcher):
+def container_add_typedefs(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "KSharedPixmapCacheMixin<KSharedDataCache>")
+
+
+def _function_rewrite_using_decl(container, fn, sip, rule):
     sip["parameters"] = ["const QModelIndex &current", "const QModelIndex &previous"]
     sip["prefix"] = "virtual "
 
 
-def _function_rewrite_using_decl2(container, function, sip, matcher):
+def _function_rewrite_using_decl2(container, fn, sip, rule):
     sip["parameters"] = ["const Akonadi::Collection &collection"]
 
 
-def _parameter_restore_default(container, function, parameter, sip, matcher):
+def _parameter_restore_default(container, fn, parameter, sip, rule):
     sip["init"] = "Q_NULLPTR"
 
 
-def _parameter_use_qstring(container, function, parameter, sip, matcher):
+def _parameter_use_qstring(container, fn, parameter, sip, rule):
     sip["decl"] = "const QString &" + sip["name"]
 
 
@@ -61,9 +64,9 @@ def _typedef_add_collections(container, typedef, sip, rule):
         sip["modulecode"][mapped_type] = code
 
 
-def _variable_array_to_star(container, variable, sip, matcher):
-    builtin_rules.variable_rewrite_array_nonfixed(container, variable, sip, matcher)
-    builtin_rules.variable_rewrite_static(container, variable, sip, matcher)
+def _variable_array_to_star(container, variable, sip, rule):
+    builtin_rules.variable_rewrite_array_nonfixed(container, variable, sip, rule)
+    builtin_rules.variable_rewrite_static(container, variable, sip, rule)
 
 
 def module_fix_mapped_types(filename, sip, rule):
@@ -384,6 +387,7 @@ def container_rules():
         #
         ["Akonadi::Internal.*", ".*", ".+", ".*", ".*", rule_helpers.container_discard],
         ["Akonadi::NoteUtils", "NoteMessageWrapper", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+        ["Akonadi", "ImageProvider", ".*", ".*", ".*", container_add_typedefs]
     ]
 
 
