@@ -50,7 +50,7 @@ from copy import deepcopy
 
 import builtin_rules
 import rule_helpers
-from rule_helpers import cursor_parents, trace_inserted_for, trace_generated_for
+from utils import cursor_parents, trace_inserted_for, trace_generated_for
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):

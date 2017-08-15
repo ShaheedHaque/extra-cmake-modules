@@ -41,7 +41,7 @@ import os
 import re
 
 import builtin_rules
-from builtin_rules import HeldAs
+from utils import HeldAs
 from clangcparser import TypeKind
 import templates.mappedtype
 import templates.methodcode

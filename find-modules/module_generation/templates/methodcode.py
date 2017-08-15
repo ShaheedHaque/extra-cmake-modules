@@ -47,8 +47,10 @@ import re
 from clang.cindex import AccessSpecifier
 
 import rule_helpers
+import utils
 from clangcparser import CursorKind
-from rule_helpers import trace_generated_for, HeldAs, fqn, initialise_cxx_decl
+from rule_helpers import initialise_cxx_decl
+from utils import fqn, trace_generated_for, HeldAs
 
 gettext.install(os.path.basename(__file__))
 logger = logging.getLogger(__name__)
@@ -418,7 +420,7 @@ def function_uses_templates(container, function, sip, rule):
     #
     if sip["is_signal"]:
         logger.warning(
-        _("SIP does not support templated signals: {}").format(rule_helpers.item_describe(function)))
+        _("SIP does not support templated signals: {}").format(utils.item_describe(function)))
         return rule_helpers.SILENT_NOOP
     template = sip.get("template", FunctionExpander)
     parameter_helper = sip.get("parameter_helper", FunctionParameterHelper)

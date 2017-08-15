@@ -38,7 +38,7 @@ import re
 from clang.cindex import CursorKind, TypeKind
 
 import rule_helpers
-from rule_helpers import trace_generated_for, fqn, HeldAs
+from utils import fqn, trace_generated_for, HeldAs
 from templates.methodcode import function_uses_templates
 
 logger = logging.getLogger(__name__)

@@ -44,7 +44,7 @@ import re
 import builtin_rules
 import templates.mappedtype
 import templates.methodcode
-from builtin_rules import HeldAs
+from utils import HeldAs
 from clangcparser import TypeKind
 
 gettext.install(os.path.basename(__file__))

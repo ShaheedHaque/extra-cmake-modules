@@ -45,9 +45,10 @@ import pcpp.preprocessor
 
 import clangcparser
 import rule_helpers
+import utils
 from clangcparser import CursorKind
 import rules_engine
-from rule_helpers import item_describe, trace_discarded_by, trace_generated_for, trace_modified_by
+from utils import item_describe, trace_discarded_by, trace_generated_for, trace_modified_by
 
 
 class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -988,7 +989,7 @@ class SipGenerator(object):
                 mangler = mangler_other
             tmp = ""
             match = SipGenerator.QUALIFIED_ID.search(text)
-            name, args = rule_helpers.decompose_type_names(clang_spelling)
+            name, args = utils.decompose_type_names(clang_spelling)
             names = [name]
             if args:
                 names.extend(args)

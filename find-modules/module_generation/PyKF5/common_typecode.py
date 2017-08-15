@@ -47,7 +47,7 @@
 SIP binding custom type-related code for PyKF5.
 """
 
-from builtin_rules import HeldAs
+from utils import HeldAs
 from templates.PyQt import list_typecode
 
 

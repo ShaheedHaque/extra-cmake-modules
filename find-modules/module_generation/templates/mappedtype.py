@@ -45,9 +45,9 @@ import logging
 import os
 
 import rule_helpers
+import utils
 from clangcparser import CursorKind, TypeKind
-from rule_helpers import trace_generated_for, HeldAs
-
+from utils import trace_generated_for, HeldAs
 
 gettext.install(os.path.basename(__file__))
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class AbstractExpander(object):
 
         :return: (name, [args])
         """
-        name, args = rule_helpers.decompose_type_names(template)
+        name, args = utils.decompose_type_names(template)
         assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
         return name, args
 

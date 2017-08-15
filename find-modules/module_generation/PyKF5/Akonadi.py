@@ -24,7 +24,7 @@ SIP binding customisation for PyKF5.Akonadi. This modules describes:
 import builtin_rules
 import rule_helpers
 import templates.mappedtype
-from rule_helpers import trace_generated_for
+from utils import trace_generated_for
 
 
 def container_add_typedefs(container, sip, rule):
