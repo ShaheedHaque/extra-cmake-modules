@@ -273,6 +273,7 @@ class RuleSet(rules_engine.RuleSet):
         #
         for rules_module in [
             "Akonadi",
+            "Attica",
             "CalendarSupport",
             "FollowupReminder",
             "gpgme__",
@@ -397,6 +398,7 @@ class RuleSet(rules_engine.RuleSet):
         #
         result.append(os.path.join(source_root, "akonadi", "abstractsearchplugin.h"))
         result.append(os.path.join(source_root, "akonadi", "private"))
+        result.append(os.path.join(source_root, "Attica", "attica", "(atticabasejob.h|platformdependent.h)"))
         #
         # Include KIOCore/kio/job_base.h.
         #
