@@ -44,6 +44,7 @@ from clang.cindex import AccessSpecifier, Config, Index, SourceRange, StorageCla
 import pcpp.preprocessor
 
 import clangcparser
+import rule_helpers
 from clangcparser import CursorKind
 import rules_engine
 from rule_helpers import item_describe, trace_discarded_by, trace_generated_for, trace_modified_by
@@ -938,11 +939,16 @@ class SipGenerator(object):
 
         def _get_param_value(text, parameter):
 
-            def mangler_enum(p, c, i):
+            def mangler_enum(p, names, i):
                 return i if i == QFLAGS else p + i
 
-            def mangler_other(p, c, i):
-                return c if p.endswith(i) or c.endswith(i) else i
+            def mangler_other(p, names, i):
+                if p.endswith(i):
+                    return names[0]
+                for name in names:
+                    if name.endswith(i):
+                        return name
+                return i
 
             if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
@@ -982,10 +988,14 @@ class SipGenerator(object):
                 mangler = mangler_other
             tmp = ""
             match = SipGenerator.QUALIFIED_ID.search(text)
+            name, args = rule_helpers.decompose_type_names(clang_spelling)
+            names = [name]
+            if args:
+                names.extend(args)
             while match:
                 tmp += match.string[:match.start()]
                 id = match.expand("\\1")
-                tmp += mangler(prefix, clang_spelling, id)
+                tmp += mangler(prefix, names, id)
                 text = text[match.end():]
                 match = SipGenerator.QUALIFIED_ID.search(text)
             tmp += text

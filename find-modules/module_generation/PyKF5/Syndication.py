@@ -21,15 +21,10 @@ SIP binding customisation for PyKF5.Syndication. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import os
 
 import rule_helpers
 from templates import PyQt
-
-
-def param_fully_qualify_default(container, function, parameter, sip, matcher):
-    sip["init"] = sip["init"].replace("Document", "Syndication::RSS2::Document", 1)
 
 
 def typedef_duplicate_discard(container, typedef, sip, matcher):
@@ -103,12 +98,6 @@ def function_rules():
         # Provide %MethodCode and a C++ signature.
         #
         ["Syndication", "parserCollection", ".*", ".*", ".*", rule_helpers.function_discard],
-    ]
-
-
-def parameter_rules():
-    return [
-        ["Syndication::RSS2::Item", "Item", "doc", ".*", ".*", param_fully_qualify_default],
     ]
 
 

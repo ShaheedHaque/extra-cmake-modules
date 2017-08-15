@@ -96,6 +96,42 @@ ANNOTATIONS_RE = re.compile(" /.*/")
 SILENT_NOOP = "do-not-report-lack-of-changes"
 
 
+def decompose_type_names(text):
+    """
+    Any template parameters from the parent in "type_text" are extracted, and
+    return (name, [parameters]) or (name, None).
+    """
+    parameters = text.split("<", 1)[-1]
+    if parameters == text:
+        parameters = None
+    else:
+        #
+        # Strip any suffix &* and parameter name.
+        #
+        tmp = parameters.rsplit(">", 1)[0]
+        #
+        # Parse...
+        #
+        parameters = []
+        bracket_level = 0
+        left = 0
+        for right, token in enumerate(tmp):
+            if bracket_level <= 0 and token is ",":
+                parameters.append(tmp[left:right].strip())
+                left = right + 1
+            elif token is "<":
+                bracket_level += 1
+            elif token is ">":
+                bracket_level -= 1
+        parameters.append(tmp[left:].strip())
+    #
+    # Strip any keywords before the name.
+    #
+    name = text.split("<", 1)[0]
+    name = name.split()[-1]
+    return name, parameters
+
+
 def fqn(cursor, alternate_spelling=None):
     """
     A handy helper to return the fully-qualified name for something.
@@ -417,10 +453,10 @@ def container_add_typedefs(container, sip, rule, *typedefs):
         if parent.template_parameters is None:
             return None
         name, args = decompose_type_names(typedef)
-        assert isinstance(args, list)
         ids = []
-        for arg in args:
-            ids.extend([a.strip() for a in re.split(",| |::|<|>|\*|&", arg) if a])
+        if args:
+            for arg in args:
+                ids.extend([a.strip() for a in re.split(",| |::|<|>|\*|&", arg) if a])
         ids.extend(name.split("::"))
         ids = [a for a in ids if a in parent.template_parameters]
         return ", ".join(ids)

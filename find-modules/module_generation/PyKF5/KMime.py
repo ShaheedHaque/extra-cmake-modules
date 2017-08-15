@@ -21,7 +21,6 @@ SIP binding customisation for PyKF5.KMime. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 from templates import PyQt
 
@@ -43,10 +42,6 @@ def parameter_out(container, function, parameter, sip, matcher):
         PyQt.list_parameter(container, function, parameter, sip, matcher)
     elif sip["decl"].startswith("QMap"):
         PyQt.dict_parameter(container, function, parameter, sip, matcher)
-
-
-def parameter_fully_qualify(container, function, parameter, sip, matcher):
-    sip["init"] = sip["init"].replace("<", "<KMime::MDN::")
 
 
 def module_fix_mapped_types(filename, sip, rule):
@@ -72,11 +67,7 @@ def parameter_rules():
     return [
         ["KMime::HeaderParsing", "parse.*", "scursor", ".*", ".*", parameter_in_out],
         ["KMime::HeaderParsing", "parse.*", "result", ".*", ".*", parameter_out],
-        #
-        # Fully-qualify default values.
-        #
-        ["KMime::MDN", ".*", ".*", ".*", ".*<DispositionModifier>.*", parameter_fully_qualify],
-    ]
+     ]
 
 
 def modulecode():

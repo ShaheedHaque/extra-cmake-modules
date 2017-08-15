@@ -44,6 +44,7 @@ import gettext
 import logging
 import os
 
+import rule_helpers
 from clangcparser import CursorKind, TypeKind
 from rule_helpers import trace_generated_for, HeldAs
 
@@ -142,21 +143,7 @@ class AbstractExpander(object):
 
         :return: (name, [args])
         """
-        name, args = template.split("<", 1)
-        name = name.split()[-1]
-        text = args.rsplit(">", 1)[0]
-        args = []
-        bracket_level = 0
-        left = 0
-        for right, token in enumerate(text):
-            if bracket_level <= 0 and token is ",":
-                args.append(text[left:right].strip())
-                left = right + 1
-            elif token is "<":
-                bracket_level += 1
-            elif token is ">":
-                bracket_level -= 1
-        args.append(text[left:].strip())
+        name, args = rule_helpers.decompose_type_names(template)
         assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
         return name, args
 
