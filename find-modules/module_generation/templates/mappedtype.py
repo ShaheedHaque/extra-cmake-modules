@@ -617,94 +617,97 @@ class SetExpander(AbstractExpander):
 
 
 class GenerateMappedHelper(HeldAs):
-    cxx_to_py_templates = {
-        HeldAs.INTEGER:
-            """#if PY_MAJOR_VERSION >= 3
-        PyObject *{name} = PyLong_FromLong((long){cxx_i});
-#else
-        PyObject *{name} = PyInt_FromLong((long){cxx_i});
-#endif
-""",
-        HeldAs.POINTER:
-            """        Cxx{name}T cxx{name} = {cxx_po};
-        PyObject *{name} = sipConvertFromType((void *)cxx{name}, gen{name}T, sipTransferObj);
-""",
-        HeldAs.OBJECT:
-            """        Cxx{name}T *cxx{name} = new Cxx{name}T({cxx_po});
-        PyObject *{name} = sipConvertFromNewType((void *)cxx{name}, gen{name}T, sipTransferObj);
-""",
-        HeldAs.FLOAT:
-            """        PyObject *{name} = PyFloat_FromDouble((double)*({cxx_i}));
-""",
-    }
-
-    py_to_cxx_templates = {
-        HeldAs.INTEGER:
-            """
-#if PY_MAJOR_VERSION >= 3
-        Cxx{name}T cxx{name} = (Cxx{name}T)PyLong_AsLong({name});
-#else
-        Cxx{name}T cxx{name} = (Cxx{name}T)PyInt_AsLong({name});
-#endif
-""",
-        HeldAs.POINTER:
-            """        int {name}State;
-        Cxx{name}T cxx{name} = reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
-""",
-        HeldAs.OBJECT:
-            """        int {name}State;
-        Cxx{name}T *cxx{name} = reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr));
-""",
-        HeldAs.FLOAT:
-            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyFloat_AsDouble({name});
-""",
-    }
-
-    cxx_to_py_ptr_templates = {
-        HeldAs.BYTE:
-            """        PyObject *{name} = PyString_FromStringAndSize((char *)({cxx_i}), 1);
-""",
-        HeldAs.INTEGER:
-            """#if PY_MAJOR_VERSION >= 3
-        PyObject *{name} = PyLong_FromLong((long)*({cxx_i}));
-#else
-        PyObject *{name} = PyInt_FromLong((long)*({cxx_i}));
-#endif
-""",
-        HeldAs.FLOAT:
-            """        PyObject *{name} = PyFloat_FromDouble((double)*({cxx_i}));
-""",
-    }
-
-    py_to_cxx_ptr_templates = {
-        HeldAs.BYTE:
-            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyString_AsString({name});
-""",
-        HeldAs.INTEGER:
-            """
-#if PY_MAJOR_VERSION >= 3
-        Cxx{name}T cxx{name} = (Cxx{name}T)PyLong_AsLong(*({name}));
-#else
-        Cxx{name}T cxx{name} = (Cxx{name}T)PyInt_AsLong(*({name}));
-#endif
-""",
-        HeldAs.FLOAT:
-            """        Cxx{name}T cxx{name} = (Cxx{name}T)PyFloat_AsDouble(*({name}));
-""",
-    }
-
     def __init__(self, entry, clang_t):
         super(GenerateMappedHelper, self).__init__(entry["type"], clang_t, entry["base_type"])
 
-    def cxx_to_py_template(self):
-        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
-            return self.cxx_to_py_ptr_templates[self.sip_t]
-        return self.cxx_to_py_templates[self.category]
+    def cxx_to_py_template(self, name, cxx_v, cxx_to_py_value):
+        options = {
+            HeldAs.INTEGER:
+                """        PyObject *{name} = {cxx_to_py_value};
+""",
+            HeldAs.FLOAT:
+                """        PyObject *{name} = {cxx_to_py_value};
+""",
+            HeldAs.POINTER:
+                """        Cxx{name}T cxx{name} = {cxx_v};
+        PyObject *{name} = {cxx_to_py_value};
+""",
+            HeldAs.OBJECT:
+                """        Cxx{name}T *cxx{name} = new Cxx{name}T({cxx_v});
+        PyObject *{name} = {cxx_to_py_value};
+""",
+        }
 
-    def py_to_cxx_template(self):
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        code = code.replace("{cxx_v}", cxx_v)
+        code = code.replace("{cxx_to_py_value}", cxx_to_py_value)
+        return code
+
+    def py_to_cxx_template(self, name, py_v, py_to_cxx_value):
+        options = {
+            HeldAs.INTEGER:
+                """        Cxx{name}T cxx{name} = {py_to_cxx_value};
+""",
+            HeldAs.FLOAT:
+                """        Cxx{name}T cxx{name} = {py_to_cxx_value};
+""",
+            HeldAs.POINTER:
+                """        int {name}State;
+        Cxx{name}T cxx{name} = {py_to_cxx_value};
+""",
+            HeldAs.OBJECT:
+                """        int {name}State;
+        Cxx{name}T *cxx{name} = {py_to_cxx_value};
+""",
+        }
+
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        code = code.replace("{py_v}", py_v)
+        code = code.replace("{py_to_cxx_value}", py_to_cxx_value)
+        return code
+
+    def py_to_cxx_value(self, name, py_v, transfer):
+        """An expression converting the named C++ value to Python."""
+        options = {
+            HeldAs.INTEGER:
+                """(
+#if PY_MAJOR_VERSION >= 3
+    (Cxx{name}T)PyLong_AsLong({name})
+#else
+    (Cxx{name}T)PyInt_AsLong({name})
+#endif
+)""",
+            HeldAs.FLOAT:
+                "(Cxx{name}T)PyFloat_AsDouble({name})",
+            HeldAs.POINTER:
+                "reinterpret_cast<Cxx{name}T>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr))",
+            HeldAs.OBJECT:
+                "reinterpret_cast<Cxx{name}T *>(sipForceConvertToType({name}, gen{name}T, sipTransferObj, SIP_NOT_NONE, &{name}State, sipIsErr))",
+        }
+        ptr_options = {
+            HeldAs.BYTE:
+                "(Cxx{name}T)PyString_AsString({name})",
+            HeldAs.INTEGER:
+                """(
+#if PY_MAJOR_VERSION >= 3
+    (Cxx{name}T)PyLong_AsLong(*({name}))
+#else
+    (Cxx{name}T)PyInt_AsLong(*({name}))
+#endif
+)""",
+            HeldAs.FLOAT:
+                "(Cxx{name}T)PyFloat_AsDouble(*({name}))",
+        }
+
         if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
-            return self.py_to_cxx_ptr_templates[self.sip_t]
-        return self.py_to_cxx_templates[self.category]
+            code = ptr_options[self.sip_t]
+        else:
+            code = options[self.category]
+        code = code.replace("{name}", name)
+        code = code.replace("{py_v}", py_v)
+        return code
 
     def decrement_python_reference(self, name):
         code = """            Py_XDECREF({name});

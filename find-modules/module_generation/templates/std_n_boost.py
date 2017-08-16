@@ -67,36 +67,36 @@ RE_UNTEMPLATED_FN = ".*[^>]"
 
 
 class DictHelperKey(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx):
-        cxx += ".key()"
-        return super(DictHelperKey, self).cxx_to_py(name, needs_reference, cxx)
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
+        cxx_v += ".key()"
+        return super(DictHelperKey, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(DictHelperKey, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class DictHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx):
-        cxx += ".value()"
-        return super(DictHelperValue, self).cxx_to_py(name, needs_reference, cxx)
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
+        cxx_v += ".value()"
+        return super(DictHelperValue, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(DictHelperValue, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class ListHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx):
-        cxx += "->at(i)"
-        return super(ListHelperValue, self).cxx_to_py(name, needs_reference, cxx)
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
+        cxx_v += "->at(i)"
+        return super(ListHelperValue, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(ListHelperValue, self).py_to_cxx(name, needs_reference, py_v)
 
 
 class SetHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py(self, name, needs_reference, cxx):
-        cxx = "*" + cxx
-        return super(SetHelperValue, self).cxx_to_py(name, needs_reference, cxx)
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
+        cxx_v = "*" + cxx_v
+        return super(SetHelperValue, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def py_to_cxx(self, name, needs_reference, py_v):
         return super(SetHelperValue, self).py_to_cxx(name, needs_reference, py_v)
@@ -116,10 +116,10 @@ class FunctionParameterHelper(templates.methodcode.FunctionParameterHelper):
         super(FunctionParameterHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
 
-    def cxx_to_py(self, name, needs_reference, cxx):
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
         if self.is_pointer:
-            cxx += ".get()"
-        return super(FunctionParameterHelper, self).cxx_to_py(name, needs_reference, cxx)
+            cxx_v += ".get()"
+        return super(FunctionParameterHelper, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
         if self.is_pointer:
@@ -162,10 +162,10 @@ class FunctionReturnHelper(templates.methodcode.FunctionReturnHelper):
         super(FunctionReturnHelper, self).__init__(cxx_t, clang_t, manual_t)
         self.is_pointer = is_pointer
 
-    def cxx_to_py(self, name, needs_reference, cxx):
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
         if self.is_pointer:
-            cxx += ".get()"
-        return super(FunctionReturnHelper, self).cxx_to_py(name, needs_reference, cxx)
+            cxx_v += ".get()"
+        return super(FunctionReturnHelper, self).cxx_to_py(py_v, needs_reference, cxx_v)
 
     def py_fn_result(self, is_constructor):
         if self.is_pointer:
@@ -273,17 +273,20 @@ class PointerExpander(templates.mappedtype.AbstractExpander):
 
 
 class PointerHelperValue(templates.mappedtype.GenerateMappedHelper):
-    def cxx_to_py_template(self):
-        return """    Cxx{name}T *cxx{name} = {cxx_po};
-    PyObject *{name} = sipConvertFromType((void *)cxx{name}, gen{name}T, sipTransferObj);
-"""
+    def cxx_to_py_value(self, name, cxx_v, transfer):
+        """An expression converting the named C++ value to Python."""
+        cxx_v += "->get()"
+        code = "{cxx_v}"
+        code = code.replace("{name}", name)
+        code = code.replace("{cxx_v}", cxx_v)
+        return code
 
-    def cxx_to_py(self, name, needs_reference, cxx):
-        cxx += "->get()"
-        return super(PointerHelperValue, self).cxx_to_py(name, needs_reference, cxx)
-
-    def py_to_cxx(self, name, needs_reference, py_v):
-        return super(PointerHelperValue, self).py_to_cxx(name, needs_reference, py_v)
+    def cxx_to_py_template(self, name, cxx_v, cxx_to_py_value):
+        code = "    PyObject *{name} = {cxx_to_py_value};"
+        code = code.replace("{name}", name)
+        code = code.replace("{cxx_v}", cxx_v)
+        code = code.replace("{cxx_to_py_value}", cxx_to_py_value)
+        return code
 
 
 def function_uses_templates(container, fn, sip, rule):

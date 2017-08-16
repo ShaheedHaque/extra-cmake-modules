@@ -68,8 +68,8 @@ class FunctionParameterHelper(HeldAs):
     Function parameter helper base class for FunctionExpander.
     Use subclasses to customise the output from FunctionExpander.
     """
-    def cxx_to_py(self, name, needs_reference, cxx):
-        return "    Cxx{}T cxx{} = {};\n".format(name, name, cxx)
+    def cxx_to_py(self, py_v, needs_reference, cxx_v):
+        return "    Cxx{}T cxx{} = {};\n".format(py_v, py_v, cxx_v)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
         code = ""
@@ -96,55 +96,57 @@ class FunctionReturnHelper(HeldAs):
     def declare_type_helpers(self, name, error):
         return super(FunctionReturnHelper, self).declare_type_helpers(name, error, need_cxx_t=False)
 
-    cxx_to_py_templates = {
-        HeldAs.INTEGER:
-            """    {name} = {cxx_i};
-#if PY_MAJOR_VERSION >= 3
-    return PyLong_FromLong((long){name});
-#else
-    return PyInt_FromLong((long){name});
-#endif
-""",
-        HeldAs.FLOAT:
-            """    {name} = {cxx_i};
-    return PyFloat_FromDouble((double){name});
-""",
-        HeldAs.POINTER:
-            """    {name} = {cxx_i};
-    return sipConvertFromType((void *){name}, genresultT, {transfer});
-""",
-        HeldAs.OBJECT:
-            #
-            # The cast is needed because SIP sometimes declares sipRes without any const keyword.
-            #
-            """    {name} = const_cast<decltype({name})>(&{cxx_i});
-    return sipConvertFromType((void *){name}, genresultT, {transfer});
-""",
-    }
+    def cxx_to_py_template(self, name, cxx_v, cxx_to_py_value):
+        if self.category in [HeldAs.POINTER, HeldAs.OBJECT]:
+            code = """    {name} = {cxx_to_py_value};
+    return sipConvertFromType((void *){name}, gen{name}T, NULL);
+"""
+        else:
+            code = """    {name} = {cxx_v};
+    return {cxx_to_py_value};
+"""
+        code = code.replace("{name}", name)
+        code = code.replace("{cxx_v}", cxx_v)
+        code = code.replace("{cxx_to_py_value}", cxx_to_py_value)
+        return code
 
-    cxx_to_py_ptr_templates = {
-        HeldAs.BYTE:
-            """    {name} = {cxx_i};
-    return PyString_FromStringAndSize((char *)({name}), 1);
-""",
-        HeldAs.INTEGER:
-            """    {name} = {cxx_i};
+    def cxx_to_py_value(self, name, cxx_v, transfer):
+        """An expression converting the named C++ value to Python."""
+        options = {
+            HeldAs.INTEGER:
+                """(
 #if PY_MAJOR_VERSION >= 3
-    return PyLong_FromLong((long)*({name}));
+    PyLong_FromLong((long){name})
 #else
-    return PyInt_FromLong((long)*({name}));
+    PyInt_FromLong((long){name})
 #endif
-""",
-        HeldAs.FLOAT:
-            """    {name} = {cxx_i};
-    return PyFloat_FromDouble((double)*({name}));
-""",
-    }
+)""",
+            HeldAs.FLOAT:
+                "PyFloat_FromDouble((double){name})",
+            HeldAs.POINTER:
+                "const_cast<decltype({name})>({cxx_v})",
+            HeldAs.OBJECT:
+                "const_cast<decltype({name})>(&{cxx_v})",
+        }
 
-    def cxx_to_py_template(self):
-        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.FLOAT, HeldAs.POINTER]:
-            return self.cxx_to_py_ptr_templates[self.sip_t]
-        return self.cxx_to_py_templates[self.category]
+        code = options[self.category]
+        code = code.replace("{name}", name)
+        code = code.replace("{cxx_v}", cxx_v)
+        return code
+
+    def py_to_cxx_template(self, name, py_v, py_to_cxx_value):
+        if self.category == HeldAs.POINTER and self.sip_t in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
+            code = "        Cxx{name}T cxx{name} = {py_to_cxx_value};"
+        elif self.category in [HeldAs.POINTER, HeldAs.OBJECT]:
+            code = """        int {name}State;
+        Cxx{name}T cxx{name} = {py_to_cxx_value};
+"""
+        else:
+            code = "        Cxx{name}T cxx{name} = {py_to_cxx_value};"
+        code = code.replace("{name}", name)
+        code = code.replace("{py_v}", py_v)
+        code = code.replace("{py_to_cxx_value}", py_to_cxx_value)
+        return code
 
     def py_fn_result(self, is_constructor):
         if not is_constructor and self.category == HeldAs.OBJECT and not self.cxx_t.endswith("&"):
@@ -283,7 +285,7 @@ class FunctionExpander(object):
                 code += """    typedef {} CxxvalueT;
 """.format(entries["cxx_fn_result"])
                 code += callsite.replace("cxxvalue = ", "CxxvalueT cxxvalue = ")
-                code += result.declare_type_helpers("result", "return 0;")
+                code += result.declare_type_helpers("sipRes", "return 0;")
                 code += result.cxx_to_py("sipRes", False, "cxxvalue")
             code += """    Py_END_ALLOW_THREADS
 """
