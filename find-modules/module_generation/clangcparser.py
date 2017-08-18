@@ -189,18 +189,6 @@ class FunctionCursor(Cursor):
     def result_type(self):
         return Type._wrapped(self.proxied_object.result_type)
 
-    @property
-    def SIP_RESULT_TYPE(self):
-        if self.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
-            decl = ""
-        else:
-            the_type = self.result_type.get_canonical()
-            if isinstance(the_type, FunctionType):
-                decl = self.result_type.spelling
-            else:
-                decl = the_type.spelling
-        return decl
-
 
 class ParameterCursor(Cursor):
     CURSOR_KINDS = [CursorKind.PARM_DECL]
@@ -229,7 +217,7 @@ class ParameterCursor(Cursor):
         #
         #   if (sipParseArgs(..., &a1))
         #
-        if isinstance(the_type.get_canonical(), FunctionType):
+        if the_type.get_canonical().is_a_function:
             #
             # SIP does not generally like function pointers. Here the problem
             # is that parameters just don't support canonical function pointers
@@ -333,7 +321,7 @@ class TypedefCursor(Cursor):
     def SIP_TYPE_NAME(self):
         the_type = self.underlying_type
         type_spelling = the_type.spelling
-        if isinstance(the_type.get_canonical(), FunctionType):
+        if the_type.get_canonical().is_a_function:
             the_type = the_type.get_canonical()
             decl = the_type.fmt_args() or "void"
         elif the_type.kind == TypeKind.RECORD:
@@ -346,16 +334,6 @@ class TypedefCursor(Cursor):
         else:
             decl = the_type.get_canonical().spelling
         return decl
-
-    @property
-    def SIP_RESULT_TYPE(self):
-        the_type = self.underlying_type
-        if isinstance(the_type.get_canonical(), FunctionType):
-            the_type = the_type.get_canonical()
-            result_type = the_type.fmt_result()
-        else:
-            result_type = ""
-        return result_type
 
 
 class VariableCursor(Cursor):
@@ -373,7 +351,9 @@ class VariableCursor(Cursor):
 
 
 class Type(clangcplus.Type):
-    pass
+    @property
+    def is_a_function(self):
+        return isinstance(self, FunctionType)
 
 
 class ArrayType(Type):
@@ -418,7 +398,7 @@ class FunctionType(clangcplus.FunctionType, Type):
         if args is None:
             args = self.fmt_args()
         name = self.fmt_name(name)
-        result = self.fmt_result()
+        result = self.result_type.spelling
         if result[-1] not in "*&":
             result += " "
         return "{}({})({})".format(result, name, args)
@@ -433,9 +413,6 @@ class FunctionType(clangcplus.FunctionType, Type):
         if self.is_pointer:
             name = "*" + name
         return name
-
-    def fmt_result(self):
-        return self.result_type.spelling
 
 
 class IndirectType(Type):

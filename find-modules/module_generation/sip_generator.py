@@ -796,7 +796,17 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["template_parameters"] = fn.template_parameters
-        sip["fn_result"] = fn.SIP_RESULT_TYPE
+        if fn.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
+            sip["fn_result"] = ""
+        else:
+            #
+            # If the function returns a function, emit the non-lowered type to
+            # maximise the probability that SIP can handle the output.
+            #
+            if fn.result_type.get_canonical().is_a_function:
+                sip["fn_result"] = fn.result_type.spelling
+            else:
+                sip["fn_result"] = fn.result_type.get_canonical().spelling
         sip["parameters"] = parameters
         sip["prefix"], sip["suffix"] = self._fn_get_decorators(container, fn)
         templating_stack.parameters_fixup(sip, "fn_result")
@@ -1079,7 +1089,14 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         sip["decl"] = typedef.SIP_TYPE_NAME
-        sip["fn_result"] = typedef.SIP_RESULT_TYPE
+        #
+        # If the typedef is for a function type, emit the non-lowered type to
+        # maximise the probability that SIP can handle the output.
+        #
+        if typedef.underlying_type.get_canonical().is_a_function:
+            sip["fn_result"] = typedef.underlying_type.get_canonical().result_type.spelling
+        else:
+            sip["fn_result"] = ""
         templating_stack.parameters_fixup(sip, "decl")
         modifying_rule = self.compiled_rules.typedef_rules().apply(container, typedef, sip)
         #
@@ -1235,7 +1252,7 @@ class SipGenerator(object):
         # Flesh out the SIP context for the rules engine.
         #
         the_type = variable.type
-        if isinstance(the_type.get_canonical(), clangcparser.FunctionType):
+        if the_type.get_canonical().is_a_function:
             #
             # SIP does not generally like function pointers. Here the problem
             # is that variables just don't support canonical function pointers,
@@ -1285,7 +1302,7 @@ class SipGenerator(object):
         the_type = variable.type
         decl = sip["decl"]
         space = ("" if decl[-1] in "*&" else " ")
-        if isinstance(the_type.get_canonical(), clangcparser.FunctionType):
+        if the_type.get_canonical().is_a_function:
             #
             # SIP does not generally like function pointers, so keep any typedef.
             #
