@@ -230,7 +230,11 @@ class ParameterCursor(Cursor):
                     decl += " "
                 decl = decl + self.spelling
             else:
-                decl = the_type.get_canonical().fmt_declaration(self.spelling)
+                the_type = the_type.get_canonical()
+                args = the_type.fmt_args()
+                name = the_type.fmt_name(self.spelling)
+                result = the_type.fmt_result()
+                decl = "{}({})({})".format(result, name, args)
         elif the_type.kind == TypeKind.INCOMPLETEARRAY:
             #
             # Clang makes "const int []" into "int const[]"!!!
@@ -394,14 +398,11 @@ class ArrayType(Type):
 
 
 class FunctionType(clangcplus.FunctionType, Type):
-    def fmt_declaration(self, name, args=None):
-        if args is None:
-            args = self.fmt_args()
-        name = self.fmt_name(name)
+    def fmt_result(self):
         result = self.result_type.spelling
         if result[-1] not in "*&":
             result += " "
-        return "{}({})({})".format(result, name, args)
+        return result
 
     def fmt_args(self):
         args = [c.spelling for c in self.argument_types]

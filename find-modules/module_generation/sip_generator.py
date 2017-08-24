@@ -1309,7 +1309,9 @@ class SipGenerator(object):
             if the_type.spelling.find("(") == -1:
                 decl = decl + space + sip["name"]
             else:
-                decl = the_type.get_canonical().fmt_declaration(sip["name"], args=decl)
+                the_type = the_type.get_canonical()
+                result = the_type.fmt_result()
+                decl = "{}({})({})".format(result, sip["name"], sip["decl"])
         else:
             decl = decl + space + sip["name"]
         decl = pad + decl
