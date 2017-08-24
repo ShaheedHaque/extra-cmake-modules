@@ -323,7 +323,7 @@ class TypedefCursor(Cursor):
         type_spelling = the_type.spelling
         if the_type.get_canonical().is_a_function:
             the_type = the_type.get_canonical()
-            decl = the_type.fmt_args() or "void"
+            decl = the_type.fmt_args()
         elif the_type.kind == TypeKind.RECORD:
             decl = type_spelling
         elif the_type.kind == TypeKind.DEPENDENTSIZEDARRAY:
@@ -405,7 +405,10 @@ class FunctionType(clangcplus.FunctionType, Type):
 
     def fmt_args(self):
         args = [c.spelling for c in self.argument_types]
-        return ", ".join(args)
+        if args:
+            return ", ".join(args)
+        else:
+            return "void"
 
     def fmt_name(self, name):
         clazz = self.is_member_of
