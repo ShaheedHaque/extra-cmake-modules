@@ -64,7 +64,8 @@ def decompose_type_names(text):
     # Strip any keywords before the name.
     #
     name = text.split("<", 1)[0]
-    name = name.split()[-1]
+    while name.startswith(("const ", "volatile ", "typename ", "class ", "struct ")):
+        tmp, name = name.split(None, 1)
     return name, parameters
 
 

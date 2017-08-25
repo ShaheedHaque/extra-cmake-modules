@@ -923,53 +923,74 @@ class SipGenerator(object):
             or a ")" marking the end.
             2. Watch for the assignment.
         """
+        def decompose_arg(arg, spellings):
+            template, args = utils.decompose_type_names(arg)
+            spellings.append(template)
+            if args is not None:
+                for arg in args:
+                    decompose_arg(arg, spellings)
+
         def _get_param_type(parameter):
-            clang_t = parameter.type
-            if clang_t.kind == TypeKind.LVALUEREFERENCE:
-                clang_t = clang_t.underlying_type
-            clang_spelling = clang_t.spelling
-            if clang_spelling.startswith("const "):
-                clang_spelling = clang_spelling[6:]
-            canonical_t = clang_t.get_canonical()
-            canonical_spelling = canonical_t.spelling
-            if canonical_spelling.startswith("const "):
-                canonical_spelling = canonical_spelling[6:]
-            is_q_flags = canonical_spelling.startswith(QFLAGS)
-            if is_q_flags or clang_t.kind == TypeKind.TYPEDEF:
-                for member in clang_t.get_declaration().get_children():
-                    if member.type.kind == TypeKind.ENUM:
-                        return is_q_flags, member.type, member.type, member.type.spelling, member.type.spelling
-            #
-            # Sigh 'QFlags<KCalUtils::DndFactory::PasteFlag>' has clang_t.kind of TypeKind.UNEXPOSED.
-            #
-            if is_q_flags:
-                assert clang_t.kind == TypeKind.UNEXPOSED, _("No enum for {}").format(clang_t.spelling)
-                clang_spelling = clang_spelling[len(QFLAGS) + 1:-1]
-                canonical_spelling = canonical_spelling[len(QFLAGS) + 1:-1]
-            return is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling
+            q_flags_enum = None
+            canonical = underlying = parameter.type
+            spellings = []
+            while underlying:
+                prefixes, spelling, operators, suffixes, next = underlying.decomposition()
+                template, args = utils.decompose_type_names(spelling)
+                #
+                # We want the name (or name part of the template), plus any template parameters to deal with:
+                #
+                #  QList<KDGantt::Constraint> &constraints = QList<Constraint>()
+                #
+                spellings.append(template)
+                if args is not None:
+                    for arg in args:
+                        decompose_arg(arg, spellings)
+                if template == QFLAGS:
+                    #
+                    # The name of the enum.
+                    #
+                    q_flags_enum = args[0]
+                    return spellings, q_flags_enum, underlying
+                canonical = underlying
+                underlying = next
+            return spellings, q_flags_enum, canonical.get_canonical()
 
         def _get_param_value(text, parameter):
 
-            def mangler_enum(p, names, i):
-                return i if i == QFLAGS else p + i
-
-            def mangler_other(p, names, i):
-                if p.endswith(i):
-                    return names[0]
-                for name in names:
-                    if name.endswith(i):
+            def mangler_enum(spellings, rhs, fqn):
+                #
+                # Is rhs the suffix of any of the typedefs?
+                #
+                for spelling in spellings[:-1]:
+                    name, args = utils.decompose_type_names(spelling)
+                    if name.endswith(rhs):
                         return name
-                return i
+                prefix = spellings[-1].rsplit("::", 1)[0] + "::"
+                return prefix + rhs
+
+            def mangler_other(spellings, rhs, fqn):
+                #
+                # Is rhs the suffix of any of the typedefs?
+                #
+                for spelling in spellings:
+                    name, args = utils.decompose_type_names(spelling)
+                    if name.endswith(rhs):
+                        return name
+                return fqn
 
             if text in ["", "0", "nullptr", Q_NULLPTR]:
                 return text
-            is_q_flags, clang_t, canonical_t, clang_spelling, canonical_spelling = _get_param_type(parameter)
+            spellings, q_flags_enum, canonical_t = _get_param_type(parameter)
             if text == "{}":
-                if canonical_t.kind == TypeKind.ENUM:
+                if q_flags_enum or canonical_t.kind == TypeKind.ENUM:
                     return "0"
                 if canonical_t.kind == TypeKind.POINTER:
                     return "nullptr"
-                return canonical_spelling + "()"
+                #
+                # TODO: return the lowest or highest type?
+                #
+                return spellings[-1] + "()"
             #
             # SIP wants things fully qualified. Without creating a full AST, we can only hope to cover the common
             # cases:
@@ -989,24 +1010,17 @@ class SipGenerator(object):
             #   - For other cases, if any (qualified) id in the default value matches the RHS of the parameter
             #     type, use the parameter type.
             #
-            if canonical_t.kind == TypeKind.ENUM or is_q_flags:
-                prefix = canonical_spelling.rsplit("::", 1)[0] + "::"
+            if q_flags_enum or canonical_t.kind == TypeKind.ENUM:
                 mangler = mangler_enum
-            elif "::" not in canonical_spelling:
-                return text
             else:
-                prefix = canonical_spelling
                 mangler = mangler_other
             tmp = ""
             match = SipGenerator.QUALIFIED_ID.search(text)
-            name, args = utils.decompose_type_names(clang_spelling)
-            names = [name]
-            if args:
-                names.extend(args)
             while match:
                 tmp += match.string[:match.start()]
-                id = match.expand("\\1")
-                tmp += mangler(prefix, names, id)
+                rhs = match.group(1)
+                fqn = match.group()
+                tmp += mangler(spellings, rhs, fqn)
                 text = text[match.end():]
                 match = SipGenerator.QUALIFIED_ID.search(text)
             tmp += text

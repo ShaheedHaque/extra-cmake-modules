@@ -34,6 +34,7 @@ import clang.cindex
 from clang.cindex import Type as _Type
 
 import clangcplus
+import utils
 
 logger = logging.getLogger(__name__)
 gettext.install(__name__)
@@ -355,9 +356,36 @@ class VariableCursor(Cursor):
 
 
 class Type(clangcplus.Type):
+    def get_declaration(self):
+        return Cursor._wrapped(self.proxied_object.get_declaration())
+
     @property
     def is_a_function(self):
         return isinstance(self, FunctionType)
+
+    def decomposition(self):
+        name = self.proxied_object.spelling
+        prefixes = []
+        while name.startswith(("const ", "volatile ")):
+            tmp, name = name.split(None, 1)
+            prefixes.append(tmp + " ")
+        suffixes = []
+        while name.endswith("]"):
+            tmp, name = name.rsplit("[", 1)
+            suffixes.insert(0, "[" + tmp)
+        operators = []
+        while name.endswith(("&&", "&", "*")):
+            if name.endswith("&&"):
+                operators.append("&&")
+                name = name[:-2]
+            if name.endswith("&"):
+                operators.append("&")
+                name = name[:-1]
+            if name.endswith("*"):
+                operators.append("*")
+                name = name[:-1]
+            name = name.rstrip()
+        return prefixes, name, operators, suffixes, None
 
 
 class ArrayType(Type):
@@ -396,6 +424,10 @@ class ArrayType(Type):
         decl = "{}[{}]".format(decl, self.element_count)
         return decl
 
+    @property
+    def underlying_type(self):
+        return self._wrapped(self.proxied_object.element_type)
+
 
 class FunctionType(clangcplus.FunctionType, Type):
     def fmt_result(self):
@@ -419,19 +451,34 @@ class FunctionType(clangcplus.FunctionType, Type):
         return name
 
 
-class IndirectType(Type):
-    TYPE_KINDS = [TypeKind.ELABORATED, TypeKind.TYPEDEF, TypeKind.UNEXPOSED]
+class UnexposedType(Type):
+    TYPE_KINDS = [TypeKind.UNEXPOSED]
 
     @property
     def underlying_type(self):
         return Type._wrapped(self.proxied_object.get_canonical())
 
-    def get_declaration(self):
-        return Cursor._wrapped(self.proxied_object.get_declaration())
+
+class ElaboratedType(UnexposedType):
+    TYPE_KINDS = [TypeKind.ELABORATED]
+
+    def decomposition(self):
+        prefixes, name, operators, suffixes, underlying = self.underlying_type.decomposition()
+        return prefixes, name, operators, suffixes, underlying
+
+
+class TypedefType(UnexposedType):
+    TYPE_KINDS = [TypeKind.TYPEDEF]
+
+    def decomposition(self):
+        prefixes, name, operators, suffixes, underlying = super(TypedefType, self).decomposition()
+        return prefixes, utils.fqn(self.proxied_object.get_declaration()), operators, suffixes, self.underlying_type
 
 
 class PointerType(clangcplus.PointerType, Type):
-    pass
+    def decomposition(self):
+        prefixes, name, operators, suffixes, underlying = super(PointerType, self).decomposition()
+        return prefixes, name, operators, suffixes, self.underlying_type
 
 
 class RecordType(Type):
