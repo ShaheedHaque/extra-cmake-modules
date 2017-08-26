@@ -935,23 +935,23 @@ class SipGenerator(object):
             canonical = underlying = parameter.type
             spellings = []
             while underlying:
-                prefixes, spelling, operators, suffixes, next = underlying.decomposition()
-                template, args = utils.decompose_type_names(spelling)
+                prefixes, name, operators, suffixes, next = underlying.decomposition()
+                name, args = utils.decompose_type_names(name)
                 #
                 # We want the name (or name part of the template), plus any template parameters to deal with:
                 #
                 #  QList<KDGantt::Constraint> &constraints = QList<Constraint>()
                 #
-                spellings.append(template)
+                spellings.append(name)
                 if args is not None:
                     for arg in args:
                         decompose_arg(arg, spellings)
-                if template == QFLAGS:
-                    #
-                    # The name of the enum.
-                    #
-                    q_flags_enum = args[0]
-                    return spellings, q_flags_enum, underlying
+                    if name == QFLAGS:
+                        #
+                        # The name of the enum.
+                        #
+                        q_flags_enum = args[0]
+                        return spellings, q_flags_enum, underlying
                 canonical = underlying
                 underlying = next
             return spellings, q_flags_enum, canonical.get_canonical()
