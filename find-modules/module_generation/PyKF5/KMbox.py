@@ -21,27 +21,16 @@ SIP binding customisation for PyKF5.KMbox. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def _parameter_fully_qualify(container, function, parameter, sip, matcher):
-    sip["init"] = "KMBox::" + sip["init"]
-
-
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
-    rule_helpers.module_add_classes(filename, sip, entry, "KConfigGroup", "KCoreConfigSkeleton",
-                                  "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
-
-
-def parameter_rules():
-    return [
-        ["KMBox::MBox", "entries", "deletedEntries", ".*", ".*", _parameter_fully_qualify],
-    ]
+    rule_helpers.modulecode_delete(filename, sip, rule, "QSharedPointer<KMime::Message>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KConfigGroup", "KCoreConfigSkeleton",
+                                    "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate")
 
 
 def modulecode():

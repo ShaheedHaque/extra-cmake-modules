@@ -472,12 +472,14 @@ class TypedefType(UnexposedType):
 
     def decomposition(self):
         prefixes, name, operators, suffixes, underlying = super(TypedefType, self).decomposition()
-        return prefixes, utils.fqn(self.proxied_object.get_declaration()), operators, suffixes, self.underlying_type
+        name = utils.fqn(self.proxied_object.get_declaration())
+        return prefixes, name, operators, suffixes, self.underlying_type
 
 
 class PointerType(clangcplus.PointerType, Type):
     def decomposition(self):
         prefixes, name, operators, suffixes, underlying = super(PointerType, self).decomposition()
+        name = utils.fqn(self.underlying_type.proxied_object.get_declaration())
         return prefixes, name, operators, suffixes, self.underlying_type
 
 
