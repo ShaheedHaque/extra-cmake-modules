@@ -276,13 +276,14 @@ class PointerHelperValue(templates.mappedtype.GenerateMappedHelper):
     def cxx_to_py_value(self, name, cxx_v, transfer):
         """An expression converting the named C++ value to Python."""
         cxx_v += "->get()"
-        code = "{cxx_v}"
+        code = "sipConvertFromType((void *){cxx_v}, gen{name}T, sipTransferObj)"
         code = code.replace("{name}", name)
         code = code.replace("{cxx_v}", cxx_v)
         return code
 
     def cxx_to_py_template(self, name, cxx_v, cxx_to_py_value):
-        code = "    PyObject *{name} = {cxx_to_py_value};"
+        code = """    PyObject *{name} = {cxx_to_py_value};
+"""
         code = code.replace("{name}", name)
         code = code.replace("{cxx_v}", cxx_v)
         code = code.replace("{cxx_to_py_value}", cxx_to_py_value)
