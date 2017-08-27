@@ -27,6 +27,47 @@ module.
 
 Override the default using a ForwardDeclarationDb rule with the noop() action.
 
+10. I see a SIP error of the following type...
+======================================================
+
+    10.1. sip: ::SomeClass already defined while processing TheModulemod.sip
+    ========================================================================
+
+    Unlike C++, SIP does not like multiple declaration of the same item. One
+    way this can happen is if a %Import'd module contains a declaration which
+    is also in TheModule.
+
+    The unwanted declarations can be fixed by using <item>_discard().
+
+    10.2. sip: tmp/some.sip:42: The struct/class has already been defined while processing TheModulemod.sip
+    =======================================================================================================
+
+    Unlike C++, SIP does not like multiple declaration of the same item. One
+    way this can happen is if there are multiple declarations in the TheModule
+    module.
+
+    The unwanted declarations can be fixed by using <item>_discard(). Note that
+    the individual SIP files are %Include'd in alphabetical order. A tricky
+    situation arises where, for example, duplicate typedefs occur in the same
+    namespace; these extreme cases cannot be handled by the regular expression
+    matching for rules, instead, use logic like this:
+
+        def typedef_duplicate_discard(container, typedef, sip, rule):
+            if container.translation_unit.spelling.endswith("storejob.h"):
+                rule_helpers.typedef_discard(container, typedef, sip, rule)
+            else:
+                return rule_helpers.SILENT_NOOP
+
+    See also FAQ #10.20.
+
+    10.20. sip: SomeClass is undefined while processing TheModulemod.sip
+    ====================================================================
+
+    One reason this can happen is because of FAQ #1. However, fixing that can
+    reveal errors like FAQ #10.2, and fixing that can cause this error.
+
+    The missing declaration can be inserted using module_add_classes().
+
 20. I see a compilation error of the following type...
 ======================================================
 
