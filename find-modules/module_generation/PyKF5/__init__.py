@@ -299,6 +299,7 @@ class RuleSet(rules_engine.RuleSet):
             "KIdleTime",
             "KIMAP",
             "KIO",
+            "KIOFileWidgets",
             "KIOWidgets",
             "KIPI",
             "KItemViews",
