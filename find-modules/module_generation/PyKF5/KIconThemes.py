@@ -21,15 +21,25 @@ SIP binding customisation for PyKF5.KIconThemes. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<int>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<int>", "QList<QAction *>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KWidgetsAddons/KWidgetsAddonsmod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KConfig")
+
+
+def function_rules():
+    return [
+        #
+        # This class has inline implementations in the header file.
+        #
+        ["kiconloader.h", "operator\+\+", ".*", ".*", ".*", rule_helpers.function_discard],
+    ]
 
 
 def modulecode():
