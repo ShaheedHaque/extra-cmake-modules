@@ -88,11 +88,20 @@ Override the default using a ForwardDeclarationDb rule with the noop() action.
     For C++ class 'SomeClass', SIP creates a function called 'assign_SomeClass'
     but this relies on the operator= being present. C++ causes the default
     operator= to be suppressed resulting in this error if a base class cannot
-    be so assigned.
+    be so assigned. However, the built-in logic has not been able to emit
+    the needed private assignment operator.
 
     This can be fixed using container_make_unassignable().
 
-    20.3 error: 'sipType_MyClass' was not declared in this scope
+    20.3. error: use of deleted function 'SomeClass(const SomeClass&)'
+    ==================================================================
+
+    For C++ class 'SomeClass', the built-in logic has not been able to emit
+    the needed private copy constructor.
+
+    This can be fixed using container_make_uncopyable().
+
+    20.10. error: 'sipType_MyClass' was not declared in this scope
     ============================================================
 
     The module_generator.py logic which generates the list of modules which

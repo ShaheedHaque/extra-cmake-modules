@@ -428,8 +428,10 @@ class SipGenerator(object):
         }
         body = ""
         base_specifiers = []
-        had_copy_constructor = False
-        had_const_member = False
+        had_copy_constructor = None
+        need_private_copy_constructor = False
+        had_assignment_operator = None
+        need_private_assignment_operator = False
         modulecode = {}
         is_signal = False
         for member in container.get_children():
@@ -469,7 +471,14 @@ class SipGenerator(object):
                 #
                 if member.is_pure_virtual_method():
                     sip["annotations"].add("Abstract")
-                had_copy_constructor = had_copy_constructor or member.is_copy_constructor()
+                elif member.is_copy_constructor():
+                    if self.source_processor.preprocessed(member.extent).endswith("= delete;"):
+                        need_private_copy_constructor = True
+                        continue
+                    else:
+                        had_copy_constructor = member
+                elif member.spelling == "operator=":
+                    had_assignment_operator = member
                 decl, tmp = self._fn_get(container, member, level + 1, is_signal, templating_stack)
                 modulecode.update(tmp)
             elif member.kind == CursorKind.ENUM_DECL:
@@ -503,13 +512,15 @@ class SipGenerator(object):
             elif isinstance(member, clangcparser.TemplateParameterCursor):
                 templating_stack.push_first(container, member.SIP_TYPE_NAME)
             elif isinstance(member, clangcparser.VariableCursor):
-                had_const_member = had_const_member or member.type.is_const_qualified() or \
-                                   member.type.spelling.startswith(QScopedPointer)
+                if member.type.is_const_qualified() or member.type.spelling.startswith(QScopedPointer):
+                    need_private_copy_constructor = True
                 if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     modulecode.update(tmp)
-                elif self.dump_privates:
-                    SipGenerator._report_ignoring(member, "private")
+                else:
+                    need_private_assignment_operator = True
+                    if self.dump_privates:
+                        SipGenerator._report_ignoring(member, "private")
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
                                  CursorKind.CLASS_TEMPLATE, CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                                  CursorKind.STRUCT_DECL, CursorKind.UNION_DECL]:
@@ -620,14 +631,22 @@ class SipGenerator(object):
                 decl += pad + container.initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
-            #
-            # Generate private copy constructor for non-copyable types.
-            #
-            if had_const_member and not had_copy_constructor and container.kind != CursorKind.NAMESPACE and \
-                    not sip["decl"].startswith("%Exception"):
-                body += pad + "private:\n"
-                body += pad + "    " + trace_generated_for(container, "non-copyable type handling", {})
-                body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
+            if container.kind != CursorKind.NAMESPACE:
+                #
+                # Generate private copy constructor for non-copyable types.
+                #
+                if need_private_copy_constructor and not had_copy_constructor and \
+                        not sip["decl"].startswith("%Exception"):
+                    body += pad + "private:\n"
+                    body += pad + "    " + trace_generated_for(container, "non-copyable type handling", {})
+                    body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
+                #
+                # Generate private assignment operator for non-assignable types.
+                #
+                if need_private_assignment_operator and had_assignment_operator:
+                    body += pad + "private:\n"
+                    body += pad + "    " + trace_generated_for(container, "non-assignable type handling", {})
+                    body += pad + "    {} &operator=(const {} &);\n".format(sip["name"], sip["name"])
             body += pad + "};\n"
             if sip["modulecode"]:
                 modulecode.update(sip["modulecode"])
