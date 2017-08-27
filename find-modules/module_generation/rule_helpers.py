@@ -354,7 +354,7 @@ def container_discard_templated_bases(container, sip, rule):
 
 def container_make_unassignable(container, sip, rule):
     """
-    There are many cases of types which SIP cannot handle, but where adding a C++ typedef is a useful workaround.
+    There are cases where the built-in logic cannot detect the need to make a class unassignable.
 
     :param container:       The container in question.
     :param sip:             The sip.
@@ -363,5 +363,20 @@ def container_make_unassignable(container, sip, rule):
     clazz = fqn(container)
     tmp = "    private:\n        {} &operator=(const {} &);\n".format(clazz, clazz)
     trace = trace_generated_for(sip["name"], rule, "dummy assignment")
+    tmp = trace + tmp
+    sip["body"] = tmp + sip["body"]
+
+
+def container_make_uncopyable(container, sip, rule):
+    """
+    There are cases where the built-in logic cannot detect the need to make a class uncopyable.
+
+    :param container:       The container in question.
+    :param sip:             The sip.
+    :param rule:            The rule.
+    """
+    clazz = fqn(container)
+    tmp = "    private:\n        {}(const {} &);\n".format(clazz, clazz)
+    trace = trace_generated_for(sip["name"], rule, "dummy copy constructor")
     tmp = trace + tmp
     sip["body"] = tmp + sip["body"]

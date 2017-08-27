@@ -244,7 +244,7 @@ def variable_rules():
         # Discard "private" variables (check they are protected!).
         #
         [".*", "d_ptr", ".*", _variable_discard_protected],
-        [".*", "d", ".*Private.*", _variable_discard_protected],
+        [".*", "d", ".*Private.*", rule_helpers.variable_discard],
     ]
 
 
