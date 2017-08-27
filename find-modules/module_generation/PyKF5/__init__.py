@@ -296,6 +296,7 @@ class RuleSet(rules_engine.RuleSet):
             "KDeclarative",
             "KdepimDBusInterfaces",
             "KDEWebKit",
+            "KDGantt2",
             "KEmoticons",
             "KExiv2",
             "KF5KDEGames",
