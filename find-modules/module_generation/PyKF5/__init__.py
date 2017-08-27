@@ -52,11 +52,6 @@ def _function_discard_class(container, fn, sip, matcher):
     sip["fn_result"] = sip["fn_result"].replace("class ", "")
 
 
-def _function_discard_impl(container, fn, sip, matcher):
-    if fn.extent.start.column == 1:
-        rule_helpers.function_discard(container, fn, sip, matcher)
-
-
 def _function_discard_non_const(container, fn, sip, matcher):
     if not sip["suffix"]:
         rule_helpers.function_discard(container, fn, sip, matcher)
@@ -152,11 +147,6 @@ def function_rules():
         #
         [".*", ".*", ".+", ".*", ".*", rule_helpers.function_discard],
         [".*", ".*<.*>.*", ".*", ".*", ".*", rule_helpers.function_discard],
-        #
-        # This class has inline implementations in the header file.
-        #
-        ["KIconEngine|KIconLoader::Group", ".*", ".*", ".*", ".*", _function_discard_impl],
-        ["kiconloader.h", "operator\+\+", ".*", ".*", ".*", _function_discard_impl],
         #
         # kshell.h, kconfigbase.sip have inline operators.
         #
