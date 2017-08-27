@@ -21,7 +21,6 @@ SIP binding customisation for PyKF5.KPlotting. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
@@ -30,6 +29,12 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<double>")
+
+
+def function_rules():
+    return [
+        ["KPlotWidget", "axis", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+    ]
 
 
 def modulecode():
