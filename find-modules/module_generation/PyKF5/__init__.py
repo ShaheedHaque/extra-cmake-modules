@@ -297,6 +297,7 @@ class RuleSet(rules_engine.RuleSet):
             "KdepimDBusInterfaces",
             "KDEWebKit",
             "KEmoticons",
+            "KExiv2",
             "KF5KDEGames",
             "KGAPI",
             "KGeoMap",
