@@ -72,6 +72,12 @@ class FunctionParameterHelper(HeldAs):
         return "    Cxx{}T cxx{} = {};\n".format(py_v, py_v, cxx_v)
 
     def cxx_to_cxx(self, aN, original_type, is_out_paramter):
+        if not is_out_paramter:
+            #
+            # Assume a pointer to a non-HeldAs.BYTE POD is an "out".
+            #
+            is_out_paramter = (self.category == HeldAs.POINTER and
+                               self.sip_t in [HeldAs.INTEGER, HeldAs.FLOAT])
         code = ""
         if self.category == HeldAs.OBJECT:
             aN = "*" + aN

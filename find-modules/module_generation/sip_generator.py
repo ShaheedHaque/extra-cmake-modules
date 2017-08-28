@@ -945,7 +945,7 @@ class SipGenerator(object):
             2. Watch for the assignment.
         """
         def decompose_arg(arg, spellings):
-            template, args = utils.decompose_type_names(arg)
+            template, args = utils.decompose_template(arg)
             spellings.append(template)
             if args is not None:
                 for arg in args:
@@ -957,7 +957,7 @@ class SipGenerator(object):
             spellings = []
             while underlying:
                 prefixes, name, operators, suffixes, next = underlying.decomposition()
-                name, args = utils.decompose_type_names(name)
+                name, args = utils.decompose_template(name)
                 #
                 # We want the name (or name part of the template), plus any template parameters to deal with:
                 #
@@ -984,7 +984,7 @@ class SipGenerator(object):
                 # Is rhs the suffix of any of the typedefs?
                 #
                 for spelling in spellings[:-1]:
-                    name, args = utils.decompose_type_names(spelling)
+                    name, args = utils.decompose_template(spelling)
                     if name.endswith(rhs):
                         return name
                 prefix = spellings[-1].rsplit("::", 1)[0] + "::"
@@ -995,7 +995,7 @@ class SipGenerator(object):
                 # Is rhs the suffix of any of the typedefs?
                 #
                 for spelling in spellings:
-                    name, args = utils.decompose_type_names(spelling)
+                    name, args = utils.decompose_template(spelling)
                     if name.endswith(rhs):
                         return name
                 return fqn

@@ -341,6 +341,30 @@ class TypedefCursor(Cursor):
         return decl
 
 
+class TemplaterefCursor(Cursor):
+    CURSOR_KINDS = [CursorKind.TEMPLATE_REF]
+
+    @property
+    def type(self):
+        return Type._wrapped(self.proxied_object.type)
+
+    @property
+    def semantic_parent(self):
+        return None
+
+
+class TyperefCursor(Cursor):
+    CURSOR_KINDS = [CursorKind.TYPE_REF]
+
+    @property
+    def type(self):
+        return Type._wrapped(self.proxied_object.type)
+
+    @property
+    def semantic_parent(self):
+        return None
+
+
 class VariableCursor(Cursor):
     PROXIES = (
         clang.cindex.Cursor,
@@ -364,27 +388,7 @@ class Type(clangcplus.Type):
         return isinstance(self, FunctionType)
 
     def decomposition(self):
-        name = self.proxied_object.spelling
-        prefixes = []
-        while name.startswith(("const ", "volatile ")):
-            tmp, name = name.split(None, 1)
-            prefixes.append(tmp + " ")
-        suffixes = []
-        while name.endswith("]"):
-            tmp, name = name.rsplit("[", 1)
-            suffixes.insert(0, "[" + tmp)
-        operators = []
-        while name.endswith(("&&", "&", "*")):
-            if name.endswith("&&"):
-                operators.append("&&")
-                name = name[:-2]
-            if name.endswith("&"):
-                operators.append("&")
-                name = name[:-1]
-            if name.endswith("*"):
-                operators.append("*")
-                name = name[:-1]
-            name = name.rstrip()
+        prefixes, name, operators, suffixes = utils.decompose_type(self.proxied_object.spelling)
         return prefixes, name, operators, suffixes, None
 
 
@@ -481,6 +485,20 @@ class PointerType(clangcplus.PointerType, Type):
         prefixes, name, operators, suffixes, underlying = super(PointerType, self).decomposition()
         name = utils.fqn(self.underlying_type.proxied_object.get_declaration())
         return prefixes, name, operators, suffixes, self.underlying_type
+
+
+class ByteType(Type):
+    TYPE_KINDS = [TypeKind.CHAR_S, TypeKind.CHAR_U, TypeKind.SCHAR, TypeKind.UCHAR]
+
+
+class IntegerType(Type):
+    TYPE_KINDS = [TypeKind.BOOL, TypeKind.CHAR16, TypeKind.CHAR32, TypeKind.USHORT, TypeKind.UINT, TypeKind.ULONG,
+                  TypeKind.ULONGLONG, TypeKind.UINT128, TypeKind.SHORT, TypeKind.INT, TypeKind.LONG, TypeKind.LONGLONG,
+                  TypeKind.INT128, TypeKind.ENUM]
+
+
+class FloatType(Type):
+    TYPE_KINDS = [TypeKind.FLOAT, TypeKind.DOUBLE, TypeKind.FLOAT128, TypeKind.LONGDOUBLE]
 
 
 class RecordType(Type):

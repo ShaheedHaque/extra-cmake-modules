@@ -29,10 +29,10 @@
 import os
 import re
 
-from clangcparser import CursorKind, TypeKind
+from clangcplus import CursorKind, TypeKind
 
 
-def decompose_type_names(text):
+def decompose_template(text):
     """
     Any template parameters from the parent in "type_text" are extracted, and
     return (name, [parameters]) or (name, None).
@@ -67,6 +67,31 @@ def decompose_type_names(text):
     while name.startswith(("const ", "volatile ", "typename ", "class ", "struct ")):
         tmp, name = name.split(None, 1)
     return name, parameters
+
+
+def decompose_type(text):
+    prefixes = []
+    while text.startswith(("const ", "volatile ")):
+        tmp, text = text.split(None, 1)
+        prefixes.append(tmp + " ")
+    suffixes = []
+    while text.endswith("]"):
+        text, tmp = text.rsplit("[", 1)
+        suffixes.insert(0, "[" + tmp)
+        text = text.rstrip()
+    operators = []
+    while text.endswith(("&&", "&", "*")):
+        if text.endswith("&&"):
+            operators.append("&&")
+            text = text[:-2]
+        if text.endswith("&"):
+            operators.append("&")
+            text = text[:-1]
+        if text.endswith("*"):
+            operators.append("*")
+            text = text[:-1]
+        text = text.rstrip()
+    return prefixes, text, operators, suffixes
 
 
 def fqn(cursor, alternate_spelling=None):
@@ -188,7 +213,7 @@ class HeldAs(object):
             #
             # Primitive types don't need help from a sipType_xxx.
             #
-            base_held_as = HeldAs.categorise(base_cxx_t, None)
+            base_held_as = HeldAs.categorise(base_cxx_t, clang_t)
             if base_held_as in [HeldAs.BYTE, HeldAs.INTEGER, HeldAs.FLOAT]:
                 self.sip_t = base_held_as
             else:
@@ -297,11 +322,8 @@ class HeldAs(object):
         :param parameter_text:              The text from the source code.
         :return: the base_type of the parameter, e.g. without a pointer suffix.
         """
-        if parameter_text.endswith(("*", "&")):
-            parameter_text = parameter_text[:-1].strip()
-        if parameter_text.startswith("const "):
-            parameter_text = parameter_text[6:]
-        return parameter_text
+        prefixes, name, operators, suffixes = decompose_type(parameter_text)
+        return name
 
     @staticmethod
     def categorise(cxx_t, clang_t):
@@ -344,10 +366,10 @@ class HeldAs(object):
             try:
                 return HeldAs._rev_map[clang_t.kind]
             except KeyError:
-                if clang_t.kind == TypeKind.LVALUEREFERENCE:
-                    return HeldAs.categorise(cxx_t, clang_t.underlying_type.get_canonical())
-                elif clang_t.kind == TypeKind.VOID:
+                if clang_t.kind == TypeKind.VOID:
                     return HeldAs.VOID
+                if clang_t.kind in [TypeKind.LVALUEREFERENCE, TypeKind.TYPEDEF]:
+                    return HeldAs.categorise(cxx_t, clang_t.underlying_type.get_canonical())
                 #
                 # We we already know it did not seem to be a pointer, so check for a templated object:
                 #
