@@ -1348,7 +1348,13 @@ class SipGenerator(object):
                 result = the_type.fmt_result()
                 decl = "{}({})({})".format(result, sip["name"], sip["decl"])
         else:
-            decl = decl + space + sip["name"]
+            prefixes, type_, operators, dims = utils.decompose_type(sip["decl"])
+            decl = "".join(prefixes)
+            decl += type_
+            decl += " "
+            decl += "".join(operators)
+            decl += sip["name"]
+            decl += "".join(dims)
         decl = pad + decl
         if sip["annotations"]:
             decl += " /" + ",".join(sip["annotations"]) + "/"

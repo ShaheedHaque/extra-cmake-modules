@@ -35,10 +35,12 @@ could be handled by calling @see variable_rewrite_array_nonfixed() and then
 import gettext
 import logging
 import re
-from clang.cindex import CursorKind, TypeKind
+from clang.cindex import CursorKind, StorageClass, TypeKind
 
+import clangcparser
 import rule_helpers
-from utils import fqn, trace_generated_for, HeldAs
+import utils
+from utils import trace_generated_for, HeldAs
 from templates.methodcode import function_uses_templates
 
 logger = logging.getLogger(__name__)
@@ -285,7 +287,7 @@ def container_rewrite_exception(container, sip, rule):
     :param matcher:
     :return:
     """
-    sip["name"] = fqn(container, sip["name"])
+    sip["name"] = utils.fqn(container, sip["name"])
     sip_name = sip["name"].replace("::", "_")
     py_name = "".join([w[0].upper() + w[1:] for w in sip_name.split("_")])
     base_exception = sip["base_specifiers"][0]
@@ -327,6 +329,13 @@ def container_rewrite_std_exception(container, sip, rule):
 """.format(std_exception, py_name, sip_name)
 
 
+def variable_rewrite_array(container, variable, sip, rule):
+    if variable.type.kind == TypeKind.CONSTANTARRAY:
+        variable_rewrite_array_fixed(container, variable, sip, rule)
+    else:
+        variable_rewrite_array_nonfixed(container, variable, sip, rule)
+
+
 def variable_rewrite_array_fixed(container, variable, sip, rule):
     """
     Handle n-dimensional fixed size arrays.
@@ -338,7 +347,7 @@ def variable_rewrite_array_fixed(container, variable, sip, rule):
 {
 %GetCode
 {trace}
-    char *cxxvalue = (char *)&sipCpp->{name}[0];
+    char *cxxvalue = (char *)&{cxxarray}[0];
 
     // Create the Python buffer.
     Py_ssize_t elementCount = {element_count};
@@ -347,7 +356,7 @@ def variable_rewrite_array_fixed(container, variable, sip, rule):
 
 %SetCode
 {trace}
-    char *cxxvalue = (char *)&sipCpp->{name}[0];
+    char *cxxvalue = (char *)&{cxxarray}[0];
     Py_ssize_t elementCount = {element_count};
     const char *name = "{name}";
 
@@ -418,7 +427,7 @@ struct getcode
     Py_ssize_t dims[] = {{dims}};
     auto numDims = sizeof(dims) / sizeof(dims[0]);
     int sipErr = 0;
-    PyObject *list = getcode.getList(&sipErr, dims, numDims, 0, (CxxvalueT **)&sipCpp->{name}[0]);
+    PyObject *list = getcode.getList(&sipErr, dims, numDims, 0, (CxxvalueT **)&{cxxarray}[0]);
     sipPy = sipErr ? list : NULL;
 %End
 
@@ -459,35 +468,31 @@ struct setcode
 
     Py_ssize_t dims[] = {{dims}};
     auto numDims = sizeof(dims) / sizeof(dims[0]);
-    setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&sipCpp->{name}[0]);
+    setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&{cxxarray}[0]);
 %End
 }"""
 
-    dims = []
-    next_type = variable.type
-    while True:
-        dims.append(next_type.element_count)
-        element_type = next_type.underlying_type
-        if element_type.kind == TypeKind.CONSTANTARRAY:
-            next_type = element_type
-        else:
-            converter = RewriteArrayHelper(sip["decl"], element_type)
-            if converter.category == HeldAs.BYTE:
-                decl = "SIP_PYBUFFER"
-                code = _SIP_PYBUFFER_TEMPLATE
-            else:
-                decl = "SIP_PYLIST"
-                code = _SIP_PYLIST_TEMPLATE
-                aliases_ = converter.declare_type_helpers("value", "*sipErr = 1;")
-                cxx_to_py = converter.cxx_to_py("value", True, "(*cxxvalue)[i]")
-                py_to_cxx = converter.py_to_cxx("value", True, "(*cxxvalue)[i]")
-                code = code.replace("{cxx_t}", element_type.spelling)
-                code = code.replace("{aliases}", aliases_)
-                code = code.replace("{cxx_to_py}", cxx_to_py)
-                code = code.replace("{py_to_cxx}", py_to_cxx)
-            trace = trace_generated_for(variable, rule, {})
-            code = code.replace("{trace}", trace)
-            break
+    prefixes, text, operators, dims = utils.decompose_type(sip["decl"])
+    dims = [d[1:-1] for d in dims]
+    element_type = variable.type
+    while element_type.kind == TypeKind.CONSTANTARRAY:
+        element_type = element_type.underlying_type
+    converter = RewriteArrayHelper(sip["decl"], element_type)
+    if converter.category == HeldAs.BYTE:
+        decl = "SIP_PYBUFFER"
+        code = _SIP_PYBUFFER_TEMPLATE
+    else:
+        decl = "SIP_PYLIST"
+        code = _SIP_PYLIST_TEMPLATE
+        aliases_ = converter.declare_type_helpers("value", "*sipErr = 1;")
+        cxx_to_py = converter.cxx_to_py("value", True, "(*cxxvalue)[i]")
+        py_to_cxx = converter.py_to_cxx("value", True, "(*cxxvalue)[i]")
+        code = code.replace("{cxx_t}", element_type.spelling)
+        code = code.replace("{aliases}", aliases_)
+        code = code.replace("{cxx_to_py}", cxx_to_py)
+        code = code.replace("{py_to_cxx}", py_to_cxx)
+    trace = trace_generated_for(variable, rule, {})
+    code = code.replace("{trace}", trace)
     #
     # SIP cannot handle %GetCode/%SetCode for global variables.
     #
@@ -502,7 +507,11 @@ struct setcode
             return
     else:
         sip["decl"] = decl
-        code = code.replace("{element_count}", str(next_type.element_count))
+        code = code.replace("{element_count}", dims[-1])
+        if variable.storage_class == StorageClass.STATIC:
+            code = code.replace("{cxxarray}", utils.fqn(variable, "{name}"))
+        else:
+            code = code.replace("{cxxarray}", "sipCpp->{name}")
         code = code.replace("{name}", sip["name"])
         dims = ["(Py_ssize_t){}".format(i) for i in dims]
         code = code.replace("{dims}", ", ".join(dims))
@@ -510,7 +519,7 @@ struct setcode
 
 
 def variable_rewrite_array_nonfixed(container, variable, sip, rule):
-    dims = VARIABLE_ARRAY_RE.match(sip["decl"]).groups()
+    prefixes, text, operators, dims = utils.decompose_type(sip["decl"])
     if len(dims) == 1:
         sip["decl"] = sip["decl"].replace("[]", "*")
     #
@@ -528,38 +537,30 @@ def variable_rewrite_extern(container, variable, sip, rule):
     sip["decl"] = sip["decl"][7:]
     if MAPPED_TYPE_RE.match(sip["decl"]):
         variable_rewrite_mapped(container, variable, sip, rule)
-    elif FIXED_ARRAY_RE.match(sip["decl"]):
-        variable_rewrite_array_fixed(container, variable, sip, rule)
-    elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-        variable_rewrite_array_nonfixed(container, variable, sip, rule)
+    elif isinstance(variable.type, clangcparser.ArrayType):
+        variable_rewrite_array(container, variable, sip, rule)
 
 
 def variable_rewrite_static(container, variable, sip, rule):
     """
     SIP does not support "static", so handle static variables.
     """
+    #
+    # SIP does not support %GetCode/%SetCode for file scope variables. But luckily, just dropping the prefix works
+    # assuming we don't actually need anything more complicated.
+    #
+    sip["decl"] = sip["decl"][7:]
+    if MAPPED_TYPE_RE.match(sip["decl"]):
+        variable_rewrite_mapped(container, variable, sip, rule)
+    elif isinstance(variable.type, clangcparser.ArrayType):
+        variable_rewrite_array(container, variable, sip, rule)
+    #
+    # Inside a class, "static" is fine. Do we need %GetCode/%SetCode?
+    #
     while container.kind == CursorKind.NAMESPACE:
         container = container.semantic_parent
-    if container.kind == CursorKind.TRANSLATION_UNIT:
-        #
-        # SIP does not support %GetCode/%SetCode for file scope variables. But luckily, just dropping the prefix works
-        # assuming we don't actually need anything more complicated.
-        #
-        sip["decl"] = sip["decl"][7:]
-        if FIXED_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_fixed(container, variable, sip, rule)
-        elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_nonfixed(container, variable, sip, rule)
-    else:
-        #
-        # Inside a class, "static" is fine. Do we need %GetCode/%SetCode?
-        #
-        if MAPPED_TYPE_RE.match(sip["decl"]):
-            variable_rewrite_mapped(container, variable, sip, rule)
-        elif FIXED_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_fixed(container, variable, sip, rule)
-        elif VARIABLE_ARRAY_RE.match(sip["decl"]):
-            variable_rewrite_array_nonfixed(container, variable, sip, rule)
+    if container.kind != CursorKind.TRANSLATION_UNIT:
+        sip["decl"] = "static " + sip["decl"]
 
 
 def variable_rewrite_mapped(container, variable, sip, rule):
@@ -585,9 +586,8 @@ def variable_rewrite_mapped(container, variable, sip, rule):
     }
 """
     is_complex = converter.category in [HeldAs.POINTER, HeldAs.OBJECT]
-    is_static = sip["decl"].startswith("static ")
-    if is_static:
-        cxx = fqn(variable, "{name}")
+    if variable.storage_class == StorageClass.STATIC:
+        cxx = utils.fqn(variable, "{name}")
     else:
         cxx = "sipCpp->{name}"
     code += converter.cxx_to_py("value", False, "{cxx}")

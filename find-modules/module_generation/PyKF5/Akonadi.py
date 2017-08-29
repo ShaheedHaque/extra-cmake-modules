@@ -64,11 +64,6 @@ def _typedef_add_collections(container, typedef, sip, rule):
         sip["modulecode"][mapped_type] = code
 
 
-def _variable_array_to_star(container, variable, sip, rule):
-    builtin_rules.variable_rewrite_array_nonfixed(container, variable, sip, rule)
-    builtin_rules.variable_rewrite_static(container, variable, sip, rule)
-
-
 def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
@@ -446,19 +441,6 @@ def typedef_rules():
         # We cannot handle templated typedefs which are this complicated.
         #
         ["Akonadi::Internal.*", ".*", ".*", ".*<.*>.*", rule_helpers.typedef_discard],
-    ]
-
-
-def variable_rules():
-    return [
-        #
-        # [] -> *
-        #
-        ["Akonadi::ContactPart", ".*", ".*", _variable_array_to_star],
-        ["Akonadi::Item", "FullPayload", ".*", _variable_array_to_star],
-        ["Akonadi::MessageFlags", ".*", ".*", _variable_array_to_star],
-        ["Akonadi::MessagePart", ".*", ".*", _variable_array_to_star],
-        ["Akonadi::Tag", "PLAIN|GENERIC", ".*", _variable_array_to_star],
     ]
 
 

@@ -399,14 +399,17 @@ class ArrayType(Type):
             "element_type",
         ]
     )
-    TYPE_KINDS = [TypeKind.CONSTANTARRAY, TypeKind.VARIABLEARRAY]
+    TYPE_KINDS = [TypeKind.CONSTANTARRAY, TypeKind.VARIABLEARRAY, TypeKind.INCOMPLETEARRAY]
 
     def __init__(self, array, element_count=None):
         super(ArrayType, self).__init__(array)
         if self.kind == TypeKind.CONSTANTARRAY:
             self._element_count = self.proxied_object.element_count
-        else:
+        elif self.kind == TypeKind.VARIABLEARRAY:
             assert element_count is not None
+            self._element_count = element_count
+        else:
+            assert element_count is None
             self._element_count = element_count
 
     @property
@@ -421,11 +424,10 @@ class ArrayType(Type):
             # The spelling will be of the form '(anonymous struct at /usr/include/KF5/libkleo/oidmap.h:36:14) const[12]'
             #
             words = decl.split("(", 1)[1]
-            words = words.rsplit(")", 1)[0]
-            decl = de_anonymiser(words)
-        if self.proxied_object.spelling.startswith("const "):
-            decl += " const"
-        decl = "{}[{}]".format(decl, self.element_count)
+            words = words.rsplit(")", 1)
+            decl = de_anonymiser(words[0])
+            if len(words) > 1:
+                decl += words[1]
         return decl
 
     @property
