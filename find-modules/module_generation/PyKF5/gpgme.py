@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.gpgme__. This modules describes:
+SIP binding customisation for PyKF5.gpgme__ and PyKF5.qgpgme. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -39,8 +39,8 @@ def parameter_out(container, fn, parameter, sip, rule):
 
 
 def module_fix_includes(filename, sip, rule):
-    rule_helpers.module_add_includes(filename, sip, rule, "<stdio.h>", "<gpg-error.h>")
-    rule_helpers.module_add_classes(filename, sip, rule, "_IO_FILE")
+    rule_helpers.module_add_includes(filename, sip, rule, "<stdio.h>", "<gpg-error.h>", "<gpgme.h>")
+    rule_helpers.module_add_classes(filename, sip, rule, "_IO_FILE", "GpgME::VerificationResult::Private")
     sip["code"] += "typedef int gpg_err_code_t;"
 
 
@@ -63,6 +63,10 @@ def module_fix_ordering(filename, sip, rule):
     tmp = sip["decl"][:child.start(0)] + "// Yanked from here" + sip["decl"][child.end(0):]
     parent = re.search(parent, tmp, re.DOTALL | re.MULTILINE)
     sip["decl"] = tmp[:parent.start(0)] + "// Yanked to here\n" + child.group(0) + "\n" + tmp[parent.end(0):]
+
+
+def module_fix_types(filename, sip, rule):
+    rule_helpers.module_add_classes(filename, sip, rule, "_IO_FILE")
 
 
 def container_rules():
@@ -154,5 +158,8 @@ def modulecode():
         },
         "gpgme__/gpgme__mod.sip": {
             "code": module_fix_includes,
+        },
+        "qgpgme/qgpgmemod.sip": {
+            "code": module_fix_types,
         },
     }

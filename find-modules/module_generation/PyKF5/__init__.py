@@ -266,7 +266,7 @@ class RuleSet(rules_engine.RuleSet):
             "Attica",
             "CalendarSupport",
             "FollowupReminder",
-            "gpgme__",
+            "gpgme",
             "IncidenceEditor",
             "KAlarmCal",
             "KAuth",
