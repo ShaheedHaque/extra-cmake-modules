@@ -82,6 +82,7 @@ Q_NULLPTR = "Q_NULLPTR"
 Q_OBJECT = "Q_OBJECT"
 Q_SIGNALS = "Q_SIGNALS"
 Q_SLOTS = "Q_SLOTS"
+Q_DECLARE_PRIVATE = "Q_DECLARE_PRIVATE"
 QScopedPointer = "QScopedPointer"
 #
 # Function pointers are a tricky area. We need to detect them by text matching.
@@ -431,7 +432,6 @@ class SipGenerator(object):
         had_copy_constructor = None
         need_private_copy_constructor = False
         had_assignment_operator = None
-        need_private_assignment_operator = False
         modulecode = {}
         is_signal = False
         for member in container.get_children():
@@ -454,11 +454,13 @@ class SipGenerator(object):
                 #   - CursorKind.CXX_ACCESS_SPEC_DECL so that changes in visibility are seen.
                 #   - CursorKind.USING_DECLARATION for any functions being access-tweaked.
                 #
-                if member.kind in [CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR]:
-                    pass
-                elif member.kind in FN_KINDS and member.is_virtual_method():
-                    pass
-                elif member.kind in VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL, CursorKind.USING_DECLARATION]:
+                if (member.kind == CursorKind.CONSTRUCTOR and (member.is_converting_constructor() or
+                                                                   member.is_copy_constructor() or
+                                                                   member.is_default_constructor() or
+                                                                   member.is_move_constructor())) or \
+                      (member.kind == CursorKind.DESTRUCTOR) or \
+                      (member.kind in FN_KINDS and member.is_virtual_method()) or \
+                      (member.kind in VARIABLE_KINDS + [CursorKind.CXX_ACCESS_SPEC_DECL, CursorKind.USING_DECLARATION]):
                     pass
                 else:
                     if self.dump_privates:
@@ -512,13 +514,12 @@ class SipGenerator(object):
             elif isinstance(member, clangcparser.TemplateParameterCursor):
                 templating_stack.push_first(container, member.SIP_TYPE_NAME)
             elif isinstance(member, clangcparser.VariableCursor):
-                if member.type.is_const_qualified() or member.type.spelling.startswith(QScopedPointer):
-                    need_private_copy_constructor = True
                 if member.access_specifier != AccessSpecifier.PRIVATE:
                     decl, tmp = self._var_get(container, member, level + 1)
                     modulecode.update(tmp)
                 else:
-                    need_private_assignment_operator = True
+                    if member.type.is_const_qualified() or member.type.spelling.startswith(QScopedPointer):
+                        need_private_copy_constructor = True
                     if self.dump_privates:
                         SipGenerator._report_ignoring(member, "private")
             elif member.kind in [CursorKind.NAMESPACE, CursorKind.CLASS_DECL,
@@ -549,6 +550,8 @@ class SipGenerator(object):
                         templating_stack.pop_last(container)
                         return "", modulecode
                 elif member.kind == CursorKind.UNEXPOSED_DECL:
+                    if text.startswith(Q_DECLARE_PRIVATE + "("):
+                        need_private_copy_constructor = True
                     decl, tmp = self._unexposed_get(container, member, text, level + 1)
                     modulecode.update(tmp)
                 else:
@@ -631,19 +634,18 @@ class SipGenerator(object):
                 decl += pad + container.initial_access_specifier + "\n"
             decl += sip["code"]
             body = decl + sip["body"]
-            if container.kind != CursorKind.NAMESPACE:
+            if container.kind != CursorKind.NAMESPACE and not sip["decl"].startswith("%Exception"):
                 #
                 # Generate private copy constructor for non-copyable types.
                 #
-                if need_private_copy_constructor and not had_copy_constructor and \
-                        not sip["decl"].startswith("%Exception"):
+                if need_private_copy_constructor and not had_copy_constructor:
                     body += pad + "private:\n"
                     body += pad + "    " + trace_generated_for(container, "non-copyable type handling", {})
                     body += pad + "    {}(const {} &);\n".format(sip["name"], sip["name"])
                 #
                 # Generate private assignment operator for non-assignable types.
                 #
-                if need_private_assignment_operator and had_assignment_operator:
+                if had_assignment_operator:
                     body += pad + "private:\n"
                     body += pad + "    " + trace_generated_for(container, "non-assignable type handling", {})
                     body += pad + "    {} &operator=(const {} &);\n".format(sip["name"], sip["name"])
@@ -943,7 +945,7 @@ class SipGenerator(object):
             2. Watch for the assignment.
         """
         def decompose_arg(arg, spellings):
-            template, args = utils.decompose_type_names(arg)
+            template, args = utils.decompose_template(arg)
             spellings.append(template)
             if args is not None:
                 for arg in args:
@@ -955,7 +957,7 @@ class SipGenerator(object):
             spellings = []
             while underlying:
                 prefixes, name, operators, suffixes, next = underlying.decomposition()
-                name, args = utils.decompose_type_names(name)
+                name, args = utils.decompose_template(name)
                 #
                 # We want the name (or name part of the template), plus any template parameters to deal with:
                 #
@@ -982,7 +984,7 @@ class SipGenerator(object):
                 # Is rhs the suffix of any of the typedefs?
                 #
                 for spelling in spellings[:-1]:
-                    name, args = utils.decompose_type_names(spelling)
+                    name, args = utils.decompose_template(spelling)
                     if name.endswith(rhs):
                         return name
                 prefix = spellings[-1].rsplit("::", 1)[0] + "::"
@@ -993,7 +995,7 @@ class SipGenerator(object):
                 # Is rhs the suffix of any of the typedefs?
                 #
                 for spelling in spellings:
-                    name, args = utils.decompose_type_names(spelling)
+                    name, args = utils.decompose_template(spelling)
                     if name.endswith(rhs):
                         return name
                 return fqn

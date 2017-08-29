@@ -467,7 +467,7 @@ struct setcode
     next_type = variable.type
     while True:
         dims.append(next_type.element_count)
-        element_type = next_type.element_type.get_canonical()
+        element_type = next_type.underlying_type
         if element_type.kind == TypeKind.CONSTANTARRAY:
             next_type = element_type
         else:

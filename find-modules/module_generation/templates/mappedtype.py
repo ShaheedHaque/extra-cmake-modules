@@ -143,7 +143,7 @@ class AbstractExpander(object):
 
         :return: (name, [args])
         """
-        name, args = utils.decompose_type_names(template)
+        name, args = utils.decompose_template(template)
         assert len(args) == expected, "Expected {} template arguments in '{}', got {}".format(expected, template, args)
         return name, args
 
@@ -169,43 +169,8 @@ class AbstractExpander(object):
         #
         # We would like to be able to use clang type system to determine the HELD_AS etc, but the number of children of
         # the typedef is variable (i.e. the structure of an AST is not represented). Also, for example, int types are
-        # not even included.
-        #
-        # So we proceed by get matching arrays of the clang template parameters and the corresponding texts.
-        #
-        clang_type = None
-        clang_args = []
-        #
-        # We are only interested in things that can affect the type of the parameters.
-        #
-        tmp = [c for c in cursor.get_children() if c.kind not in [CursorKind.NAMESPACE_REF, CursorKind.UNEXPOSED_ATTR]]
-        for c in tmp:
-            if c.referenced:
-                spelling = c.referenced.type.get_canonical().spelling
-            else:
-                spelling = c.type.get_canonical().spelling
-            if spelling in text_args:
-                clang_args.append(c)
-            elif c.kind in [CursorKind.TEMPLATE_REF, CursorKind.TYPE_REF]:
-                clang_type = c
-        #
-        # We only use the information if it matches the cases we understand (i.e. a non-trivial AST is implied).
-        #
-        if clang_type and len(clang_args) == len(text_args):
-            pass
-        else:
-            if False:
-                # Debug
-                print("TEMPLATE BEGIN {}".format(text))
-                print("    PARENT {}".format(clang_type.spelling))
-                for i, c in enumerate(clang_args):
-                    if clang_args[i].type.kind == TypeKind.INVALID:
-                        tmp = clang_args[i].kind
-                    else:
-                        tmp = clang_args[i].type.kind
-                    print("    CHILD{}".format(i), tmp, clang_args[i].spelling)
-                print("TEMPLATE END")
-            clang_args = [None] * len(expected_parameters)
+        # not even included. Also, there appears to be no way to get from the cursor's child [CursorKind.TEMPLATE_REF,
+        # CursorKind.TYPE_REF] to the types.
         #
         # Compose the parent type, and the dicts for the parameters and a default declaration.
         #
@@ -214,14 +179,13 @@ class AbstractExpander(object):
         entries = {}
         parameters = []
         for i, parameter in enumerate(expected_parameters):
-            actual_type = self.actual_type(manual_types[i], text_args[i], clang_args[i])
-            base_type = self.base_type(manual_base_types[i], actual_type, clang_args[i])
+            actual_type = manual_types[i] or text_args[i]
+            base_type = manual_base_types[i]
             p = {
                 "type": actual_type,
                 "base_type": base_type,
             }
-            clang_t = clang_args[i].type.get_canonical() if clang_args[i] else None
-            entries[parameter] = self.helpers[parameter](p, clang_t)
+            entries[parameter] = self.helpers[parameter](p, None)
             parameters.append(actual_type)
         text_args = ", ".join(text_args)
         #

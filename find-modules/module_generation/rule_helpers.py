@@ -29,7 +29,7 @@
 import os
 import re
 
-from utils import decompose_type_names, fqn, trace_inserted_for, trace_discarded_by, trace_generated_for
+from utils import decompose_template, fqn, trace_inserted_for, trace_discarded_by, trace_generated_for
 
 ANNOTATIONS_RE = re.compile(" /.*/")
 
@@ -293,7 +293,7 @@ def container_add_typedefs(container, sip, rule, *typedefs):
         """
         if parent.template_parameters is None:
             return None
-        name, args = decompose_type_names(typedef)
+        name, args = decompose_template(typedef)
         ids = []
         if args:
             for arg in args:
