@@ -268,6 +268,7 @@ class RuleSet(rules_engine.RuleSet):
             "FollowupReminder",
             "gpgme",
             "IncidenceEditor",
+            "KActivitiesStats",
             "KAlarmCal",
             "KAuth",
             "KBlog",
