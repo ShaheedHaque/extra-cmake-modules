@@ -1369,6 +1369,8 @@ class SipGenerator(object):
         #
         if re.search(r" const\b", sip["decl"]):
             sip["decl"] = "const " + sip["decl"].replace(" const", "")
+        if "const " in sip["decl"]:
+            sip["annotations"].add("NoSetter")
         if re.search(r"\w\[", sip["decl"]):
             sip["decl"] = sip["decl"].replace("[", " [").replace("] [", "][")
         prefix = ""
