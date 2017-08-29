@@ -360,7 +360,7 @@ def container_make_unassignable(container, sip, rule):
     :param sip:             The sip.
     :param rule:            The rule.
     """
-    clazz = fqn(container)
+    clazz = sip["name"]
     tmp = "    private:\n        {} &operator=(const {} &);\n".format(clazz, clazz)
     trace = trace_generated_for(sip["name"], rule, "dummy assignment")
     tmp = trace + tmp
@@ -375,7 +375,7 @@ def container_make_uncopyable(container, sip, rule):
     :param sip:             The sip.
     :param rule:            The rule.
     """
-    clazz = fqn(container)
+    clazz = sip["name"]
     tmp = "    private:\n        {}(const {} &);\n".format(clazz, clazz)
     trace = trace_generated_for(sip["name"], rule, "dummy copy constructor")
     tmp = trace + tmp
