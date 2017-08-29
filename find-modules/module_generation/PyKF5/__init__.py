@@ -339,6 +339,7 @@ class RuleSet(rules_engine.RuleSet):
             "MessageCore",
             "MessageList",
             "NetworkManagerQt",
+            "PimCommon",
             "Plasma",
             "SendLater",
             "Solid",
