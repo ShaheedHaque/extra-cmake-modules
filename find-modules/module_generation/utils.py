@@ -101,7 +101,8 @@ def fqn(cursor, alternate_spelling=None):
     parents = ""
     parent = cursor.semantic_parent
     while parent and parent.kind != CursorKind.TRANSLATION_UNIT:
-        parents = parent.spelling + "::" + parents
+        if parent.kind != CursorKind.UNEXPOSED_DECL:
+            parents = parent.spelling + "::" + parents
         parent = parent.semantic_parent
     if alternate_spelling is None:
         text = cursor.spelling
