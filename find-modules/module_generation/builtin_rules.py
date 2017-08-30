@@ -50,8 +50,6 @@ gettext.install(__name__)
 _ = _
 
 
-FIXED_ARRAY_RE = re.compile(".*(\[[^]]+\])+")
-VARIABLE_ARRAY_RE = re.compile(".*(\[\])+")
 MAPPED_TYPE_RE = re.compile(".*<.*")
 
 
@@ -341,22 +339,15 @@ def variable_rewrite_array_fixed(container, variable, sip, rule):
     Handle n-dimensional fixed size arrays.
     """
     #
-    # A template for a SIP_PYBUFFER.
+    # Templates for a SIP_PYBUFFER.
     #
-    _SIP_PYBUFFER_TEMPLATE = """
-{
-%GetCode
-{trace}
-    char *cxxvalue = (char *)&{cxxarray}[0];
+    SIP_PYBUFFER_GETCODE = """    char *cxxvalue = (char *)&{cxxarray}[0];
 
     // Create the Python buffer.
     Py_ssize_t elementCount = {element_count};
-    sipPy = PyByteArray_FromStringAndSize(cxxvalue, elementCount);
-%End
+    sipPy = PyByteArray_FromStringAndSize(cxxvalue, elementCount);"""
 
-%SetCode
-{trace}
-    char *cxxvalue = (char *)&{cxxarray}[0];
+    SIP_PYBUFFER_SETCODE = """    char *cxxvalue = (char *)&{cxxarray}[0];
     Py_ssize_t elementCount = {element_count};
     const char *name = "{name}";
 
@@ -373,18 +364,11 @@ def variable_rewrite_array_fixed(container, variable, sip, rule):
         } else {
             memcpy(cxxvalue, PyByteArray_AsString(sipPy), elementCount);
         }
-    }
-%End
-}"""
-
+    }"""
     #
-    # A template for a SIP_PYLIST.
+    # Templates for a SIP_PYLIST.
     #
-    _SIP_PYLIST_TEMPLATE = """
-{
-%GetCode
-{trace}
-typedef {cxx_t} CxxvalueT;
+    SIP_PYLIST_GETCODE = """typedef {cxx_t} CxxvalueT;
 struct getcode
 {
     PyObject *getList(int *sipErr, Py_ssize_t dims[], int numDims, int dim, CxxvalueT *cxxvalue[]) {
@@ -428,12 +412,9 @@ struct getcode
     auto numDims = sizeof(dims) / sizeof(dims[0]);
     int sipErr = 0;
     PyObject *list = getcode.getList(&sipErr, dims, numDims, 0, (CxxvalueT **)&{cxxarray}[0]);
-    sipPy = sipErr ? list : NULL;
-%End
+    sipPy = sipErr ? list : NULL;"""
 
-%SetCode
-{trace}
-typedef {cxx_t} CxxvalueT;
+    SIP_PYLIST_SETCODE = """typedef {cxx_t} CxxvalueT;
 struct setcode
 {
     void setList(int *sipErr, Py_ssize_t dims[], int numDims, int dim, PyObject *list, CxxvalueT *cxxvalue[]) {
@@ -468,9 +449,7 @@ struct setcode
 
     Py_ssize_t dims[] = {{dims}};
     auto numDims = sizeof(dims) / sizeof(dims[0]);
-    setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&{cxxarray}[0]);
-%End
-}"""
+    setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&{cxxarray}[0]);"""
 
     prefixes, text, operators, dims = utils.decompose_type(sip["decl"])
     dims = [d[1:-1] for d in dims]
@@ -480,10 +459,37 @@ struct setcode
     converter = RewriteArrayHelper(sip["decl"], element_type)
     if converter.category == HeldAs.BYTE:
         decl = "SIP_PYBUFFER"
-        code = _SIP_PYBUFFER_TEMPLATE
+        getcode = SIP_PYBUFFER_GETCODE
+        setcode = SIP_PYBUFFER_SETCODE
     else:
         decl = "SIP_PYLIST"
-        code = _SIP_PYLIST_TEMPLATE
+        getcode = SIP_PYLIST_GETCODE
+        setcode = SIP_PYLIST_SETCODE
+    code = """
+{
+%GetCode
+{trace}
+"""
+    code += getcode
+    code += """
+%End"""
+    #
+    # Do we need %SetCode?
+    #
+    if "const " not in prefixes:
+        code += """
+
+%SetCode
+{trace}
+"""
+        code += setcode
+        code += """
+%End"""
+    code += """
+}"""
+    if converter.category == HeldAs.BYTE:
+        pass
+    else:
         aliases_ = converter.declare_type_helpers("value", "*sipErr = 1;")
         cxx_to_py = converter.cxx_to_py("value", True, "(*cxxvalue)[i]")
         py_to_cxx = converter.py_to_cxx("value", True, "(*cxxvalue)[i]")
@@ -522,11 +528,14 @@ def variable_rewrite_array_nonfixed(container, variable, sip, rule):
     prefixes, text, operators, dims = utils.decompose_type(sip["decl"])
     if len(dims) == 1:
         sip["decl"] = sip["decl"].replace("[]", "*")
+    else:
+        logger.warning(
+            _("TODO: Support for nonfixed {}-D variables: {}").format(len(dims), utils.item_describe(variable)))
     #
     # Even though we render this as a "foo *", it started life as a "foo []". So if there is a const, the array
     # itself was a const...
     #
-    if "const " in sip["decl"]:
+    if "const " in prefixes:
         sip["annotations"].add("NoSetter")
 
 
@@ -674,9 +683,9 @@ def variable_rules():
         #
         # Emit code for fixed arrays.
         #
-        [".*", ".*", FIXED_ARRAY_RE.pattern, variable_rewrite_array_fixed],
+        [".*", ".*", "(const | volatile )*.*(\[[^]]+\])+", variable_rewrite_array_fixed],
         #
         # Emit code for variable arrays.
         #
-        [".*", ".*", VARIABLE_ARRAY_RE.pattern, variable_rewrite_array_nonfixed],
+        [".*", ".*", "(const | volatile )*.*(\[\])+", variable_rewrite_array_nonfixed],
     ]
