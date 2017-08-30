@@ -343,12 +343,23 @@ class HeldAs(object):
         """
         if cxx_t.endswith("*"):
             return HeldAs.POINTER
-        elif cxx_t.endswith("&"):
+        if cxx_t.endswith("&"):
             return HeldAs.categorise(cxx_t[:-1].strip(), clang_t)
-        elif cxx_t == HeldAs.VOID:
+        if cxx_t == HeldAs.VOID:
             return HeldAs.VOID
-        elif cxx_t.startswith("type-parameter-"):
+        if cxx_t.startswith("type-parameter-"):
             return HeldAs.OBJECT
+        if "<" in cxx_t:
+            return HeldAs.OBJECT
+        if HeldAs.RE_BYTE.search(cxx_t):
+            return HeldAs.BYTE
+        #
+        # Must check for FLOAT before INTEGER in case of "long double" etc.
+        #
+        if HeldAs.RE_FLOAT.search(cxx_t):
+            return HeldAs.FLOAT
+        if HeldAs.RE_INTEGER.search(cxx_t):
+            return HeldAs.INTEGER
         #
         # The clang type should be authoritative.
         #
@@ -380,17 +391,6 @@ class HeldAs(object):
                 if "<" in cxx_t and clang_t.kind in [TypeKind.ELABORATED, TypeKind.UNEXPOSED]:
                     return HeldAs.OBJECT
                 return HeldAs.OBJECT
-        if "<" in cxx_t:
-            return HeldAs.OBJECT
-        if HeldAs.RE_BYTE.search(cxx_t):
-            return HeldAs.BYTE
-        #
-        # Must check for FLOAT before INTEGER in case of "long double" etc.
-        #
-        if HeldAs.RE_FLOAT.search(cxx_t):
-            return HeldAs.FLOAT
-        if HeldAs.RE_INTEGER.search(cxx_t):
-            return HeldAs.INTEGER
         return HeldAs.OBJECT
 
     def declare_type_helpers(self, name, error, need_string=False, need_cxx_t=True):
