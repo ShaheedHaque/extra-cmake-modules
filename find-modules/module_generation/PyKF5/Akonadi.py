@@ -102,7 +102,7 @@ def module_fix_mapped_types_calendar(filename, sip, entry):
                                    "QVector<QSharedPointer<KCalCore::Alarm> >", "QVector<long long>")
     rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
                                     "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
-                                    "KCalCore::_MSSystemTime", "KCalCore::_MSTimeZone", "KDateTime",
+                                    "KDateTime",
                                     "KDateTime::Spec", "VObject", "QLatin1String", "MailTransport::MessageQueueJob",
                                     "KIdentityManagement::Identity", "Akonadi::Protocol::Command",
                                     "Akonadi::ServerManagerPrivate")

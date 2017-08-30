@@ -31,8 +31,8 @@ def module_fix_mapped_types(filename, sip, entry):
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KCalCore::MemoryCalendar>")
     rule_helpers.module_add_classes(filename, sip, entry, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
-                                  "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
-                                  "KCalCore::_MSTimeZone", "KDateTime", "KDateTime::Spec", "QLatin1String", "VObject",
+                                  "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
+                                  "KDateTime", "KDateTime::Spec", "QLatin1String", "VObject",
                                   "KCalCore::IncidenceBase::VirtualHook", "KCalUtils::InvitationFormatterHelper")
 
 

@@ -498,9 +498,11 @@ class SipGenerator(object):
                                                                                CursorKind.STRUCT_DECL,
                                                                                CursorKind.UNION_DECL]:
                     child = typedef_children[0]
-                    original = child.SIP_TYPE_NAME + " " + child.spelling + "\n"
-                    typedef = child.SIP_TYPE_NAME + " " + member.type.spelling + "\n"
-                    body = body.replace(original, typedef, 1)
+                    if not child.displayname:
+                        child_type = child.SIP_TYPE_NAME
+                        original = child_type + " " + child.spelling
+                        typedef = child_type + " " + member.type.spelling
+                        body = body.replace(original, typedef, 1)
                 else:
                     decl, tmp = self._typedef_get(container, member, level + 1, h_file, include_filename,
                                                   templating_stack)

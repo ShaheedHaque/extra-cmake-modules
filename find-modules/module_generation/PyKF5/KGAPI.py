@@ -26,8 +26,8 @@ import rule_helpers
 
 def fix_ktimezone_stuff(filename, sip, rule):
     rule_helpers.module_add_classes(filename, sip, rule, "KTimeZone", "KTimeZoneBackend", "KTimeZoneData",
-                                    "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone", "KCalCore::_MSSystemTime",
-                                    "KCalCore::_MSTimeZone", "QNetworkAccessManager", "QNetworkRequest",
+                                    "KTimeZoneSource", "icalcomponent_impl", "_icaltimezone",
+                                    "QNetworkAccessManager", "QNetworkRequest",
                                     "QNetworkReply", "KDateTime", "KDateTime::Spec", "QLatin1String", "VObject")
     rule_helpers.module_add_includes(filename, sip, rule, "<QtNetwork/QtNetwork>")
 
