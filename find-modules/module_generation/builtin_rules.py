@@ -499,10 +499,10 @@ struct setcode
         code = code.replace("{py_to_cxx}", py_to_cxx)
     trace = trace_generated_for(variable, rule, {})
     code = code.replace("{trace}", trace)
-    #
-    # SIP cannot handle %GetCode/%SetCode for global variables.
-    #
     if container.kind == CursorKind.TRANSLATION_UNIT:
+        #
+        # SIP does not support %GetCode/%SetCode for global variables.
+        #
         if len(dims) == 1:
             #
             # Note that replacing [] with * only works for one dimension.
@@ -510,7 +510,9 @@ struct setcode
             dims = "*" * len(dims)
             sip["decl"] = re.sub("\[.*\]", dims, sip["decl"])
         else:
-            return
+            logger.warning(
+                _("SIP does not support global {}-D variables: {}").format(len(dims), utils.item_describe(variable)))
+            sip["name"] = ""
     else:
         sip["decl"] = decl
         code = code.replace("{element_count}", dims[-1])
