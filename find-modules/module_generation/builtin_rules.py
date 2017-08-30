@@ -368,7 +368,7 @@ def variable_rewrite_array_fixed(container, variable, sip, rule):
     #
     # Templates for a SIP_PYLIST.
     #
-    SIP_PYLIST_GETCODE = """typedef {cxx_t} CxxvalueT;
+    SIP_PYLIST_GETCODE = """{aliases}
 struct getcode
 {
     PyObject *getList(int *sipErr, Py_ssize_t dims[], int numDims, int dim, CxxvalueT *cxxvalue[]) {
@@ -451,12 +451,12 @@ struct setcode
     auto numDims = sizeof(dims) / sizeof(dims[0]);
     setcode.setList(&sipErr, dims, numDims, 0, sipPy, (CxxvalueT **)&{cxxarray}[0]);"""
 
-    prefixes, text, operators, dims = utils.decompose_type(sip["decl"])
-    dims = [d[1:-1] for d in dims]
+    prefixes, text, operators, suffixes = utils.decompose_type(sip["decl"])
+    dims = [d[1:-1] for d in suffixes if d[0] == "["]
     element_type = variable.type
     while element_type.kind == TypeKind.CONSTANTARRAY:
         element_type = element_type.underlying_type
-    converter = RewriteArrayHelper(sip["decl"], element_type)
+    converter = RewriteArrayHelper(text, element_type)
     if converter.category == HeldAs.BYTE:
         decl = "SIP_PYBUFFER"
         getcode = SIP_PYBUFFER_GETCODE

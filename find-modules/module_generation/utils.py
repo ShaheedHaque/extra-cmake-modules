@@ -78,7 +78,12 @@ def decompose_type(text):
     while text.endswith("]"):
         text, tmp = text.rsplit("[", 1)
         suffixes.insert(0, "[" + tmp)
-        text = text.rstrip()
+        #
+        # Check for const array elements.
+        #
+        if text.endswith("const "):
+            text, tmp = text[:-6], "const "
+            suffixes.insert(0, tmp)
     operators = []
     while text.endswith(("&&", "&", "*")):
         if text.endswith("&&"):
