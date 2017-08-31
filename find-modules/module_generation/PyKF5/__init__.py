@@ -338,6 +338,7 @@ class RuleSet(rules_engine.RuleSet):
             "MailTransport",
             "MessageCore",
             "MessageList",
+            "MessageViewer",
             "NetworkManagerQt",
             "PimCommon",
             "Plasma",
