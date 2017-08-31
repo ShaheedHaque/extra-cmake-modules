@@ -21,24 +21,34 @@ SIP binding customisation for PyKF5.MailImporter. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def _function_avoid_keyword(container, function, sip, matcher):
+def _function_avoid_keyword(container, function, sip, rule):
     sip["annotations"].add("PyName=import_")
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QSharedPointer<KMime::Message>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QSharedPointer<KMime::Message>")
+    rule_helpers.module_delete_imports(filename, sip, rule, "Akonadi/KMime/KMimemod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                    "Akonadi::SpecialMailCollectionsPrivate", "KLocalizedString", "KConfigGroup",
+                                    "KCoreConfigSkeleton", "Akonadi::MessageStatus")
+
+
+def container_rules():
+    return [
+        ["MailImporter", "FolderStructureBase", ".*", ".*", ".*", rule_helpers.container_discard],
+    ]
 
 
 def function_rules():
     return [
         ["MailImporter::FilterPMail", "import", ".*", ".*", ".*", _function_avoid_keyword],
+        ["MailImporter::FilterPMail", "processFiles", ".*", ".*", ".*", rule_helpers.function_discard],
     ]
 
 
