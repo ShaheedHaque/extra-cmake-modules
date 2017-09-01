@@ -27,8 +27,12 @@ import templates.mappedtype
 from utils import trace_generated_for
 
 
-def container_add_typedefs(container, sip, rule):
+def container_add_typedefs_imageprovider(container, sip, rule):
     rule_helpers.container_add_typedefs(container, sip, rule, "KSharedPixmapCacheMixin<KSharedDataCache>")
+
+
+def container_add_typedefs_imapparser(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "QVarLengthArray<QByteArray, 16>")
 
 
 def _function_rewrite_using_decl(container, fn, sip, rule):
@@ -142,6 +146,10 @@ def module_fix_mapped_types_notes(filename, sip, entry):
     rule_helpers.module_add_classes(filename, sip, entry, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
                                     "KConfigGroup", "KCoreConfigSkeleton")
     rule_helpers.module_add_imports(filename, sip, entry, "KMime/KMime/KMimemod.sip")
+
+
+def module_fix_mapped_types_private(filename, sip, entry):
+    rule_helpers.module_add_classes(filename, sip, entry, "DataStream", "Akonadi::Protocol::DebugBlock")
 
 
 def module_fix_mapped_types_pim(filename, sip, entry):
@@ -381,8 +389,15 @@ def container_rules():
         # We cannot handle templated containers which are this complicated.
         #
         ["Akonadi::Internal.*", ".*", ".+", ".*", ".*", rule_helpers.container_discard],
+        #
+        # Fake classes.
+        #
         ["Akonadi::NoteUtils", "NoteMessageWrapper", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
-        ["Akonadi", "ImageProvider", ".*", ".*", ".*", container_add_typedefs]
+        ["Akonadi::Protocol", "FetchRelationsCommand|FetchTagsResponse", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+        ["Akonadi", "Scope|ImapSet", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+        ["Akonadi", "ImageProvider", ".*", ".*", ".*", container_add_typedefs_imageprovider],
+        ["Akonadi", "ImapParser", ".*", ".*", ".*", container_add_typedefs_imapparser],
+        ["Akonadi", "ExternalPartStorage", ".*", ".*", ".*", rule_helpers.container_make_uncopyable],
     ]
 
 
@@ -402,6 +417,8 @@ def function_rules():
         ["Akonadi::(Item|Collection)", "parentCollection", ".*", "Akonadi::Collection", ".*", rule_helpers.function_discard],
         ["Akonadi::CollectionFetchScope", "ancestorFetchScope", ".*", "Akonadi::CollectionFetchScope", ".*", rule_helpers.function_discard],
         ["Akonadi::ItemFetchScope", "tagFetchScope", ".*", "Akonadi::TagFetchScope", ".*", rule_helpers.function_discard],
+        ["Akonadi::Protocol::FetchItemsCommand", "fetchScope", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
+        ["Akonadi::Protocol::FetchCollectionsResponse", "cachePolicy", ".*", ".*", ".*", ".*", "(?! const)", rule_helpers.function_discard],
         #
         # boost templates.
         #
@@ -411,6 +428,18 @@ def function_rules():
         #
         ["Akonadi::(Collection|Entity(List|Tree)|Item)View", "currentChanged", ".*", ".*", "", _function_rewrite_using_decl],
         ["Akonadi::AgentBase::ObserverV2", "collectionChanged", ".*", ".*", "", _function_rewrite_using_decl2],
+        #
+        # R-reference.
+        #
+        ["Akonadi::Protocol::Command", "Command", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::Ancestor", "Ancestor", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::FetchScope", "FetchScope", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::ScopeContext", "ScopeContext", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::PartMetaData", "PartMetaData", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::CachePolicy", "CachePolicy", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Protocol::CachePolicy", "CachePolicy", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Scope", "Scope", ".*", ".*", ".*&&other", rule_helpers.function_discard],
+        ["Akonadi::Scope::HRID", "HRID", ".*", ".*", ".*&&other", rule_helpers.function_discard],
     ]
 
 
@@ -561,6 +590,9 @@ def modulecode():
         },
         "Akonadi/Notes/Notesmod.sip": {
             "code": module_fix_mapped_types_notes,
+        },
+        "akonadi/private/privatemod.sip": {
+            "code": module_fix_mapped_types_private,
         },
         "AkonadiSearch/PIM/PIMmod.sip": {
             "code": module_fix_mapped_types_pim,
