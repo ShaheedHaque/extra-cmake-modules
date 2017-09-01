@@ -270,6 +270,7 @@ class RuleSet(rules_engine.RuleSet):
             "IncidenceEditor",
             "KActivitiesStats",
             "KAlarmCal",
+            "KArchive",
             "KAuth",
             "KBlog",
             "KBookmarks",
