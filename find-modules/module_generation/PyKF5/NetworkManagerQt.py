@@ -21,15 +21,29 @@ SIP binding customisation for PyKF5.NetworkManagerQt. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QPair<int, int> >")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QPair<int, int> >")
+    rule_helpers.module_add_classes(filename, sip, rule, "NetworkManager::ActiveConnectionPrivate",
+                                    "NetworkManager::DevicePrivate", "NetworkManager::ModemDevicePrivate",
+                                    "NMBluetoothCapabilities")
+
+
+def container_rules():
+    return [
+        ["NetworkManager", "IpConfig", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
+def function_rules():
+    return [
+        ["NetworkManager::VpnConnection", "operator.*\*", ".*", ".*", ".*", rule_helpers.function_discard],
+    ]
 
 
 def modulecode():
