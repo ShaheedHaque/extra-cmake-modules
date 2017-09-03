@@ -264,6 +264,7 @@ class RuleSet(rules_engine.RuleSet):
         for rules_module in [
             "Akonadi",
             "Attica",
+            "Baloo",
             "CalendarSupport",
             "FollowupReminder",
             "gpgme",
