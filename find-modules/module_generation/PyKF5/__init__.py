@@ -270,6 +270,7 @@ class RuleSet(rules_engine.RuleSet):
             "gpgme",
             "IncidenceEditor",
             "KActivitiesStats",
+            "Kaddressbook",
             "KAlarmCal",
             "KArchive",
             "KAuth",
