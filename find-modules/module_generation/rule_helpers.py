@@ -216,16 +216,21 @@ def module_delete_imports(filename, sip, rule, *modules):
     """
     trace = trace_generated_for(sip["name"], rule, "delete imports")
     lines = []
+    modules = list(modules)
+    candidates = []
     for l in sip["decl"].split("\n"):
         l = l.strip()
         if l.startswith("%Import"):
             m = l[:-1].split("=", 1)[1]
+            candidates.append(m)
             if m in modules:
+                modules.remove(m)
                 lines.append(trace)
                 lines.append("// " + l)
                 continue
         lines.append(l)
     sip["decl"] = "\n".join(lines)
+    assert not modules, "Modules {} not found in {}".format(modules, candidates)
 
 
 def module_yank_scoped_class(filename, sip, rule):

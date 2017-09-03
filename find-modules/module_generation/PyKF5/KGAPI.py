@@ -53,7 +53,6 @@ def module_fix_mapped_types_blogger(filename, sip, rule):
                                    "QSharedPointer<KGAPI2::Blogger::Page>", "QSharedPointer<KGAPI2::Blogger::Post>",
                                    "QList<QSharedPointer<KGAPI2::Blogger::Blog> >",
                                    "QSharedPointer<KGAPI2::Blogger::Blog>", "QSharedPointer<KGAPI2::Object>")
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
     rule_helpers.module_add_classes(filename, sip, rule, "KConfig", "_IO_FILE", "Kleo::DownloadJob",
                                     "Kleo::RefreshKeysJob", "QNetworkAccessManager", "QNetworkRequest", "QNetworkReply",
                                     "Akonadi::Protocol::Command", "KConfigGroup", "Akonadi::ServerManagerPrivate",
@@ -70,7 +69,6 @@ def module_fix_mapped_types_calendar(filename, sip, rule):
                                    "QSharedPointer<KGAPI2::Account>", "QSharedPointer<KGAPI2::Calendar>",
                                    "QSharedPointer<KGAPI2::Event>", "QList<QSharedPointer<KGAPI2::Reminder> >",
                                    "QSharedPointer<KGAPI2::Reminder>")
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
     fix_ktimezone_stuff(filename, sip, rule)
 
 
@@ -82,7 +80,6 @@ def module_fix_mapped_types_contacts(filename, sip, rule):
                                    "QSharedPointer<KGAPI2::Account>", "QList<QSharedPointer<KGAPI2::Object> >",
                                    "QList<QSharedPointer<KGAPI2::ContactsGroup> >",
                                    "QSharedPointer<KGAPI2::Contact>", "QSharedPointer<KGAPI2::ContactsGroup>")
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
     rule_helpers.module_add_classes(filename, sip, rule, "KIO::Job")
     rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
 
@@ -109,7 +106,6 @@ def module_fix_mapped_types_drive(filename, sip, rule):
                                    "QSharedPointer<KGAPI2::Drive::App>",
                                    "QSharedPointer<KGAPI2::Drive::Change>",
                                    "QSharedPointer<KGAPI2::Drive::User>")
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
     rule_helpers.module_add_classes(filename, sip, rule, "KIO::Job")
     rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
 
@@ -120,7 +116,6 @@ def module_fix_mapped_types_latitude(filename, sip, rule):
     #
     rule_helpers.modulecode_delete(filename, sip, rule, "QList<QSharedPointer<KGAPI2::Object> >",
                                    "QSharedPointer<KGAPI2::Account>", "QSharedPointer<KGAPI2::Location>")
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
     rule_helpers.module_add_classes(filename, sip, rule, "KIO::Job")
     rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/KIOCoremod.sip")
 
@@ -143,7 +138,6 @@ def module_fix_mapped_types_tasks(filename, sip, rule):
                                    "QSharedPointer<KGAPI2::Account>", "QSharedPointer<KGAPI2::Task>",
                                    "QSharedPointer<KGAPI2::TaskList>")
     fix_ktimezone_stuff(filename, sip, rule)
-    rule_helpers.module_delete_imports(filename, sip, rule, "kjs/kjsmod.sip")
 
 
 def container_rules():
