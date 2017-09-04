@@ -21,11 +21,27 @@ SIP binding customisation for PyKF5.KDeclarative. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
+
+
+def module_fix_mapped_types(filename, sip, rule):
+    rule_helpers.module_add_classes(filename, sip, rule, "KCoreConfigSkeleton")
+
+
+def container_add_typedefs(container, sip, rule):
+    rule_helpers.container_add_typedefs(container, sip, rule, "QMultiHash<QDate, CalendarEvents::EventData>")
 
 
 def container_rules():
     return [
         ["configmodule.h", "QQmlTypeInfo", ".*", ".*", ".*", rule_helpers.container_discard],
+        ["CalendarEvents", "CalendarEventsPlugin", ".*", ".*", ".*", container_add_typedefs],
     ]
+
+
+def modulecode():
+    return {
+        "KDeclarative/KDeclarative/KDeclarativemod.sip": {
+            "code": module_fix_mapped_types,
+        },
+    }
