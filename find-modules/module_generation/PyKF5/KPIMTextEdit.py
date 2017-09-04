@@ -21,15 +21,22 @@ SIP binding customisation for PyKF5.KPIMTextEdit. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QAction *>")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QAction *>")
+    rule_helpers.module_add_classes(filename, sip, rule, "KPIMTextEdit::PlainTextEditor", "KConfig",
+                                    "KActionCollection", "KPIMTextEdit::NestedListHelper")
+
+
+def container_rules():
+    return [
+        ["KPIMTextEdit", "InsertHtmlEditor", ".*", ".*", ".*", rule_helpers.container_make_uncopyable],
+    ]
 
 
 def modulecode():
