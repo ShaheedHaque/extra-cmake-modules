@@ -500,18 +500,18 @@ struct setcode
     trace = trace_generated_for(variable, rule, {})
     code = code.replace("{trace}", trace)
     if container.kind == CursorKind.TRANSLATION_UNIT:
-        #
-        # SIP does not support %GetCode/%SetCode for global variables.
-        #
-        if len(dims) == 1:
+        if len(dims) == 1 and converter.category == HeldAs.BYTE:
             #
             # Note that replacing [] with * only works for one dimension.
             #
             dims = "*" * len(dims)
             sip["decl"] = re.sub("\[.*\]", dims, sip["decl"])
         else:
+            #
+            # SIP does not support %GetCode/%SetCode for global variables.
+            #
             logger.warning(
-                _("SIP does not support global {}-D variables: {}").format(len(dims), utils.item_describe(variable)))
+                _("SIP does not support global array variables: {}").format(utils.item_describe(variable)))
             sip["name"] = ""
     else:
         sip["decl"] = decl
@@ -683,11 +683,7 @@ def variable_rules():
         #
         [".*", ".*", MAPPED_TYPE_RE.pattern, variable_rewrite_mapped],
         #
-        # Emit code for fixed arrays.
+        # Emit code for arrays.
         #
-        [".*", ".*", "(const | volatile )*.*(\[[^]]+\])+", variable_rewrite_array_fixed],
-        #
-        # Emit code for variable arrays.
-        #
-        [".*", ".*", "(const | volatile )*.*(\[\])+", variable_rewrite_array_nonfixed],
+        [".*", ".*", "(const | volatile )*.*(\[[^]]*\])+", variable_rewrite_array],
     ]
