@@ -1,6 +1,13 @@
 Pre-requisites
 ==============
 
+PyPI: sudo pip install
+----------------------
+
+    #
+    # Core system dependencies.
+    #
+    pcpp
 
 Ubuntu/Debian "sudo apt install"
 --------------------------------
