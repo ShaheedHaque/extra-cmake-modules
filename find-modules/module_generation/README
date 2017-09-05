@@ -71,7 +71,7 @@ module_generator.py
 -------------------
 
 The next layer on the generator side is module_generator.py. This takes the
-output from sip_generator for a while tree of .f files and renders then into
+output from sip_generator for a whole tree of .h files and renders then into
 "individual" .sip files.
 
 First, various types of "individual" .h files are handled. We either:
@@ -206,16 +206,33 @@ content.
 Duplicate forward declarations
 ------------------------------
 
-TODO: implement this.
+Unlike C++, SIP expects exactly one declaration/definition of a class in any
+%Module. This means that:
 
-It is common in C++ code to forward declare a class "class Foo;". This is
-supported by the SIP compiler using the /External/ annotation. However, if
-multiple "individual" .sip files which are %Included into a single "module"
-.sip, then SIP complains about the duplicate definitions.
+- Forward declarations for classes in the same %Module are not allowed.
 
-Thus, the sip_generator and module_generator conspire to move all such
-forward declarations into the "module" .sip.
+- Multiple forward declaration are not allowed even for classes in other
+%Modules.
 
+The solution is to suppress all forward declarations by default. Rule-writers
+selectively use a noop-rule to override the supression, or add %Module level
+declarations to replace them (even then, %feature-based guards are needed
+to avoid duplicates across separate %Modules!). Helpers are provided for both.
+
+Template support
+----------------
+
+SIP has a form of support for template classes. Unfortunately, this typically
+requires multiple sets of templates to handle plain-old-data versus object
+template parameters.
+
+The solution is rule-based code which generates "template instantiations"
+using types inferred from the .h content. Logic is provided for the main
+Qt containers, QFlags and some std::/boost:: classes.
+
+The logic for this has been factored out to facilitate adding code for
+additional template types. 
+ 
 
 Platform-dependent code
 -----------------------
