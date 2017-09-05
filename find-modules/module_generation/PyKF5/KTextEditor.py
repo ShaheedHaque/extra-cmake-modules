@@ -21,21 +21,21 @@ SIP binding customisation for PyKF5.KTextEditor. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 import rule_helpers
 
 
-def _function_make_public(container, function, sip, matcher):
+def _function_make_public(container, fn, sip, rule):
     sip["prefix"] = "public: "
 
 
-def module_fix_mapped_types(filename, sip, entry):
+def module_fix_mapped_types(filename, sip, rule):
     #
     # SIP cannot handle duplicate %MappedTypes.
     #
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QAction *>", "QSet<QString>")
-    rule_helpers.module_add_classes(filename, sip, entry, "KXmlGuiWindow /External/", "KIconLoader",
-                                    "KSslCertificateBoxPrivate")
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QAction *>", "QSet<QString>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KXmlGuiWindow", "KIconLoader", "KSslCertificateBoxPrivate",
+                                    "KIO::Connection", "KIO::ClipboardUpdater")
 
 
 _ktexteditor_qobject_ctscc = """

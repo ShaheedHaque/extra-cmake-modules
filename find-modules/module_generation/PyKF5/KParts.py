@@ -21,14 +21,13 @@ SIP binding customisation for PyKF5.KParts. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
-
 from clang.cindex import CursorKind
 
 import rule_helpers
 
 
-def _function_rewrite_using_decl(container, function, sip, matcher):
-    if function.kind == CursorKind.USING_DECLARATION:
+def _function_rewrite_using_decl(container, fn, sip, rule):
+    if fn.kind == CursorKind.USING_DECLARATION:
         sip["parameters"] = ["QObject *parent /TransferThis/",
                              "KXMLGUIClient *parentGUIClient",
                              "const KAboutData &aboutData"]
@@ -40,9 +39,9 @@ def module_fix_mapped_types(filename, sip, rule):
     #
     rule_helpers.modulecode_delete(filename, sip, rule, "QExplicitlySharedDataPointer<KService>", "QList<QUrl>",
                                    "QMap<QString, QString>")
-    rule_helpers.module_add_classes(filename, sip, rule, "KIconLoader /External/", "KXmlGuiWindow /External/",
-                                    "KSslCertificateBoxPrivate")
-    rule_helpers.module_add_imports(filename, sip, rule, "SonnetCore/Sonnet/Sonnetmod.sip")
+    rule_helpers.module_add_imports(filename, sip, rule, "SonnetCore/Sonnet/Sonnetmod.sip", "KIOCore/kio/kiomod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "KIconLoader", "KXmlGuiWindow", "KSslCertificateBoxPrivate",
+                                    "KIO::Connection", "KIO::ClipboardUpdater")
 
 
 def function_rules():

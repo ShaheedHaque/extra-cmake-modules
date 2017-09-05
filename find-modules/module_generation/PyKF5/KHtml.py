@@ -30,7 +30,7 @@ def module_fix_mapped_types(filename, sip, entry):
     # SIP cannot handle duplicate %MappedTypes.
     #
     rule_helpers.modulecode_delete(filename, sip, entry, "QList<KParts::ReadOnlyPart *>")
-    rule_helpers.module_add_classes(filename, sip, entry, "DOM::CSSRuleImpl")
+    rule_helpers.module_add_classes(filename, sip, entry, "DOM::CSSRuleImpl", "KIO::Job", "KXmlGuiWindow")
 
 
 def module_fix_mapped_types_dom(filename, sip, entry):
@@ -75,6 +75,15 @@ def module_fix_mapped_types_dom(filename, sip, entry):
                                     "DOM::RectImpl", "DOM::StyleListImpl", "DOM::StyleSheetImpl",
                                     "DOM::StyleSheetListImpl", "DOM::TextImpl", "DOM::TreeWalkerImpl", "DOM::UIEventImpl",
                                     "KHTMLView")
+
+
+def function_rules():
+    return [
+        #
+        # SIP overloaded functions with the same Python signature.
+        #
+        ["DOM::DOMString", "toInt", ".*", ".*", "", ".*", ".*", rule_helpers.function_discard],
+    ]
 
 
 def modulecode():

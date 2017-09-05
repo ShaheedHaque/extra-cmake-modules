@@ -24,9 +24,32 @@ SIP binding customisation for PyKF5.KIMAP. This modules describes:
 import rule_helpers
 
 
-def module_fix_mapped_types(filename, sip, entry):
-    rule_helpers.modulecode_delete(filename, sip, entry, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
+def typedef_duplicate_discard(container, typedef, sip, rule):
+    if container.translation_unit.spelling.endswith("storejob.h"):
+        rule_helpers.typedef_discard(container, typedef, sip, rule)
+    else:
+        return rule_helpers.SILENT_NOOP
+
+
+def module_fix_mapped_types(filename, sip, rule):
+    rule_helpers.modulecode_delete(filename, sip, rule, "QList<QByteArray>", "QSharedPointer<KMime::Message>",
                                    "QVector<long long>", "QMap<QByteArray, QByteArray>")
+    rule_helpers.module_add_imports(filename, sip, rule, "KIOCore/kio/kiomod.sip")
+    rule_helpers.module_add_classes(filename, sip, rule, "Akonadi::Protocol::Command", "Akonadi::ServerManagerPrivate",
+                                    "KIO::Connection", "KService", "KIO::ClipboardUpdater", "KIMAP::Message")
+
+
+def container_rules():
+    return [
+        ["KIMAP", "Term", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
+    ]
+
+
+
+def typedef_rules():
+    return [
+        ["KIMAP", "MessageFlags", ".*", ".*", typedef_duplicate_discard],
+    ]
 
 
 def modulecode():

@@ -265,6 +265,7 @@ class RuleSet(rules_engine.RuleSet):
             "Akonadi",
             "Attica",
             "Baloo",
+            "BluezQt",
             "CalendarSupport",
             "FollowupReminder",
             "gpgme",
@@ -294,6 +295,7 @@ class RuleSet(rules_engine.RuleSet):
             "KEmoticons",
             "KExiv2",
             "KF5KDEGames",
+            "KFace",
             "KGAPI",
             "KGeoMap",
             "KGlobalAccel",
@@ -326,6 +328,7 @@ class RuleSet(rules_engine.RuleSet):
             "Kross",
             "KRunner",
             "KScreen",
+            "KSieveUi",
             "KService",
             "KStyle",
             "KTextEditor",
@@ -337,8 +340,10 @@ class RuleSet(rules_engine.RuleSet):
             "KXmlGui",
             "Libkdepim",
             "Libkleo",
+            "MailCommon",
             "MailImporter",
             "MailTransport",
+            "MessageComposer",
             "MessageCore",
             "MessageList",
             "MessageViewer",
@@ -349,6 +354,8 @@ class RuleSet(rules_engine.RuleSet):
             "Solid",
             "Sonnet",
             "Syndication",
+            "TemplateParser",
+            "XsltKde",
         ]:
             self.add_rules(
                 rules_module=import_module("." + rules_module, self.__module__))

@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KGeoMap. This modules describes:
+SIP binding customisation for PyKF5.TemplateParser. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -25,29 +25,12 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, rule):
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    rule_helpers.modulecode_delete(filename, sip, rule, "QList<int>")
-    rule_helpers.module_add_includes(filename, sip, rule, "<marble/GeoDataCoordinates.h>")
-    rule_helpers.module_add_classes(filename, sip, rule, "Marble::GeoDataCoordinates", "KConfigGroup")
-
-
-def container_rules():
-    return [
-        ["KGeoMap::AbstractMarkerTiler", "NonEmptyIterator", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
-    ]
-
-
-def function_rules():
-    return [
-        ["KGeoMap::TileIndex", "latLonIndex", ".*", "QPoint", ".*", rule_helpers.function_discard],
-    ]
+    rule_helpers.modulecode_delete(filename, sip, rule, "QSharedPointer<KMime::Message>")
 
 
 def modulecode():
     return {
-        "KGeoMap/KGeoMap/KGeoMapmod.sip": {
+        "TemplateParser/TemplateParsermod.sip": {
             "code": module_fix_mapped_types,
         },
     }

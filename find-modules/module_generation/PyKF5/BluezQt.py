@@ -17,7 +17,7 @@
 # 02110-1301  USA.
 #
 """
-SIP binding customisation for PyKF5.KGeoMap. This modules describes:
+SIP binding customisation for PyKF5.BluezQt. This modules describes:
 
     * Supplementary SIP file generator rules.
 """
@@ -25,29 +25,21 @@ import rule_helpers
 
 
 def module_fix_mapped_types(filename, sip, rule):
-    #
-    # SIP cannot handle duplicate %MappedTypes.
-    #
-    rule_helpers.modulecode_delete(filename, sip, rule, "QList<int>")
-    rule_helpers.module_add_includes(filename, sip, rule, "<marble/GeoDataCoordinates.h>")
-    rule_helpers.module_add_classes(filename, sip, rule, "Marble::GeoDataCoordinates", "KConfigGroup")
+    rule_helpers.module_add_imports(filename, sip, rule, "QtDBus/QtDBusmod.sip")
 
 
 def container_rules():
     return [
-        ["KGeoMap::AbstractMarkerTiler", "NonEmptyIterator", ".*", ".*", ".*", rule_helpers.container_fake_derived_class],
-    ]
-
-
-def function_rules():
-    return [
-        ["KGeoMap::TileIndex", "latLonIndex", ".*", "QPoint", ".*", rule_helpers.function_discard],
+        #
+        # SIP does not seem to be able to handle these type specialization, but we can live without them?
+        #
+        ["BluezQt", "Request", "", ".*", ".*", rule_helpers.container_discard],
     ]
 
 
 def modulecode():
     return {
-        "KGeoMap/KGeoMap/KGeoMapmod.sip": {
+        "BluezQt/BluezQt/BluezQtmod.sip": {
             "code": module_fix_mapped_types,
         },
     }
