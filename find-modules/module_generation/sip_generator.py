@@ -27,7 +27,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-"""SIP file generator for PyQt."""
+"""SIP file generator."""
 
 from __future__ import print_function
 import argparse
@@ -1402,15 +1402,19 @@ def main(argv=None):
 
     Examples:
 
-        sip_generator.py /usr/include/KF5/KItemModels/kselectionproxymodel.h
+        INC=/usr/include
+        QT5=$INC/x86_64-linux-gnu/qt5
+        KF5=$INC/KF5
+        FLAGS="_I$QT5;_I$QT5/QtCore;_I$KF5/kjs;_I$KF5/wtf"
+        sip_generator.py --flags="$FLAGS" /usr/lib/x86_64-linux-gnu/libclang-3.9.so PyKF5 $KF5/kjs/kjsinterpreter.h tmp.sip
     """
     if argv is None:
         argv = sys.argv
     parser = argparse.ArgumentParser(epilog=inspect.getdoc(main),
                                      formatter_class=HelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help=_("Enable verbose output"))
-    parser.add_argument("--flags",
-                        help=_("Semicolon-separated C++ compile flags to use"))
+    parser.add_argument("--flags", default="",
+                        help=_("Semicolon-separated C++ compile flags to use, with leading _/__ instead of -/--"))
     parser.add_argument("--include_filename", help=_("C++ header include to compile"))
     parser.add_argument("--dump-rule-usage", action="store_true", default=False,
                         help=_("Debug dump rule usage statistics"))
@@ -1424,6 +1428,14 @@ def main(argv=None):
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
         else:
             logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+        flags = []
+        for f in args.flags.lstrip().split(";"):
+            if f.startswith("_"):
+                flags.append("-" + f[1:])
+            elif f.startswith("__"):
+                flags.append("--" + f[2:])
+            elif f:
+                raise argparse.ArgumentTypeError(_("Flags must start with _ or __ in '{}'").format(args.flags))
         #
         # Load the given libclang.
         #
@@ -1437,7 +1449,7 @@ def main(argv=None):
             rules_pkg = os.path.dirname(rules_pkg)
         elif rules_pkg.endswith(".py"):
             rules_pkg = rules_pkg[:-3]
-        g = SipGenerator(exe_clang, rules_pkg, args.flags.lstrip().split(";"), verbose=args.verbose)
+        g = SipGenerator(exe_clang, rules_pkg, flags, verbose=args.verbose)
         body, modulecode, includes = g.create_sip(args.source, args.include_filename)
         with open(args.output, "w") as f:
             #
