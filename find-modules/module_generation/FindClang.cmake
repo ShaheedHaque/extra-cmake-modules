@@ -49,7 +49,7 @@
 # to be found can be changed from the command line by means of setting
 # Clang/PP_EXECUTABLE
 
-find_program(Clang_EXECUTABLE NAMES clang-3.9)
+find_program(Clang_EXECUTABLE NAMES clang-4.0 clang-3.9)
 
 if(Clang_EXECUTABLE)
   execute_process(COMMAND ${Clang_EXECUTABLE} -v
@@ -70,7 +70,7 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(Clang REQUIRED_VARS Clang_EXECUTABLE
                                         VERSION_VAR Clang_VERSION)
 
 
-find_program(ClangPP_EXECUTABLE NAMES clang++-3.9)
+find_program(ClangPP_EXECUTABLE NAMES clang++-4.0 clang++-3.9)
 
 if(ClangPP_EXECUTABLE)
   execute_process(COMMAND ${ClangPP_EXECUTABLE} -v

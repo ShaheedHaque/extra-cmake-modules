@@ -37,7 +37,7 @@
 #   LibClang_LIBRARY           - Clang library to link against.
 #   LibClang_VERSION           - Version number as a string (e.g. "3.9")
 
-find_library(LibClang_LIBRARY clang-3.9)
+find_library(LibClang_LIBRARY clang-4.0 clang-3.9)
 
 if(LibClang_LIBRARY)
     set(LibClang_LIBRARY ${LibClang_LIBRARY})
